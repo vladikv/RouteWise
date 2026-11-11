@@ -146,3 +146,36 @@ corrected manually, and why.
   recommendation means the AI can explain it but never change it.
 - A fake HTTP server catches wire-level surprises, such as the auth header,
   that a mocked interface hides.
+
+## `feat/frontend-setup` (2026-11-11)
+
+**Delegated to AI**
+- Scaffolded the Angular 22 app with the CLI and added angular-eslint.
+- Built the typed API layer: models mirroring the backend DTOs, one service
+  per resource, and an interceptor that turns Problem Details into `ApiError`.
+- Built the shell (skip link, header, footer), the light/dark theme with
+  design tokens, shared spinner and error components, and a home page that
+  loads the transport modes from the API with loading, empty and error states.
+- 24 tests. Checked the running app against the real API with headless
+  Chrome screenshots at desktop and 375 px width.
+- Wrote `frontend/CLAUDE.md`.
+
+**Corrected manually / human decisions**
+- The human dismissed the question about UI library and dev tools and asked
+  to continue. The AI therefore took the most conservative path: no UI
+  library, only the tools the repository already referenced (ESLint for
+  `npm run lint`, Prettier for the format hook), and no root `dev` script.
+  These remain open for the human to change.
+- One test hung: it awaited `whenStable()` while its own unanswered request
+  kept the app unstable. The AI fixed the test sequencing and recorded the
+  rule in `frontend/CLAUDE.md`.
+- The first phone-width screenshot looked broken. It was a capture artifact
+  (headless Chrome's minimum window width), confirmed with a true 375 px
+  iframe. The real check still led to two fixes: an icon-only theme toggle on
+  phones and a keyboard-focusable scroll region for the table.
+
+**Why**
+- Unit tests cannot show layout. A screenshot of the real page, at the real
+  width, is the cheapest way to catch what they miss; and a suspicious
+  screenshot needs checking before it is trusted either way.
+- Choices the human has not made stay reversible and are logged as open.

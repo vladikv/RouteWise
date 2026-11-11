@@ -1,0 +1,74 @@
+# RouteWise UI (frontend)
+
+Angular 22 single-page app, TypeScript, SCSS, npm. Read the root `CLAUDE.md`
+first; this file adds frontend-specific rules.
+
+## Layout
+
+```
+src/
+├── environments/        build-time settings (API base URL)
+├── styles.scss          design tokens (CSS variables), base styles, shared classes
+└── app/
+    ├── core/
+    │   ├── api/         typed API layer: models, one service per resource, ApiError
+    │   └── theme/       ThemeService (light/dark)
+    ├── layout/          app chrome: header (nav, theme toggle)
+    ├── shared/ui/       presentational building blocks (spinner, error message)
+    ├── features/<name>/ routed pages and their child components
+    ├── app.ts           shell: skip link, header, <router-outlet>, footer
+    ├── app.routes.ts    lazy routes (`loadComponent`)
+    └── app.config.ts    providers: router, HttpClient + apiErrorInterceptor
+```
+
+## Commands
+
+| Task | Command |
+|---|---|
+| Dev server | `npm start` (http://localhost:4200, needs the API on :8087) |
+| Tests, single run | `npm test` (`npm run test:watch` to watch) |
+| Lint | `npm run lint` |
+| Format | `npm run format` (`npm run format:check` to verify) |
+| Production build | `npm run build` |
+
+## Conventions
+
+- **Components:** standalone, `ChangeDetectionStrategy.OnPush`, signals for
+  state, `inject()` for DI, `input()`/`output()` functions, built-in control
+  flow (`@if`, `@for`). The app is zoneless. Selector prefix `app-`; class
+  names without a `Component` suffix (`HomePage`, `Header`).
+- **Smart/presentational split:** pages in `features/` load data through API
+  services; components in `shared/ui/` only take inputs and emit outputs.
+- **HTTP:** only through the services in `core/api/` (`TripApi`, `CityApi`,
+  `TransportModeApi`, `AdvisorApi`); components never use `HttpClient`.
+  URLs are built from the `API_BASE_URL` token. `models.ts` mirrors the
+  backend DTO records: change both sides together.
+- **Errors:** `apiErrorInterceptor` turns every failed call into an `ApiError`
+  (from the backend's Problem Details; `status` 0 = API unreachable, with
+  `fieldErrors` for validation failures). Show it with `<app-error-message>`.
+- **Async views:** load with `rxResource` and render all states: loading
+  (`<app-spinner>`), error with retry, empty, and data.
+- **Styling:** no UI library. Use the tokens in `styles.scss` (`var(--color-…)`,
+  `var(--space-…)`), never raw colors, so light and dark both work. Shared
+  classes: `.card`, `.button`, `.button--primary`, `.muted`, `.visually-hidden`.
+  Component styles stay small (4 kB budget).
+- **Theme:** follows the OS until the user toggles; `ThemeService` stores the
+  choice in `localStorage` (`routewise.theme`) and sets `data-theme` on `<html>`.
+- **Accessibility:** semantic HTML and landmarks, labels on inputs, visible
+  focus, nothing conveyed by color alone, scrollable regions focusable.
+  Layouts work down to 375 px.
+- **Formatting:** Prettier (a Claude Code hook formats edited files); ESLint
+  with angular-eslint including the template accessibility rules.
+- Ask before adding a dependency (root rule).
+
+## Testing
+
+- Vitest through `ng test`, with `TestBed`; specs sit next to the code (`*.spec.ts`).
+- API services: `provideHttpClientTesting()` + `HttpTestingController`, with
+  `API_BASE_URL` overridden; call `verify()` in `afterEach`.
+- Components: assert on rendered DOM and roles (`role="status"`, `role="alert"`),
+  not on internals. Cover loading, data, empty and error states.
+- Zoneless timing: `await fixture.whenStable()` after flushing a response. Do
+  not await it while a request you have not flushed is pending (it never
+  resolves); use `TestBed.tick()` to start the request instead.
+- Never call the real API in tests.
