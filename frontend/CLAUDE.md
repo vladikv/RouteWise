@@ -14,7 +14,8 @@ src/
     │   ├── api/         typed API layer: models, one service per resource, ApiError
     │   └── theme/       ThemeService (light/dark)
     ├── layout/          app chrome: header (nav, theme toggle)
-    ├── shared/ui/       presentational building blocks (spinner, error message)
+    ├── shared/ui/       presentational building blocks (spinner, error message, confirm action)
+    ├── shared/util/     pure helpers (dates, labels)
     ├── features/<name>/ routed pages and their child components
     ├── app.ts           shell: skip link, header, <router-outlet>, footer
     ├── app.routes.ts    lazy routes (`loadComponent`)
@@ -23,13 +24,13 @@ src/
 
 ## Commands
 
-| Task | Command |
-|---|---|
-| Dev server | `npm start` (http://localhost:4200, needs the API on :8087) |
-| Tests, single run | `npm test` (`npm run test:watch` to watch) |
-| Lint | `npm run lint` |
-| Format | `npm run format` (`npm run format:check` to verify) |
-| Production build | `npm run build` |
+| Task              | Command                                                     |
+| ----------------- | ----------------------------------------------------------- |
+| Dev server        | `npm start` (http://localhost:4200, needs the API on :8087) |
+| Tests, single run | `npm test` (`npm run test:watch` to watch)                  |
+| Lint              | `npm run lint`                                              |
+| Format            | `npm run format` (`npm run format:check` to verify)         |
+| Production build  | `npm run build`                                             |
 
 ## Conventions
 
@@ -46,11 +47,22 @@ src/
 - **Errors:** `apiErrorInterceptor` turns every failed call into an `ApiError`
   (from the backend's Problem Details; `status` 0 = API unreachable, with
   `fieldErrors` for validation failures). Show it with `<app-error-message>`.
+- **Routing:** lazy `loadComponent` routes; route parameters arrive as
+  component inputs (`withComponentInputBinding`), e.g. `id = input.required<string>()`.
+- **Forms:** reactive, typed (`NonNullableFormBuilder`), in a presentational
+  form component that emits the request; the page saves it. Native controls
+  (`<select>`, `<input type="date">`). Each field has a label, shows its error
+  once touched (`aria-invalid` + `aria-describedby`), and client rules mirror
+  the API's. API field errors come back through `ApiError.fieldErrors` and are
+  shown on the matching field (see `TripForm` / `TripFormPage`).
+- **Destructive actions:** `<app-confirm-action>` (inline two-step confirm),
+  never a one-click delete.
 - **Async views:** load with `rxResource` and render all states: loading
   (`<app-spinner>`), error with retry, empty, and data.
 - **Styling:** no UI library. Use the tokens in `styles.scss` (`var(--color-…)`,
   `var(--space-…)`), never raw colors, so light and dark both work. Shared
-  classes: `.card`, `.button`, `.button--primary`, `.muted`, `.visually-hidden`.
+  classes: `.card`, `.button` (`--primary`, `--danger`), `.page-header`,
+  `.actions`, `.badge`, `.field` (`__hint`, `__error`), `.muted`, `.visually-hidden`.
   Component styles stay small (4 kB budget).
 - **Theme:** follows the OS until the user toggles; `ThemeService` stores the
   choice in `localStorage` (`routewise.theme`) and sets `data-theme` on `<html>`.
@@ -71,4 +83,8 @@ src/
 - Zoneless timing: `await fixture.whenStable()` after flushing a response. Do
   not await it while a request you have not flushed is pending (it never
   resolves); use `TestBed.tick()` to start the request instead.
+- Forms: drive them through the DOM with the helpers in
+  `features/trips/trip-form.testing.ts` (`typeInto`, `choose`, `submit`).
 - Never call the real API in tests.
+- Restart `npm start` after switching git branches: the dev server does not
+  recover when the project files disappear during a checkout.

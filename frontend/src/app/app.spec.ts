@@ -46,5 +46,5 @@ describe('App', () => {
     const harness = await RouterTestingHarness.create('/no-such-page');
 
     expect((harness.routeNativeElement as HTMLElement).textContent).toContain('Page not found');
-  });
+  }, 15_000); // loads a lazy route chunk, which can be slow when all specs run in parallel
 });

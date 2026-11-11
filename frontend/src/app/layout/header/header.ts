@@ -27,6 +27,16 @@ import { ThemeService } from '../../core/theme/theme.service';
                 Home
               </a>
             </li>
+            <li>
+              <a
+                routerLink="/trips"
+                routerLinkActive="nav__link--active"
+                ariaCurrentWhenActive="page"
+                class="nav__link"
+              >
+                Trips
+              </a>
+            </li>
           </ul>
         </nav>
         <button

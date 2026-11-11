@@ -1,0 +1,56 @@
+<p class="back"><a routerLink="/trips">← All trips</a></p>
+
+@if (trip.isLoading()) {
+  <app-spinner label="Loading trip…" />
+} @else if (trip.error(); as error) {
+  <app-error-message [error]="error" (retry)="trip.reload()" />
+} @else if (trip.value(); as trip) {
+  <div class="page-header">
+    <h1>{{ trip.title }}</h1>
+    <div class="actions">
+      <a class="button" [routerLink]="['/trips', trip.id, 'edit']">Edit</a>
+      <app-confirm-action
+        [question]="'Delete this trip?'"
+        [busy]="deleting()"
+        (confirmed)="delete()"
+      />
+    </div>
+  </div>
+
+  @if (deleteError(); as error) {
+    <div class="delete-error">
+      <app-error-message [error]="error" [retryable]="false" />
+    </div>
+  }
+
+  <section class="card" aria-label="Trip details">
+    <dl class="details">
+      <div>
+        <dt>From</dt>
+        <dd>{{ trip.origin.name }} ({{ trip.origin.country }})</dd>
+      </div>
+      <div>
+        <dt>To</dt>
+        <dd>{{ trip.destination.name }} ({{ trip.destination.country }})</dd>
+      </div>
+      <div>
+        <dt>Departure</dt>
+        <dd>{{ trip.departureDate | date: 'fullDate' }}</dd>
+      </div>
+      <div>
+        <dt>Travelers</dt>
+        <dd>{{ travelersLabel(trip.travelers) }}</dd>
+      </div>
+      <div>
+        <dt>Priority</dt>
+        <dd>{{ priorityLabels[trip.priority] }}</dd>
+      </div>
+      @if (trip.notes) {
+        <div class="details__wide">
+          <dt>Notes</dt>
+          <dd class="details__notes">{{ trip.notes }}</dd>
+        </div>
+      }
+    </dl>
+  </section>
+}
