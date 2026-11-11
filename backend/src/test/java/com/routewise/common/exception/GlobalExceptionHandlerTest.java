@@ -3,6 +3,7 @@ package com.routewise.common.exception;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -46,6 +47,43 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.errors[*].field").value(containsInAnyOrder("title", "travelers")))
                 .andExpect(jsonPath("$.errors[?(@.field == 'travelers')].message")
                         .value("must be greater than or equal to 1"));
+    }
+
+    @Test
+    void invalidRequestParam_returns400WithFieldErrors() throws Exception {
+        mockMvc.perform(get("/api/test/search").param("page", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Validation failed"))
+                .andExpect(jsonPath("$.errors[0].field").value("page"))
+                .andExpect(jsonPath("$.errors[0].message").value("must be greater than or equal to 1"));
+    }
+
+    @Test
+    void routeWiseExceptionWithOtherStatus_usesThatStatus() throws Exception {
+        mockMvc.perform(get("/api/test/conflict"))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.title").value("Conflict"))
+                .andExpect(jsonPath("$.detail").value("Item already exists"));
+    }
+
+    @Test
+    void unknownRoute_returns404ProblemDetail() throws Exception {
+        mockMvc.perform(get("/api/test/does-not-exist"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.instance").value("/api/test/does-not-exist"));
+    }
+
+    @Test
+    void unsupportedMethod_returns405ProblemDetail() throws Exception {
+        mockMvc.perform(delete("/api/test/items"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(405));
     }
 
     @Test

@@ -47,8 +47,12 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
   `GlobalExceptionHandler` turns them into RFC 7807 Problem Details
   (`application/problem+json`). Do not use `ResponseStatusException` and do not
   build error bodies in controllers. Validation errors use the `errors`
-  property: `[{ "field": ..., "message": ... }]`. 500 responses never
-  contain exception messages or stack traces.
+  property: `[{ "field": ..., "message": ... }]`, both for `@Valid` request
+  bodies and for constrained `@RequestParam`/`@PathVariable` parameters.
+  Do not put `@Validated` on controllers: Spring MVC validates parameters
+  natively, and `@Validated` switches to the AOP path (`ConstraintViolationException`),
+  which the handler treats as a 500. 500 responses never contain exception
+  messages or stack traces.
 - **Configuration:** `application.yml` with env-var overrides
   (`${ENV_VAR:default}`), bound to `@ConfigurationProperties` records under the
   `routewise.*` prefix. The app must start with zero configuration.

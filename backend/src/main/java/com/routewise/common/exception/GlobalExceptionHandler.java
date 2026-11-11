@@ -2,10 +2,9 @@ package com.routewise.common.exception;
 
 import java.util.List;
 
-import jakarta.validation.ConstraintViolationException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.MessageSourceResolvable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -16,6 +15,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
@@ -36,15 +36,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
-    @ExceptionHandler(ConstraintViolationException.class)
-    ProblemDetail handleConstraintViolation(ConstraintViolationException ex) {
-        List<ValidationError> errors = ex.getConstraintViolations().stream()
-                .map(violation -> new ValidationError(
-                        violation.getPropertyPath().toString(), violation.getMessage()))
-                .toList();
-        return validationProblem(errors);
-    }
-
     @ExceptionHandler(Exception.class)
     ProblemDetail handleUnexpected(Exception ex) {
         log.error("Unexpected error", ex);
@@ -63,6 +54,26 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                         error.getDefaultMessage()))
                 .toList();
         return handleExceptionInternal(ex, validationProblem(errors), headers, status, request);
+    }
+
+    /**
+     * Constraint violations on {@code @RequestParam}, {@code @PathVariable} and other
+     * handler method parameters (built-in method validation since Spring 6.1).
+     */
+    @Override
+    protected ResponseEntity<Object> handleHandlerMethodValidationException(
+            HandlerMethodValidationException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        List<ValidationError> errors = ex.getParameterValidationResults().stream()
+                .flatMap(result -> result.getResolvableErrors().stream()
+                        .map(error -> new ValidationError(
+                                fieldName(error, result.getMethodParameter().getParameterName()),
+                                error.getDefaultMessage())))
+                .toList();
+        return handleExceptionInternal(ex, validationProblem(errors), headers, status, request);
+    }
+
+    private static String fieldName(MessageSourceResolvable error, String fallback) {
+        return error instanceof FieldError fieldError ? fieldError.getField() : fallback;
     }
 
     private static ProblemDetail validationProblem(List<ValidationError> errors) {
