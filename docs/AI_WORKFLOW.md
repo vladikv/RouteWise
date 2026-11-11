@@ -57,3 +57,44 @@ corrected manually, and why.
   chain and building a minimal reproduction found the real cause in minutes.
   Worth doing before changing code next time.
 - Dependency version changes stay a human decision (root CLAUDE.md).
+
+## `feat/backend-comparison` (2026-11-11)
+
+**Delegated to AI**
+- Proposed the engine design: detour factors, priority weights, normalisation
+  and weather rules. The human chose that weather adjusts scores, that both
+  cities' forecasts count, and 5 seats per car.
+- Wrote the `weather` feature: an Open-Meteo client behind `WeatherClient`,
+  timeouts, and a best-effort `WeatherService` that queries both cities in
+  parallel on virtual threads. Also wrote the `comparison` feature: a pure
+  `ComparisonEngine` plus `GET /api/trips/{id}/comparison`.
+- Wrote 36 tests: engine maths, weather hazard rules, the HTTP client against
+  `MockRestServiceServer` (including timeouts), the service and the controller.
+- Verified end to end against live Open-Meteo, and with an unreachable
+  provider (comparison still 200, weather empty, warnings logged).
+
+**Corrected manually / human decisions**
+- Boot 4 has no `RestClient.Builder` without `spring-boot-starter-restclient`.
+  The AI asked before adding it, and the human approved.
+- Two engine tests had wrong expectations (a near-tie between TRAIN and BUS,
+  and assuming the bike wins a short GREENEST trip, although the bus is
+  greener once time counts). The AI recomputed the scores by hand from the
+  seed values and rewrote the tests to assert unambiguous properties. The
+  engine itself was unchanged.
+
+- The backend-reviewer found no blockers. Fixed after review:
+  - ranking used the rounded score, so 61.4 could lose to 60.6 on enum order;
+    it now ranks by the raw score
+  - nothing proved the HTTP timeouts were applied; added a test against a
+    local slow server and confirmed it fails when `setReadTimeout` is removed
+  - the scoring tests were relative only; added hand-computed literal scores
+  - added `@Validated` weather properties, plus tests for a 400 on a
+    non-numeric id, unexpected client errors and the mapper
+  - `backend/CLAUDE.md` layout updated for the `client/` and `config/`
+    subpackages
+
+**Why**
+- Expected values in scoring tests must be derived from the formula, not
+  from intuition. Near-ties make brittle tests.
+- A test that would still pass with the code removed proves nothing; a quick
+  mutation check is cheap insurance for configuration code.

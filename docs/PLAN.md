@@ -52,7 +52,7 @@ Distance = haversine between cities × road/rail factor.
 - [x] `chore/ai-dev-setup`: CLAUDE.md, subagents, skills, hooks
 - [x] `feat/backend-setup`: Spring Boot scaffold, H2, Flyway, error handling, OpenAPI, CORS
 - [x] `feat/backend-trips`: City/TransportMode seed data, Trip CRUD + tests
-- [ ] `feat/backend-comparison`: comparison engine + weather integration + tests
+- [x] `feat/backend-comparison`: comparison engine + weather integration + tests
 - [ ] `feat/ai-advisor`: advisor parse/advice endpoints with fallback + tests
 - [ ] `feat/frontend-setup`: Angular scaffold, layout, API client, theming
 - [ ] `feat/frontend-trips`: trip list, form, details, delete
@@ -76,3 +76,9 @@ Distance = haversine between cities × road/rail factor.
 | 2026-11-11 | Departure date must be today or later on create; on update a past date may be kept unchanged | Past trips stay editable (title, notes) without allowing new past dates |
 | 2026-11-11 | H2 pinned to 2.3.232 | 2.4.240 breaks CHECK constraints created on another connection (Flyway); revisit on next H2 release |
 | 2026-11-11 | API default port 8087 (`SERVER_PORT` overrides) | 8080 collides with common local services; zero-config start must just work |
+| 2026-11-11 | Route distance = haversine × 1.2 (train), 1.3 (road: bus, car, bike), 1.0 (plane) | Simple, explainable detour factors; good enough without routing APIs |
+| 2026-11-11 | Score 0–100: min-max normalised time/cost/CO₂ among available modes, weighted 0.6/0.2/0.2 by priority (BALANCED ⅓ each) | Relative ranking per trip; priority clearly dominates |
+| 2026-11-11 | Car: 5 seats per car; cost and CO₂ per vehicle | 6–9 travelers need 2 cars |
+| 2026-11-11 | Weather adjusts scores: bike ×0.4 for rain/snow/thunderstorm/wind ≥ 40 km/h/max < 3 °C; car and bus ×0.9 for snow/ice; worst of origin and destination counts | Weather-aware recommendation with a visible note per affected mode |
+| 2026-11-11 | Weather is best-effort: outside today…+15 days, on errors or timeouts (2 s connect / 3 s read) the comparison is returned without weather | Zero-config and no hard dependency on an external service |
+| 2026-11-11 | Added `spring-boot-starter-restclient` | Boot 4 moved `RestClient.Builder` auto-configuration into this module |
