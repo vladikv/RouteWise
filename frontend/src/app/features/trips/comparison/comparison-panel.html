@@ -1,0 +1,80 @@
+@let data = comparison();
+
+<p class="muted summary">
+  {{ data.distanceKm | number: '1.0-0' }} km straight-line · {{ travelersLabel(data.travelers) }} ·
+  priority: {{ priorityLabels[data.priority] }}. Cost and CO₂ are totals for all travelers.
+</p>
+
+<div class="table-scroll" role="region" aria-label="Mode comparison" tabindex="0">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Mode</th>
+        <th scope="col" class="numeric">Time</th>
+        <th scope="col" class="numeric">Cost</th>
+        <th scope="col" class="numeric">CO₂</th>
+        <th scope="col" class="numeric">Score</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (option of data.options; track option.mode) {
+        <tr [class.recommended]="option.recommended" [class.unavailable]="!option.available">
+          <th scope="row">
+            <span class="mode">{{ modeLabels[option.mode] }}</span>
+            @if (option.recommended) {
+              <span class="badge badge--recommended">★ Recommended</span>
+            }
+            @for (note of option.notes; track note) {
+              <span class="note">{{ note }}</span>
+            }
+          </th>
+          @if (option.available) {
+            <td class="numeric">{{ durationLabel(option.durationMinutes ?? 0) }}</td>
+            <td class="numeric">
+              {{ option.totalCost | currency: data.currency : 'symbol' : '1.2-2' }}
+            </td>
+            <td class="numeric">{{ option.co2Kg | number: '1.1-1' }} kg</td>
+            <td class="numeric score">
+              {{ option.score }}
+              <span class="visually-hidden">out of 100</span>
+              <span class="score__bar" aria-hidden="true">
+                <span [style.width.%]="option.score"></span>
+              </span>
+            </td>
+          } @else {
+            <td colspan="4" class="reason">Not available: {{ option.unavailableReason }}</td>
+          }
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+
+<h3>Weather on {{ data.departureDate | date: 'mediumDate' }}</h3>
+@if (data.weather.length === 0) {
+  <p class="muted">
+    No forecast is available for this date, so the weather is not taken into account. Forecasts
+    cover about the next two weeks.
+  </p>
+} @else {
+  <ul class="weather">
+    @for (item of data.weather; track item.city) {
+      <li>
+        <span class="weather__city">{{ item.city }}</span>
+        <span>{{ item.description }}</span>
+        @if (item.temperatureMinC !== null && item.temperatureMaxC !== null) {
+          <span>
+            {{ item.temperatureMinC | number: '1.0-0' }} to
+            {{ item.temperatureMaxC | number: '1.0-0' }} °C
+          </span>
+        }
+        @if (item.precipitationProbabilityPercent !== null) {
+          <span>{{ item.precipitationProbabilityPercent }}% precipitation</span>
+        }
+        @for (hazard of item.hazards; track hazard) {
+          <span class="badge badge--hazard">⚠ {{ hazardLabels[hazard] }}</span>
+        }
+      </li>
+    }
+  </ul>
+}

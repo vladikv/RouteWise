@@ -7,11 +7,21 @@ import { ConfirmAction } from '../../shared/ui/confirm-action';
 import { ErrorMessage } from '../../shared/ui/error-message';
 import { Spinner } from '../../shared/ui/spinner';
 import { PRIORITY_LABELS, travelersLabel } from '../../shared/util/labels';
+import { AdvicePanel } from './comparison/advice-panel';
+import { ComparisonPanel } from './comparison/comparison-panel';
 
-/** One trip with its details, and edit and delete actions. */
+/** One trip: details, the advisor's recommendation, the mode comparison, and edit and delete. */
 @Component({
   selector: 'app-trip-details-page',
-  imports: [DatePipe, RouterLink, ConfirmAction, ErrorMessage, Spinner],
+  imports: [
+    DatePipe,
+    RouterLink,
+    AdvicePanel,
+    ComparisonPanel,
+    ConfirmAction,
+    ErrorMessage,
+    Spinner,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './trip-details-page.html',
   styleUrl: './trip-details-page.scss',
@@ -26,6 +36,15 @@ export class TripDetailsPage {
   protected readonly trip = rxResource({
     params: () => this.id(),
     stream: ({ params: id }) => this.tripApi.findById(Number(id)),
+  });
+  /** Loaded once the trip exists, so an unknown trip shows a single error. */
+  protected readonly comparison = rxResource({
+    params: () => this.trip.value()?.id,
+    stream: ({ params: id }) => this.tripApi.compare(id),
+  });
+  protected readonly advice = rxResource({
+    params: () => this.trip.value()?.id,
+    stream: ({ params: id }) => this.tripApi.advise(id),
   });
   protected readonly deleting = signal(false);
   protected readonly deleteError = signal<unknown>(null);

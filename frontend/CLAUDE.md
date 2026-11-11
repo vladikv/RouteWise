@@ -55,6 +55,11 @@ src/
   once touched (`aria-invalid` + `aria-describedby`), and client rules mirror
   the API's. API field errors come back through `ApiError.fieldErrors` and are
   shown on the matching field (see `TripForm` / `TripFormPage`).
+  Every `<form>` needs `[formGroup]`: without it `(ngSubmit)` never fires and
+  the browser submits natively (page reload).
+- **Dependent data:** a resource that needs another's result takes it as
+  `params` (e.g. comparison and advice wait for the trip), so a missing trip
+  produces one error, not three. Each section shows its own loading and error state.
 - **Destructive actions:** `<app-confirm-action>` (inline two-step confirm),
   never a one-click delete.
 - **Async views:** load with `rxResource` and render all states: loading
@@ -83,6 +88,9 @@ src/
 - Zoneless timing: `await fixture.whenStable()` after flushing a response. Do
   not await it while a request you have not flushed is pending (it never
   resolves); use `TestBed.tick()` to start the request instead.
+- Dependent resources start a microtask after their parameter arrives: tick
+  and await a few times before expecting their requests (see `loadTrip` in
+  `trip-details-page.spec.ts`).
 - Forms: drive them through the DOM with the helpers in
   `features/trips/trip-form.testing.ts` (`typeInto`, `choose`, `submit`).
 - Never call the real API in tests.

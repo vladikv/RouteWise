@@ -53,4 +53,26 @@
       }
     </dl>
   </section>
+
+  <section class="card" aria-labelledby="advice-heading">
+    <h2 id="advice-heading">Recommendation</h2>
+    @if (advice.isLoading()) {
+      <app-spinner label="Asking the advisor…" />
+    } @else if (advice.error(); as error) {
+      <app-error-message [error]="error" (retry)="advice.reload()" />
+    } @else if (advice.value(); as value) {
+      <app-advice-panel [advice]="value" />
+    }
+  </section>
+
+  <section class="card" aria-labelledby="comparison-heading">
+    <h2 id="comparison-heading">Compare modes</h2>
+    @if (comparison.isLoading()) {
+      <app-spinner label="Comparing transport modes…" />
+    } @else if (comparison.error(); as error) {
+      <app-error-message [error]="error" (retry)="comparison.reload()" />
+    } @else if (comparison.value(); as value) {
+      <app-comparison-panel [comparison]="value" />
+    }
+  </section>
 }
