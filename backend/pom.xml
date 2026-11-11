@@ -16,6 +16,10 @@
 	<properties>
 		<java.version>21</java.version>
 		<springdoc.version>3.2.0</springdoc.version>
+		<!-- Pinned below Boot's managed 2.4.240: in 2.4.240, CHECK constraints created on
+		     one connection (Flyway's) fail with "Check constraint invalid" on later ones.
+		     2.3.232 is also the latest version Flyway is verified with. Remove when fixed. -->
+		<h2.version>2.3.232</h2.version>
 	</properties>
 	<dependencies>
 		<dependency>
