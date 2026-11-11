@@ -55,7 +55,7 @@ Distance = haversine between cities × road/rail factor.
 - [x] `feat/backend-comparison`: comparison engine + weather integration + tests
 - [x] `feat/ai-advisor`: advisor parse/advice endpoints with fallback + tests
 - [x] `feat/frontend-setup`: Angular scaffold, layout, API client, theming
-- [ ] `feat/frontend-trips`: trip list, form, details, delete
+- [x] `feat/frontend-trips`: trip list, form, details, delete
 - [ ] `feat/frontend-comparison`: comparison view, advice panel, free-text input
 - [ ] `docs/readme-demo`: README, screenshots, demo recording
 
@@ -94,3 +94,7 @@ Distance = haversine between cities × road/rail factor.
 | 2026-11-11 | UI calls the API directly at `http://localhost:8087` (`API_BASE_URL` token from `environment.ts`), no dev proxy | The API already allows the UI origin via CORS; one less moving part |
 | 2026-11-11 | All HTTP failures become `ApiError` in one interceptor | Pages handle a single error type built from Problem Details, including field errors and "API unreachable" |
 | 2026-11-11 | Added angular-eslint (Prettier ships with the scaffold); no root `npm run dev` script yet | Lint command and format hook were already documented; a combined start script needs another dependency (`concurrently`) and is undecided |
+| 2026-11-11 | Trip form uses native controls: `<select>` for the 25 cities, `<input type="date">`, radio buttons for priority | Accessible without a UI library; a custom autocomplete is not worth it for 25 options |
+| 2026-11-11 | Client-side form rules mirror the API (distinct cities, date today or later unless unchanged on edit, 1–9 travelers); API field errors are still shown on the matching field | Fast feedback, while the API stays the source of truth |
+| 2026-11-11 | Delete needs an inline second confirmation (`ConfirmAction`), no modal dialog | Prevents accidental deletes; simpler and easier to test than a dialog |
+| 2026-11-11 | Routes: `/trips`, `/trips/new`, `/trips/:id`, `/trips/:id/edit`; one form page serves create and edit | Bookmarkable pages; no duplicated form |
