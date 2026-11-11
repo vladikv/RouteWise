@@ -7,8 +7,9 @@ import java.util.List;
 import com.routewise.trip.domain.TripPriority;
 
 /**
- * Mode comparison for a trip.
+ * Mode comparison for a stored trip or an ad-hoc route.
  *
+ * @param tripId     the stored trip; {@code null} for a preview of an unsaved route
  * @param distanceKm straight-line distance between the cities
  * @param weather    forecasts used for scoring; empty when none is available
  * @param options    available modes by score (best first), then unavailable ones;

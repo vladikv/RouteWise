@@ -1,7 +1,9 @@
 package com.routewise.comparison.controller;
 
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -11,7 +13,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 
+import com.routewise.common.exception.FieldValidationException;
 import com.routewise.common.exception.ResourceNotFoundException;
+import com.routewise.comparison.dto.ComparisonRequest;
 import com.routewise.comparison.dto.ComparisonResponse;
 import com.routewise.comparison.dto.ModeOptionResponse;
 import com.routewise.comparison.dto.WeatherSummary;
@@ -73,6 +77,59 @@ class ComparisonControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void preview_returnsComparisonWithoutTripId() throws Exception {
+        when(comparisonService.preview(new ComparisonRequest(3L, 23L, DEPARTURE, 2, TripPriority.GREENEST)))
+                .thenReturn(new ComparisonResponse(null, DEPARTURE, 2, TripPriority.GREENEST,
+                        new BigDecimal("523.6"), "EUR", List.of(), List.of(
+                                new ModeOptionResponse(TransportModeCode.TRAIN, true, null,
+                                        new BigDecimal("628.3"), 373, new BigDecimal("150.80"),
+                                        new BigDecimal("44.0"), 87, true, List.of()))));
+
+        mockMvc.perform(post("/api/comparisons")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"originCityId": 3, "destinationCityId": 23, "departureDate": "2026-11-20",
+                                 "travelers": 2, "priority": "GREENEST"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tripId").doesNotExist())
+                .andExpect(jsonPath("$.priority").value("GREENEST"))
+                .andExpect(jsonPath("$.options[0].mode").value("TRAIN"))
+                .andExpect(jsonPath("$.options[0].recommended").value(true));
+    }
+
+    @Test
+    void preview_withInvalidBody_returns400WithFieldErrors() throws Exception {
+        mockMvc.perform(post("/api/comparisons")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"originCityId": 3, "departureDate": "2026-11-20", "travelers": 12,
+                                 "priority": "GREENEST"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.errors[?(@.field == 'destinationCityId')]").exists())
+                .andExpect(jsonPath("$.errors[?(@.field == 'travelers')]").exists());
+        verifyNoInteractions(comparisonService);
+    }
+
+    @Test
+    void preview_whenServiceRejectsARule_returns400WithFieldError() throws Exception {
+        when(comparisonService.preview(new ComparisonRequest(3L, 3L, DEPARTURE, 2, TripPriority.GREENEST)))
+                .thenThrow(new FieldValidationException("destinationCityId", "must differ from originCityId"));
+
+        mockMvc.perform(post("/api/comparisons")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"originCityId": 3, "destinationCityId": 3, "departureDate": "2026-11-20",
+                                 "travelers": 2, "priority": "GREENEST"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("destinationCityId"))
+                .andExpect(jsonPath("$.errors[0].message").value("must differ from originCityId"));
     }
 
     @Test
