@@ -1,0 +1,50 @@
+.trips {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+}
+
+.trip__main {
+  min-width: 0;
+}
+
+.trip h2 {
+  margin-bottom: var(--space-1);
+  overflow-wrap: anywhere;
+}
+
+.trip h2 a {
+  color: var(--color-text);
+}
+
+.trip__route,
+.trip__meta {
+  margin: 0;
+}
+
+.trip__route {
+  font-weight: 600;
+}
+
+.trip__meta .badge {
+  margin-left: var(--space-2);
+}
+
+.empty {
+  text-align: center;
+}
+
+.delete-error {
+  margin-bottom: var(--space-4);
+}

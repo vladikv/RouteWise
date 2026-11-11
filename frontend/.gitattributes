@@ -1,0 +1,2 @@
+# Prettier formats with LF; keep the working tree LF on every OS (overrides core.autocrlf).
+* text=auto eol=lf

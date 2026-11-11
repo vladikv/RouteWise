@@ -1,0 +1,130 @@
+<form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  @if (submitAttempted() && form.invalid) {
+    <p class="form-summary" role="alert">Please fix the highlighted fields.</p>
+  }
+
+  <div class="field">
+    <label for="trip-title">Title</label>
+    <input
+      id="trip-title"
+      type="text"
+      formControlName="title"
+      maxlength="100"
+      autocomplete="off"
+      [attr.aria-invalid]="errorFor('title') ? 'true' : null"
+      [attr.aria-describedby]="errorFor('title') ? 'trip-title-error' : null"
+    />
+    @if (errorFor('title'); as message) {
+      <span id="trip-title-error" class="field__error">{{ message }}</span>
+    }
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label for="trip-origin">From</label>
+      <select
+        id="trip-origin"
+        formControlName="originCityId"
+        [attr.aria-invalid]="errorFor('originCityId') ? 'true' : null"
+        [attr.aria-describedby]="errorFor('originCityId') ? 'trip-origin-error' : null"
+      >
+        <option [ngValue]="null" disabled>Choose a city</option>
+        @for (city of cities(); track city.id) {
+          <option [ngValue]="city.id">{{ city.name }} ({{ city.country }})</option>
+        }
+      </select>
+      @if (errorFor('originCityId'); as message) {
+        <span id="trip-origin-error" class="field__error">{{ message }}</span>
+      }
+    </div>
+
+    <div class="field">
+      <label for="trip-destination">To</label>
+      <select
+        id="trip-destination"
+        formControlName="destinationCityId"
+        [attr.aria-invalid]="errorFor('destinationCityId') ? 'true' : null"
+        [attr.aria-describedby]="errorFor('destinationCityId') ? 'trip-destination-error' : null"
+      >
+        <option [ngValue]="null" disabled>Choose a city</option>
+        @for (city of cities(); track city.id) {
+          <option [ngValue]="city.id">{{ city.name }} ({{ city.country }})</option>
+        }
+      </select>
+      @if (errorFor('destinationCityId'); as message) {
+        <span id="trip-destination-error" class="field__error">{{ message }}</span>
+      }
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label for="trip-date">Departure date</label>
+      <input
+        id="trip-date"
+        type="date"
+        formControlName="departureDate"
+        [min]="today"
+        [attr.aria-invalid]="errorFor('departureDate') ? 'true' : null"
+        [attr.aria-describedby]="errorFor('departureDate') ? 'trip-date-error' : null"
+      />
+      @if (errorFor('departureDate'); as message) {
+        <span id="trip-date-error" class="field__error">{{ message }}</span>
+      }
+    </div>
+
+    <div class="field">
+      <label for="trip-travelers">Travelers</label>
+      <input
+        id="trip-travelers"
+        type="number"
+        formControlName="travelers"
+        min="1"
+        max="9"
+        step="1"
+        inputmode="numeric"
+        [attr.aria-invalid]="errorFor('travelers') ? 'true' : null"
+        [attr.aria-describedby]="
+          errorFor('travelers') ? 'trip-travelers-error' : 'trip-travelers-hint'
+        "
+      />
+      <span id="trip-travelers-hint" class="field__hint">1 to 9</span>
+      @if (errorFor('travelers'); as message) {
+        <span id="trip-travelers-error" class="field__error">{{ message }}</span>
+      }
+    </div>
+  </div>
+
+  <fieldset class="field priority">
+    <legend>What matters most?</legend>
+    <div class="priority__options">
+      @for (priority of priorities; track priority) {
+        <label class="priority__option">
+          <input type="radio" formControlName="priority" [value]="priority" />
+          {{ priorityLabels[priority] }}
+        </label>
+      }
+    </div>
+  </fieldset>
+
+  <div class="field">
+    <label for="trip-notes">Notes <span class="muted">(optional)</span></label>
+    <textarea
+      id="trip-notes"
+      formControlName="notes"
+      maxlength="1000"
+      [attr.aria-invalid]="errorFor('notes') ? 'true' : null"
+      [attr.aria-describedby]="errorFor('notes') ? 'trip-notes-error' : null"
+    ></textarea>
+    @if (errorFor('notes'); as message) {
+      <span id="trip-notes-error" class="field__error">{{ message }}</span>
+    }
+  </div>
+
+  <div class="actions">
+    <button type="submit" class="button button--primary" [disabled]="submitting()">
+      {{ submitting() ? 'Saving…' : trip() ? 'Save changes' : 'Create trip' }}
+    </button>
+    <a class="button" [routerLink]="cancelLink()">Cancel</a>
+  </div>
+</form>

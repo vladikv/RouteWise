@@ -1,0 +1,61 @@
+<div class="page-header">
+  <h1>Trips</h1>
+  <a class="button button--primary" routerLink="/trips/new">New trip</a>
+</div>
+
+@if (deleteError(); as error) {
+  <div class="delete-error">
+    <app-error-message [error]="error" [retryable]="false" />
+  </div>
+}
+
+@if (trips.isLoading()) {
+  <app-spinner label="Loading trips…" />
+} @else if (trips.error(); as error) {
+  <app-error-message [error]="error" (retry)="trips.reload()" />
+} @else if (trips.value(); as list) {
+  @if (list.length === 0) {
+    <section class="card empty">
+      <h2>No trips yet</h2>
+      <p class="muted">Create your first trip to compare how to get there.</p>
+      <a class="button button--primary" routerLink="/trips/new">Create a trip</a>
+    </section>
+  } @else {
+    <ul class="trips">
+      @for (trip of list; track trip.id) {
+        <li class="card trip">
+          <div class="trip__main">
+            <h2>
+              <a [routerLink]="['/trips', trip.id]">{{ trip.title }}</a>
+            </h2>
+            <p class="trip__route">
+              {{ trip.origin.name }}
+              <span aria-hidden="true">→</span>
+              <span class="visually-hidden">to</span>
+              {{ trip.destination.name }}
+            </p>
+            <p class="trip__meta muted">
+              {{ trip.departureDate | date: 'mediumDate' }} · {{ travelersLabel(trip.travelers) }}
+              <span class="badge">{{ priorityLabels[trip.priority] }}</span>
+            </p>
+          </div>
+          <div class="actions">
+            <a
+              class="button"
+              [routerLink]="['/trips', trip.id, 'edit']"
+              [attr.aria-label]="'Edit ' + trip.title"
+            >
+              Edit
+            </a>
+            <app-confirm-action
+              [ariaLabel]="'Delete ' + trip.title"
+              [question]="'Delete this trip?'"
+              [busy]="deletingId() === trip.id"
+              (confirmed)="delete(trip)"
+            />
+          </div>
+        </li>
+      }
+    </ul>
+  }
+}

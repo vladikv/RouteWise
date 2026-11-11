@@ -1,6 +1,7 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { apiErrorInterceptor } from '../../core/api/api-error';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { TransportMode } from '../../core/api/models';
@@ -25,6 +26,7 @@ describe('HomePage', () => {
     await TestBed.configureTestingModule({
       imports: [HomePage],
       providers: [
+        provideRouter([]),
         provideHttpClient(withInterceptors([apiErrorInterceptor])),
         provideHttpClientTesting(),
         { provide: API_BASE_URL, useValue: 'http://api.test' },

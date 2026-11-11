@@ -179,3 +179,39 @@ corrected manually, and why.
   width, is the cheapest way to catch what they miss; and a suspicious
   screenshot needs checking before it is trusted either way.
 - Choices the human has not made stay reversible and are logged as open.
+
+## `feat/frontend-trips` (2026-11-11)
+
+**Delegated to AI**
+- Built the trip pages: list (with empty state), details, and one form page
+  for create and edit, plus delete with an inline confirmation.
+- Reactive trip form with inline validation that mirrors the API rules, and
+  API field errors shown on the matching field.
+- 26 new tests (50 in total), driving the form through the DOM.
+- Checked list, details and edit form in the running app against the real
+  API with screenshots.
+- Opened and merged the `feat/frontend-setup` pull request at the human's
+  explicit request.
+
+**Corrected manually / human decisions**
+- The human asked the AI to push and merge the setup branch. The push was
+  blocked by the repository's own deny rule for `git push`. The AI did not
+  work around it; the human ran the push, and the AI then opened and merged
+  the PR.
+- The UI-library question stayed unanswered, so the AI kept to native form
+  controls and logged the choice.
+- The first screenshots showed "Page not found" on every trip page. The
+  cause was not the code: the dev server had been running since before the
+  branch switch and was stuck on a failed rebuild. Restarting it fixed it;
+  the rule is now in `frontend/CLAUDE.md`.
+- Test fixes: a spec read a radio button's DOM `value` (Angular does not set
+  it), the home page spec needed a router provider after gaining links, and
+  the lazy-route test got a longer timeout after timing out once under load.
+- The screenshots caught one real bug: notes rendered bold because of a CSS
+  specificity slip.
+
+**Why**
+- A guard the human configured stays in force even when the human asks for
+  the guarded action in chat; the fix is theirs to make, not the AI's to
+  bypass.
+- When every page looks broken at once, check the environment before the code.
