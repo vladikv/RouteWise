@@ -16,7 +16,7 @@ import {
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { FieldError } from '../../core/api/api-error';
-import { City, Trip, TripPriority, TripRequest } from '../../core/api/models';
+import { City, Trip, TripDraft, TripPriority, TripRequest } from '../../core/api/models';
 import { todayIso } from '../../shared/util/date';
 import { PRIORITIES, PRIORITY_LABELS } from '../../shared/util/labels';
 
@@ -55,6 +55,8 @@ export class TripForm {
   readonly cities = input.required<City[]>();
   /** The trip to edit; null creates a new one. */
   readonly trip = input<Trip | null>(null);
+  /** A draft from the advisor to prefill a new trip; unknown values stay empty. */
+  readonly draft = input<TripDraft | null>(null);
   readonly submitting = input(false);
   /** Field errors returned by the API for the last submit. */
   readonly serverErrors = input<FieldError[]>([]);
@@ -95,6 +97,21 @@ export class TripForm {
           priority: trip.priority,
           notes: trip.notes ?? '',
         });
+      }
+    });
+    effect(() => {
+      const draft = this.draft();
+      if (draft) {
+        this.form.reset({
+          title: draft.title,
+          originCityId: draft.origin?.id ?? null,
+          destinationCityId: draft.destination?.id ?? null,
+          departureDate: draft.departureDate ?? '',
+          travelers: draft.travelers,
+          priority: draft.priority,
+          notes: draft.notes ?? '',
+        });
+        this.submitAttempted.set(false);
       }
     });
     effect(() => {

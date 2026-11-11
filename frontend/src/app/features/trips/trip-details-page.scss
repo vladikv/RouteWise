@@ -37,3 +37,7 @@
 .delete-error {
   margin-bottom: var(--space-4);
 }
+
+.card + .card {
+  margin-top: var(--space-6);
+}

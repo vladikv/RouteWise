@@ -56,7 +56,7 @@ Distance = haversine between cities × road/rail factor.
 - [x] `feat/ai-advisor`: advisor parse/advice endpoints with fallback + tests
 - [x] `feat/frontend-setup`: Angular scaffold, layout, API client, theming
 - [x] `feat/frontend-trips`: trip list, form, details, delete
-- [ ] `feat/frontend-comparison`: comparison view, advice panel, free-text input
+- [x] `feat/frontend-comparison`: comparison view, advice panel, free-text input
 - [ ] `docs/readme-demo`: README, screenshots, demo recording
 
 ## Decisions log
@@ -98,3 +98,7 @@ Distance = haversine between cities × road/rail factor.
 | 2026-11-11 | Client-side form rules mirror the API (distinct cities, date today or later unless unchanged on edit, 1–9 travelers); API field errors are still shown on the matching field | Fast feedback, while the API stays the source of truth |
 | 2026-11-11 | Delete needs an inline second confirmation (`ConfirmAction`), no modal dialog | Prevents accidental deletes; simpler and easier to test than a dialog |
 | 2026-11-11 | Routes: `/trips`, `/trips/new`, `/trips/:id`, `/trips/:id/edit`; one form page serves create and edit | Bookmarkable pages; no duplicated form |
+| 2026-11-11 | Recommendation and comparison live on the trip details page, each loaded separately after the trip | One place to decide; the trip shows immediately and a slow or failed advisor call does not block the comparison |
+| 2026-11-11 | Comparison is one table (mode, time, cost, CO₂, score) with the recommended row marked by a badge and border; unavailable modes show their reason | Scannable side by side; nothing is conveyed by color alone |
+| 2026-11-11 | Free-text input sits above the form on the New trip page and only prefills it; the user reviews, fixes warnings and saves | The advisor never creates a trip by itself; unknown values stay empty and are validated by the form |
+| 2026-11-11 | Advice and drafts show their source ("AI advisor" / "Rule-based") | Users can tell AI wording from computed results |

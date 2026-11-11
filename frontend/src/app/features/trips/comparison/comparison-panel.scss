@@ -1,0 +1,114 @@
+.summary {
+  margin-bottom: var(--space-3);
+}
+
+.table-scroll {
+  overflow-x: auto;
+  margin-bottom: var(--space-6);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+thead th {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mode {
+  margin-right: var(--space-2);
+}
+
+.note {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+/* Recommended: border and badge, not color alone. */
+.recommended > * {
+  background: var(--color-surface-muted);
+}
+
+.recommended > th {
+  box-shadow: inset 4px 0 0 var(--color-primary);
+}
+
+.badge--recommended {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.unavailable {
+  color: var(--color-text-muted);
+}
+
+.reason {
+  font-size: 0.875rem;
+}
+
+.score__bar {
+  display: block;
+  width: 4rem;
+  height: 0.3rem;
+  margin: var(--space-1) 0 0 auto;
+  border-radius: 999px;
+  background: var(--color-border);
+  overflow: hidden;
+
+  span {
+    display: block;
+    height: 100%;
+    background: var(--color-primary);
+  }
+}
+
+h3 {
+  font-size: 1rem;
+}
+
+.weather {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-3);
+  }
+}
+
+.weather__city {
+  font-weight: 700;
+}
+
+.badge--hazard {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}

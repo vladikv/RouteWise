@@ -3,21 +3,37 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { ApiError, FieldError } from '../../core/api/api-error';
 import { CityApi } from '../../core/api/city-api';
-import { TripRequest } from '../../core/api/models';
+import { AdvisorApi } from '../../core/api/advisor-api';
+import { TripDraft, TripRequest } from '../../core/api/models';
 import { TripApi } from '../../core/api/trip-api';
 import { ErrorMessage } from '../../shared/ui/error-message';
 import { Spinner } from '../../shared/ui/spinner';
+import { TripDraftInput } from './trip-draft-input';
 import { TripForm } from './trip-form';
 
-/** Creates a trip (`/trips/new`) or edits one (`/trips/:id/edit`). */
+/**
+ * Creates a trip (`/trips/new`) or edits one (`/trips/:id/edit`). A new trip can
+ * be prefilled from a free-text description.
+ */
 @Component({
   selector: 'app-trip-form-page',
-  imports: [ErrorMessage, Spinner, TripForm],
+  imports: [ErrorMessage, Spinner, TripDraftInput, TripForm],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-header">
       <h1>{{ id() ? 'Edit trip' : 'New trip' }}</h1>
     </div>
+
+    @if (!id()) {
+      <section class="card draft" aria-label="Describe your trip">
+        <app-trip-draft-input
+          [busy]="parsing()"
+          [draft]="draft()"
+          [error]="parseError()"
+          (parse)="parseDescription($event)"
+        />
+      </section>
+    }
 
     <section class="card">
       @if (cities.isLoading() || trip.isLoading()) {
@@ -33,6 +49,7 @@ import { TripForm } from './trip-form';
         <app-trip-form
           [cities]="cityList"
           [trip]="trip.value() ?? null"
+          [draft]="draft()"
           [submitting]="saving()"
           [serverErrors]="fieldErrors()"
           [cancelLink]="cancelLink()"
@@ -46,6 +63,10 @@ import { TripForm } from './trip-form';
       max-width: 44rem;
     }
 
+    .draft {
+      margin-bottom: var(--space-6);
+    }
+
     .save-error {
       margin-bottom: var(--space-4);
     }
@@ -57,6 +78,7 @@ export class TripFormPage {
 
   private readonly tripApi = inject(TripApi);
   private readonly cityApi = inject(CityApi);
+  private readonly advisorApi = inject(AdvisorApi);
   private readonly router = inject(Router);
 
   protected readonly cities = rxResource({ stream: () => this.cityApi.findAll() });
@@ -68,11 +90,31 @@ export class TripFormPage {
   protected readonly saving = signal(false);
   protected readonly saveError = signal<unknown>(null);
   protected readonly fieldErrors = signal<FieldError[]>([]);
+  protected readonly parsing = signal(false);
+  protected readonly draft = signal<TripDraft | null>(null);
+  protected readonly parseError = signal<unknown>(null);
   protected readonly cancelLink = computed(() => (this.id() ? `/trips/${this.id()}` : '/trips'));
 
   protected reload(): void {
     this.cities.reload();
     this.trip.reload();
+  }
+
+  /** Asks the advisor to turn a free-text description into a draft that prefills the form. */
+  protected parseDescription(text: string): void {
+    this.parsing.set(true);
+    this.parseError.set(null);
+    this.advisorApi.parse(text).subscribe({
+      next: (draft) => {
+        this.parsing.set(false);
+        this.draft.set(draft);
+        this.fieldErrors.set([]);
+      },
+      error: (error: unknown) => {
+        this.parsing.set(false);
+        this.parseError.set(error);
+      },
+    });
   }
 
   protected save(request: TripRequest): void {

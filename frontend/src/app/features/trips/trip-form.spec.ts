@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { TripRequest } from '../../core/api/models';
+import { DRAFT } from './comparison/comparison.testing';
 import { TripForm } from './trip-form';
 import {
   CITIES,
@@ -134,6 +135,31 @@ describe('TripForm', () => {
     await fixture.whenStable();
 
     expect(errorText(form, 'trip-date')).toBeUndefined();
+  });
+
+  it('prefills a new trip from an advisor draft and leaves unknown values empty', async () => {
+    fixture.componentRef.setInput('draft', DRAFT);
+    await fixture.whenStable();
+
+    expect(form.querySelector<HTMLInputElement>('#trip-title')?.value).toBe('Berlin to Vienna');
+    expect(
+      form.querySelector<HTMLSelectElement>('#trip-origin')?.selectedOptions[0].text,
+    ).toContain('Berlin');
+    expect(
+      form.querySelector<HTMLSelectElement>('#trip-destination')?.selectedOptions[0].text,
+    ).toContain('Choose a city');
+    expect(form.querySelector<HTMLInputElement>('#trip-date')?.value).toBe('2099-05-20');
+    expect(form.querySelector<HTMLInputElement>('#trip-travelers')?.value).toBe('3');
+    expect(
+      form.querySelector('input[type="radio"]:checked')?.closest('label')?.textContent,
+    ).toContain('Cheapest');
+    expect(form.querySelector('button[type="submit"]')?.textContent).toContain('Create trip');
+
+    submit(form);
+    await fixture.whenStable();
+
+    expect(errorText(form, 'trip-destination')).toBe('This field is required.');
+    expect(emitted).toEqual([]);
   });
 
   it('disables the submit button while saving', async () => {
