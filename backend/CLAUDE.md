@@ -28,11 +28,11 @@ Resources: `application.yml`, Flyway migrations in `src/main/resources/db/migrat
 | Task | Command |
 |---|---|
 | Run | `./mvnw spring-boot:run` |
-| Run on another port | `./mvnw spring-boot:run -Dspring-boot.run.arguments=--server.port=8081` |
+| Run on another port | `SERVER_PORT=8081 ./mvnw spring-boot:run` (default port: 8087) |
 | Build + all tests | `./mvnw verify` |
 | Single test class | `./mvnw test -Dtest=GlobalExceptionHandlerTest` |
 
-Swagger UI: `/swagger-ui.html` · OpenAPI JSON: `/v3/api-docs` ·
+Base URL: http://localhost:8087 · Swagger UI: `/swagger-ui.html` · OpenAPI JSON: `/v3/api-docs` ·
 H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty password).
 
 ## Conventions
@@ -43,7 +43,9 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
 - **Lombok only on JPA entities** (`@Getter`, `@Setter`, `@NoArgsConstructor`).
   Never `@Data` on entities (breaks `equals`/`hashCode` with lazy relations).
   No Lombok on services, controllers, DTOs or config.
-- **Errors:** throw a `RouteWiseException` subclass (e.g. `ResourceNotFoundException`).
+- **Errors:** throw a `RouteWiseException` subclass: `ResourceNotFoundException` (404)
+  or `FieldValidationException` (400 with an `errors` entry, for business rules on a
+  specific field, e.g. an unknown city id).
   `GlobalExceptionHandler` turns them into RFC 7807 Problem Details
   (`application/problem+json`). Do not use `ResponseStatusException` and do not
   build error bodies in controllers. Validation errors use the `errors`
@@ -53,11 +55,17 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
   natively, and `@Validated` switches to the AOP path (`ConstraintViolationException`),
   which the handler treats as a 500. 500 responses never contain exception
   messages or stack traces.
+- **Time:** inject `java.time.Clock` (bean in `ClockConfig`) instead of calling
+  `LocalDate.now()` directly, so date rules are testable with `Clock.fixed`.
 - **Configuration:** `application.yml` with env-var overrides
   (`${ENV_VAR:default}`), bound to `@ConfigurationProperties` records under the
   `routewise.*` prefix. The app must start with zero configuration.
 - **Persistence:** schema only via Flyway (see the `add-flyway-migration` skill);
   `ddl-auto=validate`, `open-in-view=false`. Never edit an existing migration.
+  Services map entities to DTOs inside their transaction; repositories use
+  `@EntityGraph` for associations the response needs (no lazy loading outside).
+  H2 is pinned to 2.3.232 in `pom.xml` (see the comment there) — keep the pin
+  until a fixed H2 release is verified with the `TripRepositoryTest` suite.
 - **External HTTP** (weather, LLM): use `RestClient` built from the injected
   `RestClient.Builder`, with explicit connect and read timeouts from
   configuration. Each client sits behind an interface in the feature package
@@ -79,3 +87,6 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
 - Test method names: `method_condition_expectedResult` or
   `condition_expectedResult` for controller slices.
 - Test-only controllers/fixtures live under `src/test`, never in `src/main`.
+- Reference-data entities (`City`, `TransportMode`) have no public constructor
+  or setters. Build them in unit tests with `TestCities` or
+  `BeanUtils.instantiateClass` + `ReflectionTestUtils`, never by mocking entities.

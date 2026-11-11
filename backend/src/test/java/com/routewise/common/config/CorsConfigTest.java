@@ -13,7 +13,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@WebMvcTest(properties = "routewise.cors.allowed-origins=http://localhost:4200")
+@WebMvcTest(controllers = CorsConfigTest.PingController.class,
+        properties = "routewise.cors.allowed-origins=http://localhost:4200")
 @Import(CorsConfigTest.PingController.class)
 class CorsConfigTest {
 

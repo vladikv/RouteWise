@@ -32,7 +32,7 @@ and add notable decisions to its decisions log.
 | Test UI | `cd frontend && npm test` |
 | Lint UI | `cd frontend && npm run lint` |
 
-API: http://localhost:8080 · Swagger UI: http://localhost:8080/swagger-ui.html
+API: http://localhost:8087 · Swagger UI: http://localhost:8087/swagger-ui.html
 UI: http://localhost:4200
 
 ## Architecture principles
