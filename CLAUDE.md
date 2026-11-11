@@ -18,6 +18,10 @@ docs/       Architecture notes and decision records
 Each module has its own `CLAUDE.md` with module-specific rules.
 Read it before changing code in that module.
 
+Current scope, domain model, API and progress: `docs/PLAN.md`.
+Read it before starting a task; tick the milestone when it is done
+and add notable decisions to its decisions log.
+
 ## Commands
 
 | Task | Command |
@@ -61,6 +65,10 @@ UI: http://localhost:4200
 - Conventional Commits: `feat(api): add trip comparison endpoint`.
   Scopes: `api`, `ui`, `ai`, `db`, `docs`, `ci`, `tooling`.
 - One logical change per commit. Commit messages describe *why* when not obvious.
+- Claude creates the milestone branch from an up-to-date `main`
+  at the start of each milestone (name taken from docs/PLAN.md),
+  stages and commits changes. Pushing, PRs and merging are done
+  by a human.
 
 ## Working rules for Claude
 
@@ -69,3 +77,5 @@ UI: http://localhost:4200
 - Run the relevant tests after changes and report the result honestly.
 - When unsure about a requirement, ask instead of guessing.
 - Keep this file and module `CLAUDE.md` files up to date when conventions change.
+- After completing a milestone, append a short entry to `docs/AI_WORKFLOW.md`:
+  milestone, what was delegated to AI, what was corrected manually, and why.

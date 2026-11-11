@@ -14,5 +14,7 @@ description: Prepares a Conventional Commit for staged changes in RouteWise. Use
   - Scopes: `api`, `ui`, `ai`, `db`, `docs`, `ci`, `tooling`
   - Summary: imperative mood, lowercase, no period, max 72 chars
   - Body (optional): explain *why*, wrapped at 72 chars
-4. Show the message and wait for confirmation before committing.
+4. Run the relevant tests (`./mvnw verify` and/or `npm test`).
+   If they pass, commit and report the hash and message.
+   If they fail, do not commit; report the failure.
 5. Never commit secrets, `.env` files or build output.

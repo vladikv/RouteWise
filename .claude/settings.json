@@ -6,12 +6,21 @@
       "Bash(npm run lint*)",
       "Bash(git status)",
       "Bash(git diff*)",
-      "Bash(git log*)"
+      "Bash(git log*)",
+      "Bash(git branch*)",
+      "Bash(git checkout*)",
+      "Bash(git switch*)",
+      "Bash(git pull*)",
+      "Bash(git add*)",
+      "Bash(git commit*)"
     ],
     "deny": [
       "Read(./.env)",
       "Read(./**/.env)",
-      "Bash(git push*)"
+      "Bash(git push*)",
+      "Bash(git reset --hard*)",
+      "Bash(git branch -D*)",
+      "Bash(git rebase*)"
     ]
   },
   "hooks": {
