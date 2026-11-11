@@ -18,6 +18,10 @@ docs/       Architecture notes and decision records
 Each module has its own `CLAUDE.md` with module-specific rules.
 Read it before changing code in that module.
 
+Current scope, domain model, API and progress: `docs/PLAN.md`.
+Read it before starting a task; tick the milestone when it is done
+and add notable decisions to its decisions log.
+
 ## Commands
 
 | Task | Command |
