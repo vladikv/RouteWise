@@ -50,7 +50,7 @@ Distance = haversine between cities × road/rail factor.
 ## Milestones
 
 - [x] `chore/ai-dev-setup`: CLAUDE.md, subagents, skills, hooks
-- [ ] `feat/backend-setup`: Spring Boot scaffold, H2, Flyway, error handling, OpenAPI, CORS
+- [x] `feat/backend-setup`: Spring Boot scaffold, H2, Flyway, error handling, OpenAPI, CORS
 - [ ] `feat/backend-trips`: City/TransportMode seed data, Trip CRUD + tests
 - [ ] `feat/backend-comparison`: comparison engine + weather integration + tests
 - [ ] `feat/ai-advisor`: advisor parse/advice endpoints with fallback + tests
@@ -66,3 +66,6 @@ Distance = haversine between cities × road/rail factor.
 | 2026-11-10 | Comparison computed, not stored | Always reflects current mode parameters; less state |
 | 2026-11-10 | Open-Meteo for weather | Free, no key, keeps zero-config promise |
 | 2026-11-11 | Root + module CLAUDE.md files | Module rules load only when relevant |
+| 2026-11-11 | Spring Boot 4.1.2 + springdoc-openapi 3.2.0 | Latest stable Boot; springdoc 3.x is the line built for Boot 4 |
+| 2026-11-11 | `GlobalExceptionHandler` extends `ResponseEntityExceptionHandler` | Spring MVC's own errors (malformed JSON, 405, 415, unknown path) also return Problem Details |
+| 2026-11-11 | CORS origins via `routewise.cors.allowed-origins` (env `ROUTEWISE_CORS_ALLOWED_ORIGINS`) | Default works locally with zero config; deployable origins without code changes |
