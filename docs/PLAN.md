@@ -54,7 +54,7 @@ Distance = haversine between cities × road/rail factor.
 - [x] `feat/backend-trips`: City/TransportMode seed data, Trip CRUD + tests
 - [x] `feat/backend-comparison`: comparison engine + weather integration + tests
 - [x] `feat/ai-advisor`: advisor parse/advice endpoints with fallback + tests
-- [ ] `feat/frontend-setup`: Angular scaffold, layout, API client, theming
+- [x] `feat/frontend-setup`: Angular scaffold, layout, API client, theming
 - [ ] `feat/frontend-trips`: trip list, form, details, delete
 - [ ] `feat/frontend-comparison`: comparison view, advice panel, free-text input
 - [ ] `docs/readme-demo`: README, screenshots, demo recording
@@ -89,3 +89,8 @@ Distance = haversine between cities × road/rail factor.
 | 2026-11-11 | Parse drafts default to 1 traveler and BALANCED; unknown cities/dates are `null` with a `warnings` entry | The trip form always gets a usable draft and the user sees what is missing |
 | 2026-11-11 | Claude requests opt into server-side refusal fallback (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`) | Recommended for Opus 5.5; a remaining refusal still falls back to rules |
 | 2026-11-11 | No rate limit or cost guard on the advisor endpoints in v1; input capped at 1000 characters, LLM call bounded by timeout × (retries + 1) = 40 s | No auth in v1 scope; revisit before any public deployment with a key configured |
+| 2026-11-11 | Angular 22 with CLI defaults: standalone, zoneless, signals, Vitest, esbuild; npm | Current recommended stack; no legacy patterns to migrate later |
+| 2026-11-11 | No UI library: custom SCSS design tokens (CSS variables) with light/dark theme | No extra dependency; small bundle (about 80 kB transfer); Angular Material can still be added if forms get heavy |
+| 2026-11-11 | UI calls the API directly at `http://localhost:8087` (`API_BASE_URL` token from `environment.ts`), no dev proxy | The API already allows the UI origin via CORS; one less moving part |
+| 2026-11-11 | All HTTP failures become `ApiError` in one interceptor | Pages handle a single error type built from Problem Details, including field errors and "API unreachable" |
+| 2026-11-11 | Added angular-eslint (Prettier ships with the scaffold); no root `npm run dev` script yet | Lint command and format hook were already documented; a combined start script needs another dependency (`concurrently`) and is undecided |
