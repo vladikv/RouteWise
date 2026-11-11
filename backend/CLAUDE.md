@@ -74,14 +74,20 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
   map detached entities.
   H2 is pinned to 2.3.232 in `pom.xml` (see the comment there) — keep the pin
   until a fixed H2 release is verified with the `TripRepositoryTest` suite.
-- **External HTTP** (weather, LLM): use `RestClient` built from the injected
+- **External HTTP:** use `RestClient` built from the injected
   `RestClient.Builder` (from `spring-boot-starter-restclient`), with explicit
   connect and read timeouts from configuration (see `WeatherClientConfig`).
+  Exception: Claude is called through the official Anthropic Java SDK
+  (`AnthropicOkHttpClient`, timeout and retries from `AdvisorProperties`).
   Each client sits behind an interface in the feature's `client/` package
   so it can be mocked and swapped. Clients throw on failure; the feature's
-  service catches `RestClientException` and degrades (e.g. `WeatherService`
-  returns no forecast). Never let an external outage fail a request.
+  service catches and degrades (e.g. `WeatherService` returns no forecast,
+  `AdvisorService` falls back to its rules). `ClaudeAdvisorClient` wraps SDK
+  errors in `AdvisorClientException`. Never let an external outage fail a request.
   Don't hold a database transaction open across external calls.
+- **LLM output is untrusted input:** validate it like a request (see
+  `TripDraftResolver`) and never let it override computed results
+  (the comparison engine picks the recommended mode).
 - **Pure business rules** (e.g. `ComparisonEngine`, `GeoDistance`) take plain
   records as input (`ComparisonInput`, `ModeParameters`), not entities, and do no I/O.
 - **CORS:** handled centrally in `CorsConfig` for `/api/**`; origins come from
@@ -94,6 +100,9 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
 - Services: plain unit tests with Mockito, no Spring context.
 - Controllers: `@WebMvcTest(XController.class)` with `@MockitoBean` services;
   cover success, 400 (validation) and 404.
+- The Claude client is tested against a local `HttpServer` faking `/v1/messages`
+  (`ClaudeAdvisorClientTest`): request shape, success, refusal, server error;
+  its timeout in `AdvisorClientConfigTest`.
 - HTTP clients: `MockRestServiceServer.bindTo(RestClient.builder())`; cover
   success, missing data, server error and timeout. Test that configured
   timeouts are applied against a local `com.sun.net.httpserver.HttpServer`

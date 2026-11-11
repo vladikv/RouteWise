@@ -28,5 +28,12 @@ routewise:
     base-url: ${ROUTEWISE_WEATHER_BASE_URL:https://api.open-meteo.com}
     connect-timeout: 2s
     read-timeout: 3s
+  advisor:
+    # Optional. Without a key the advisor uses its built-in rules.
+    api-key: ${ANTHROPIC_API_KEY:}
+    model: ${ROUTEWISE_ADVISOR_MODEL:claude-opus-5-5}
+    effort: ${ROUTEWISE_ADVISOR_EFFORT:low}
+    timeout: 20s
+    max-retries: 1
   cors:
     allowed-origins: ${ROUTEWISE_CORS_ALLOWED_ORIGINS:http://localhost:4200}
