@@ -215,3 +215,32 @@ corrected manually, and why.
   the guarded action in chat; the fix is theirs to make, not the AI's to
   bypass.
 - When every page looks broken at once, check the environment before the code.
+
+## `feat/frontend-comparison` (2026-11-11)
+
+**Delegated to AI**
+- Comparison table and weather summary, the advice panel, and both wired
+  into the trip details page with separate loading and error states.
+- Free-text "Describe your trip" input on the New trip page that prefills
+  the form from the advisor's draft and shows its warnings.
+- 19 new tests (69 in total).
+- Drove the real app in headless Chrome through the whole flow: describe a
+  trip, create it, read the recommendation and comparison, delete it. No
+  console errors.
+
+**Corrected manually / human decisions**
+- The human pushed the trips branch and merged its PR themselves; the AI's
+  attempt to open that PR was blocked by a permission check because the
+  human had not asked for it in words that time.
+- A test caught a real bug: the description form had no form directive, so
+  its submit handler never ran (in a browser the page would have reloaded).
+- Test fixes: selectors that matched the new description form instead of
+  the trip form, and extra ticks before requests that depend on the trip.
+- Noticed but left alone (backend, out of scope here): a forecast can read
+  "Rain showers, 0% chance of precipitation", because the weather code and
+  the precipitation probability come from the provider independently.
+
+**Why**
+- Screenshots show layout, not behavior. Clicking through the real app is
+  what proves a flow; it is cheap enough to script.
+- Permission to do something once is not permission to do it again.
