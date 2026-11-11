@@ -98,3 +98,51 @@ corrected manually, and why.
   from intuition. Near-ties make brittle tests.
 - A test that would still pass with the code removed proves nothing; a quick
   mutation check is cheap insurance for configuration code.
+
+## `feat/ai-advisor` (2026-11-11)
+
+**Delegated to AI**
+- Designed and built the advisor feature: `POST /api/advisor/parse` (free text
+  to a checked trip draft) and `GET /api/trips/{id}/advice` (explains the
+  weather-aware recommendation).
+- `ClaudeAdvisorClient` on the Anthropic Java SDK. It uses structured outputs,
+  `claude-opus-5-5` at effort `low`, and server-side refusal fallback. The
+  bean is created only when `ANTHROPIC_API_KEY` is set.
+- Rule-based fallback: `RuleBasedTripParser` handles cities with local
+  spellings and diacritics, absolute and relative dates, party size and
+  priority keywords. `RuleBasedAdviceWriter` gives the recommendation, the
+  best alternative and the weather. `TripDraftResolver` validates every
+  extraction, from the AI or from the rules.
+- 90 tests, including a fake Messages API on a local `HttpServer` and a
+  zero-config `@SpringBootTest`.
+- Verified end to end with zero configuration against live Open-Meteo.
+
+**Corrected manually / human decisions**
+- The human chose the official SDK over raw `RestClient` calls, when asked
+  before the dependency was added. `backend/CLAUDE.md` now records this as
+  the one exception to the `RestClient` rule.
+- The AI expected the SDK to send `x-api-key`. The fake server showed that
+  SDK 3.3.0 sends `Authorization: Bearer <key>`. The AI checked that it was
+  the configured key, not an ambient credential, and fixed the test.
+- One parser test expectation was wrong ("Paris, then back to Paris": the
+  `to` marker makes Paris the destination). The AI replaced it with an
+  unambiguous case.
+- The backend-reviewer found no blockers. Fixed after review:
+  - inconsistent traveler counting ("me and 2 friends" gave 2, "2 adults
+    and 2 kids" gave 2)
+  - "Friday next week" resolved to today + 7
+  - "may" as a verb was read as the month
+  - no length cap on AI advice
+  - missing tests: zero-config wiring, `AdviceFacts`, `max_tokens`,
+    malformed JSON, missing text block
+  - the absence of a rate limit is now recorded as a v1 decision
+- No live Claude call was made. No API key was available, and calls cost
+  money. The real request shape, especially the `fallbacks` beta, is
+  verified only against the fake server.
+
+**Why**
+- LLM output is untrusted input. Validating it with the same resolver as the
+  rules keeps one definition of a valid draft. Letting the engine own the
+  recommendation means the AI can explain it but never change it.
+- A fake HTTP server catches wire-level surprises, such as the auth header,
+  that a mocked interface hides.

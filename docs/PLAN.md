@@ -44,8 +44,8 @@ Distance = haversine between cities × road/rail factor.
 
 ## External services
 - **Open-Meteo**: weather forecast, no API key required
-- **LLM provider**: optional, via env variable; behind an `AdvisorClient`
-  interface with a rule-based implementation as fallback
+- **LLM provider**: optional Claude (Anthropic) via `ANTHROPIC_API_KEY`; behind an
+  `AdvisorClient` interface, with rule-based parsing/advice as fallback
 
 ## Milestones
 
@@ -53,7 +53,7 @@ Distance = haversine between cities × road/rail factor.
 - [x] `feat/backend-setup`: Spring Boot scaffold, H2, Flyway, error handling, OpenAPI, CORS
 - [x] `feat/backend-trips`: City/TransportMode seed data, Trip CRUD + tests
 - [x] `feat/backend-comparison`: comparison engine + weather integration + tests
-- [ ] `feat/ai-advisor`: advisor parse/advice endpoints with fallback + tests
+- [x] `feat/ai-advisor`: advisor parse/advice endpoints with fallback + tests
 - [ ] `feat/frontend-setup`: Angular scaffold, layout, API client, theming
 - [ ] `feat/frontend-trips`: trip list, form, details, delete
 - [ ] `feat/frontend-comparison`: comparison view, advice panel, free-text input
@@ -82,3 +82,10 @@ Distance = haversine between cities × road/rail factor.
 | 2026-11-11 | Weather adjusts scores: bike ×0.4 for rain/snow/thunderstorm/wind ≥ 40 km/h/max < 3 °C; car and bus ×0.9 for snow/ice; worst of origin and destination counts | Weather-aware recommendation with a visible note per affected mode |
 | 2026-11-11 | Weather is best-effort: outside today…+15 days, on errors or timeouts (2 s connect / 3 s read) the comparison is returned without weather | Zero-config and no hard dependency on an external service |
 | 2026-11-11 | Added `spring-boot-starter-restclient` | Boot 4 moved `RestClient.Builder` auto-configuration into this module |
+| 2026-11-11 | Claude via the official Anthropic Java SDK (`anthropic-java` 3.3.0), not hand-written `RestClient` calls | Typed structured outputs, built-in retries, stays current with the API; Jackson 2 it needs was already on the classpath (springdoc) |
+| 2026-11-11 | Advisor LLM is opt-in: `AdvisorClient` bean exists only if `routewise.advisor.api-key` (env `ANTHROPIC_API_KEY`) has text; model `claude-opus-5-5`, effort `low`, 20 s timeout, 1 retry, all configurable | Zero-config run; low effort keeps short extraction/explanation calls fast |
+| 2026-11-11 | Rules are not an `AdvisorClient` implementation: `AdvisorService` uses the LLM if present and falls back to `RuleBasedTripParser`/`RuleBasedAdviceWriter` on absence or any failure; responses carry `source` (`AI`/`RULES`) | Fallback is a service decision (like `WeatherService`); one injection point, no bean ambiguity |
+| 2026-11-11 | LLM output is never trusted: extractions go through `TripDraftResolver` (seeded cities only, no past dates, travelers 1–9) and the recommended mode always comes from `ComparisonEngine` | The AI words the advice; it cannot change the recommendation or produce an invalid draft |
+| 2026-11-11 | Parse drafts default to 1 traveler and BALANCED; unknown cities/dates are `null` with a `warnings` entry | The trip form always gets a usable draft and the user sees what is missing |
+| 2026-11-11 | Claude requests opt into server-side refusal fallback (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`) | Recommended for Opus 5.5; a remaining refusal still falls back to rules |
+| 2026-11-11 | No rate limit or cost guard on the advisor endpoints in v1; input capped at 1000 characters, LLM call bounded by timeout × (retries + 1) = 40 s | No auth in v1 scope; revisit before any public deployment with a key configured |
