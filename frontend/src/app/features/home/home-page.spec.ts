@@ -34,8 +34,12 @@ describe('HomePage', () => {
     }).compileComponents();
     httpTesting = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(HomePage);
-    page = fixture.nativeElement as HTMLElement;
     fixture.detectChanges();
+    // The route explorer above loads the cities; these specs cover the modes section only.
+    httpTesting.expectOne('http://api.test/api/cities').flush([]);
+    page = (fixture.nativeElement as HTMLElement).querySelector(
+      'section[aria-labelledby="modes-heading"]',
+    ) as HTMLElement;
   });
 
   afterEach(() => httpTesting.verify());

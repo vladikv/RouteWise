@@ -1,0 +1,87 @@
+<div class="map-scroll">
+  <svg
+    class="map"
+    [class.map--interactive]="interactive()"
+    [attr.viewBox]="viewBox()"
+    [attr.role]="interactive() ? 'group' : 'img'"
+    [attr.aria-label]="
+      interactive() ? 'Map of cities. Choose an origin, then a destination.' : description()
+    "
+  >
+    @if (route(); as route) {
+      <path class="route" [attr.d]="route.path" pathLength="1" />
+    }
+
+    @for (marker of markers(); track marker.city.id) {
+      @if (interactive()) {
+        <g
+          class="city"
+          [class.city--origin]="marker.role === 'origin'"
+          [class.city--destination]="marker.role === 'destination'"
+          role="button"
+          tabindex="0"
+          [attr.aria-label]="marker.ariaLabel"
+          [attr.aria-pressed]="marker.role !== null"
+          (click)="pick(marker.city)"
+          (keydown.enter)="pick(marker.city)"
+          (keydown.space)="pickWithSpace($event, marker.city)"
+        >
+          <circle class="city__hit" [attr.cx]="marker.point.x" [attr.cy]="marker.point.y" r="18" />
+          <circle class="city__dot" [attr.cx]="marker.point.x" [attr.cy]="marker.point.y" r="5" />
+          @if (marker.role) {
+            <circle
+              class="city__ring"
+              [attr.cx]="marker.point.x"
+              [attr.cy]="marker.point.y"
+              r="11"
+            />
+            <text class="city__letter" [attr.x]="marker.point.x" [attr.y]="marker.point.y + 4">
+              {{ marker.role === 'origin' ? 'A' : 'B' }}
+            </text>
+          }
+          <text
+            class="city__name"
+            [attr.x]="marker.label.x"
+            [attr.y]="marker.label.y"
+            [attr.text-anchor]="marker.label.anchor"
+          >
+            {{ marker.city.name }}
+          </text>
+        </g>
+      } @else {
+        <g
+          class="city city--static"
+          [class.city--origin]="marker.role === 'origin'"
+          [class.city--destination]="marker.role === 'destination'"
+          [class.city--faded]="marker.role === null"
+          aria-hidden="true"
+        >
+          <circle class="city__dot" [attr.cx]="marker.point.x" [attr.cy]="marker.point.y" r="5" />
+          @if (marker.role) {
+            <circle
+              class="city__ring"
+              [attr.cx]="marker.point.x"
+              [attr.cy]="marker.point.y"
+              r="11"
+            />
+            <text class="city__letter" [attr.x]="marker.point.x" [attr.y]="marker.point.y + 4">
+              {{ marker.role === 'origin' ? 'A' : 'B' }}
+            </text>
+            <text
+              class="city__name"
+              [attr.x]="marker.label.x"
+              [attr.y]="marker.label.y"
+              [attr.text-anchor]="marker.label.anchor"
+            >
+              {{ marker.city.name }}
+            </text>
+          }
+        </g>
+      }
+    }
+  </svg>
+</div>
+
+@if (interactive()) {
+  <p class="status" role="status">{{ description() }}</p>
+}

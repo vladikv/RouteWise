@@ -8,8 +8,9 @@ import { TripDraft, TripRequest } from '../../core/api/models';
 import { TripApi } from '../../core/api/trip-api';
 import { ErrorMessage } from '../../shared/ui/error-message';
 import { Spinner } from '../../shared/ui/spinner';
+import { PRIORITIES } from '../../shared/util/labels';
 import { TripDraftInput } from './trip-draft-input';
-import { TripForm } from './trip-form';
+import { TripForm, TripPreset } from './trip-form';
 
 /**
  * Creates a trip (`/trips/new`) or edits one (`/trips/:id/edit`). A new trip can
@@ -50,6 +51,7 @@ import { TripForm } from './trip-form';
           [cities]="cityList"
           [trip]="trip.value() ?? null"
           [draft]="draft()"
+          [preset]="preset()"
           [submitting]="saving()"
           [serverErrors]="fieldErrors()"
           [cancelLink]="cancelLink()"
@@ -75,6 +77,12 @@ import { TripForm } from './trip-form';
 export class TripFormPage {
   /** Route parameter; absent on `/trips/new`. */
   readonly id = input<string>();
+  /** Optional query parameters from the route explorer's "Save as trip". */
+  readonly from = input<string>();
+  readonly to = input<string>();
+  readonly date = input<string>();
+  readonly travelers = input<string>();
+  readonly priority = input<string>();
 
   private readonly tripApi = inject(TripApi);
   private readonly cityApi = inject(CityApi);
@@ -93,6 +101,30 @@ export class TripFormPage {
   protected readonly parsing = signal(false);
   protected readonly draft = signal<TripDraft | null>(null);
   protected readonly parseError = signal<unknown>(null);
+  /**
+   * Starting values for a new trip from the query parameters. Anything that is
+   * not a known city, a valid date, 1–9 travelers or a known priority is ignored.
+   */
+  protected readonly preset = computed<TripPreset | null>(() => {
+    const cities = this.cities.value();
+    if (this.id() || !cities) {
+      return null;
+    }
+    const origin = cities.find((city) => city.id === Number(this.from()));
+    const destination = cities.find((city) => city.id === Number(this.to()));
+    const travelers = Number(this.travelers());
+    const priority = PRIORITIES.find((option) => option === this.priority());
+    const date = this.date();
+    const preset: TripPreset = {
+      ...(origin && { originCityId: origin.id }),
+      ...(destination && { destinationCityId: destination.id }),
+      ...(origin && destination && { title: `${origin.name} to ${destination.name}` }),
+      ...(date && /^\d{4}-\d{2}-\d{2}$/.test(date) && { departureDate: date }),
+      ...(Number.isInteger(travelers) && travelers >= 1 && travelers <= 9 && { travelers }),
+      ...(priority && { priority }),
+    };
+    return Object.keys(preset).length > 0 ? preset : null;
+  });
   protected readonly cancelLink = computed(() => (this.id() ? `/trips/${this.id()}` : '/trips'));
 
   protected reload(): void {

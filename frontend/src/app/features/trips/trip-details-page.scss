@@ -6,6 +6,24 @@
   overflow-wrap: anywhere;
 }
 
+.overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 18rem);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+@media (max-width: 48rem) {
+  .overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.exact-heading {
+  margin-top: var(--space-6);
+  font-size: 1rem;
+}
+
 .details {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));

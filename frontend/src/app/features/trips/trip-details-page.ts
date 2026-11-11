@@ -2,12 +2,15 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
+import { CityApi } from '../../core/api/city-api';
 import { TripApi } from '../../core/api/trip-api';
+import { RouteMap } from '../../shared/map/route-map';
 import { ConfirmAction } from '../../shared/ui/confirm-action';
 import { ErrorMessage } from '../../shared/ui/error-message';
 import { Spinner } from '../../shared/ui/spinner';
 import { PRIORITY_LABELS, travelersLabel } from '../../shared/util/labels';
 import { AdvicePanel } from './comparison/advice-panel';
+import { ComparisonChart } from './comparison/comparison-chart';
 import { ComparisonPanel } from './comparison/comparison-panel';
 
 /** One trip: details, the advisor's recommendation, the mode comparison, and edit and delete. */
@@ -17,9 +20,11 @@ import { ComparisonPanel } from './comparison/comparison-panel';
     DatePipe,
     RouterLink,
     AdvicePanel,
+    ComparisonChart,
     ComparisonPanel,
     ConfirmAction,
     ErrorMessage,
+    RouteMap,
     Spinner,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -31,6 +36,7 @@ export class TripDetailsPage {
   readonly id = input.required<string>();
 
   private readonly tripApi = inject(TripApi);
+  private readonly cityApi = inject(CityApi);
   private readonly router = inject(Router);
 
   protected readonly trip = rxResource({
@@ -46,6 +52,8 @@ export class TripDetailsPage {
     params: () => this.trip.value()?.id,
     stream: ({ params: id }) => this.tripApi.advise(id),
   });
+  /** For the route map; the page works without it, so its failure is not shown. */
+  protected readonly cities = rxResource({ stream: () => this.cityApi.findAll() });
   protected readonly deleting = signal(false);
   protected readonly deleteError = signal<unknown>(null);
   protected readonly priorityLabels = PRIORITY_LABELS;

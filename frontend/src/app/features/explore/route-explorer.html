@@ -1,0 +1,109 @@
+@if (cities.isLoading()) {
+  <app-spinner label="Loading the map…" />
+} @else if (cities.error(); as error) {
+  <app-error-message [error]="error" (retry)="cities.reload()" />
+} @else if (cities.value(); as cityList) {
+  <div class="explorer">
+    <div class="explorer__map">
+      <app-route-map
+        [cities]="cityList"
+        [originId]="originId()"
+        [destinationId]="destinationId()"
+        (selectionChange)="select($event)"
+      />
+      <div class="actions map-actions">
+        <button
+          type="button"
+          class="button"
+          [disabled]="originId() === null || destinationId() === null"
+          (click)="swap()"
+        >
+          ⇄ Swap direction
+        </button>
+        <button type="button" class="button" [disabled]="originId() === null" (click)="clear()">
+          Clear
+        </button>
+      </div>
+    </div>
+
+    <div class="explorer__panel">
+      <div class="controls">
+        <fieldset class="control">
+          <legend>What matters most?</legend>
+          <div class="segmented">
+            @for (option of priorities; track option) {
+              <label>
+                <input
+                  type="radio"
+                  name="explorer-priority"
+                  [value]="option"
+                  [checked]="priority() === option"
+                  (change)="priority.set(option)"
+                />
+                <span>{{ priorityLabels[option] }}</span>
+              </label>
+            }
+          </div>
+        </fieldset>
+
+        <div class="control">
+          <span id="explorer-travelers-label" class="control__label">Travelers</span>
+          <div class="stepper" role="group" aria-labelledby="explorer-travelers-label">
+            <button
+              type="button"
+              class="button"
+              aria-label="One traveler fewer"
+              [disabled]="travelers() <= minTravelers"
+              (click)="changeTravelers(-1)"
+            >
+              −
+            </button>
+            <output class="stepper__value" aria-live="polite">{{ travelers() }}</output>
+            <button
+              type="button"
+              class="button"
+              aria-label="One traveler more"
+              [disabled]="travelers() >= maxTravelers"
+              (click)="changeTravelers(1)"
+            >
+              +
+            </button>
+          </div>
+        </div>
+
+        <div class="control">
+          <label class="control__label" for="explorer-date">Departure date</label>
+          <input
+            #dateInput
+            id="explorer-date"
+            type="date"
+            [min]="today"
+            [value]="date()"
+            (change)="setDate(dateInput.value)"
+          />
+        </div>
+      </div>
+
+      <div class="results">
+        @if (!request()) {
+          <p class="placeholder">
+            Pick two cities on the map to see how train, bus, car, bike and plane compare.
+          </p>
+        } @else if (comparison.isLoading()) {
+          <app-spinner label="Comparing transport modes…" />
+        } @else if (comparison.error(); as error) {
+          <app-error-message [error]="error" (retry)="comparison.reload()" />
+        } @else if (comparison.value(); as result) {
+          <app-comparison-chart [comparison]="result" />
+          <details class="exact">
+            <summary>Exact numbers and weather</summary>
+            <app-comparison-panel [comparison]="result" />
+          </details>
+          <a class="button button--primary" routerLink="/trips/new" [queryParams]="saveParams()">
+            Save as trip
+          </a>
+        }
+      </div>
+    </div>
+  </div>
+}

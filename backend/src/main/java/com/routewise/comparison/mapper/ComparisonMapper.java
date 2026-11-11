@@ -2,6 +2,7 @@ package com.routewise.comparison.mapper;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.List;
 
 import com.routewise.comparison.domain.ModeOption;
@@ -10,7 +11,7 @@ import com.routewise.comparison.dto.ComparisonResponse;
 import com.routewise.comparison.dto.ModeOptionResponse;
 import com.routewise.comparison.dto.WeatherSummary;
 import com.routewise.transportmode.domain.TransportMode;
-import com.routewise.trip.domain.Trip;
+import com.routewise.trip.domain.TripPriority;
 import com.routewise.weather.domain.LocationForecast;
 import com.routewise.weather.domain.WeatherForecast;
 
@@ -26,13 +27,17 @@ public class ComparisonMapper {
                 mode.getCo2GramsPerKm(), mode.getFixedOverheadMinutes(), mode.getMaxDistanceKm());
     }
 
-    public ComparisonResponse toResponse(Trip trip, double distanceKm, List<LocationForecast> forecasts,
+    /**
+     * @param tripId {@code null} for a comparison that does not belong to a stored trip
+     */
+    public ComparisonResponse toResponse(Long tripId, LocalDate departureDate, int travelers, TripPriority priority,
+                                         double distanceKm, List<LocationForecast> forecasts,
                                          List<ModeOption> options) {
         return new ComparisonResponse(
-                trip.getId(),
-                trip.getDepartureDate(),
-                trip.getTravelers(),
-                trip.getPriority(),
+                tripId,
+                departureDate,
+                travelers,
+                priority,
                 oneDecimal(distanceKm),
                 CURRENCY,
                 forecasts.stream().map(ComparisonMapper::toSummary).toList(),

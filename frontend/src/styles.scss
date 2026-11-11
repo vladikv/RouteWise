@@ -20,6 +20,7 @@
   --color-danger-bg: #3a1f1f;
   --color-focus: #9ad0ff;
   --shadow-card: 0 1px 2px rgb(0 0 0 / 40%);
+  --color-bar: #6b7888;
 }
 
 :root {
@@ -39,6 +40,8 @@
   --color-danger-bg: #fdecea;
   --color-focus: #1a73e8;
   --shadow-card: 0 1px 2px rgb(16 24 40 / 8%);
+  /* De-emphasised chart bars; the accent bar uses --color-primary. */
+  --color-bar: #8a96a3;
 
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --radius: 10px;
@@ -201,6 +204,62 @@ a {
   font-size: 0.8125rem;
   font-weight: 600;
   white-space: nowrap;
+}
+
+/* Segmented control: a radio group shown as a row of buttons. */
+
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+
+  label {
+    position: relative;
+    cursor: pointer;
+  }
+
+  input {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-height: 2.25rem;
+    padding: 0 var(--space-3);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  input:checked + span {
+    border-color: var(--color-primary);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* The check mark makes the selection visible without relying on color. */
+  input:checked + span::before {
+    content: '✓';
+    color: var(--color-primary);
+  }
+
+  input:focus-visible + span {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 2px;
+  }
 }
 
 /* Forms */

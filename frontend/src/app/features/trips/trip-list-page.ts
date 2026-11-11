@@ -7,7 +7,8 @@ import { TripApi } from '../../core/api/trip-api';
 import { ConfirmAction } from '../../shared/ui/confirm-action';
 import { ErrorMessage } from '../../shared/ui/error-message';
 import { Spinner } from '../../shared/ui/spinner';
-import { PRIORITY_LABELS, travelersLabel } from '../../shared/util/labels';
+import { daysBetween, todayIso } from '../../shared/util/date';
+import { PRIORITY_LABELS, countdownLabel, travelersLabel } from '../../shared/util/labels';
 
 /** All saved trips, soonest departure first, with edit and delete. */
 @Component({
@@ -25,6 +26,12 @@ export class TripListPage {
   protected readonly deleteError = signal<unknown>(null);
   protected readonly priorityLabels = PRIORITY_LABELS;
   protected readonly travelersLabel = travelersLabel;
+  private readonly today = todayIso();
+
+  /** E.g. "in 9 days", "today", "3 days ago". */
+  protected countdown(trip: Trip): string {
+    return countdownLabel(daysBetween(this.today, trip.departureDate));
+  }
 
   protected delete(trip: Trip): void {
     this.deletingId.set(trip.id);

@@ -6,12 +6,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-import com.routewise.city.TestCities;
 import com.routewise.comparison.domain.ModeOption;
 import com.routewise.comparison.dto.ComparisonResponse;
 import com.routewise.comparison.dto.ModeOptionResponse;
 import com.routewise.transportmode.domain.TransportModeCode;
-import com.routewise.trip.domain.Trip;
 import com.routewise.trip.domain.TripPriority;
 import com.routewise.weather.domain.Location;
 import com.routewise.weather.domain.LocationForecast;
@@ -33,7 +31,8 @@ class ComparisonMapperTest {
         ModeOption train = new ModeOption(TransportModeCode.TRAIN, true, null, 628.25, 373,
                 new BigDecimal("150.78"), new BigDecimal("44.0"), 87, true, List.of("note"));
 
-        ComparisonResponse response = mapper.toResponse(trip(), 523.549, List.of(vienna), List.of(train));
+        ComparisonResponse response = mapper.toResponse(1L, DEPARTURE, 3, TripPriority.FASTEST, 523.549,
+                List.of(vienna), List.of(train));
 
         assertThat(response.tripId()).isEqualTo(1L);
         assertThat(response.departureDate()).isEqualTo(DEPARTURE);
@@ -52,16 +51,5 @@ class ComparisonMapperTest {
         assertThat(option.totalCost()).isEqualByComparingTo("150.78");
         assertThat(option.recommended()).isTrue();
         assertThat(option.notes()).containsExactly("note");
-    }
-
-    private static Trip trip() {
-        Trip trip = new Trip();
-        trip.setId(1L);
-        trip.setOrigin(TestCities.berlin());
-        trip.setDestination(TestCities.vienna());
-        trip.setDepartureDate(DEPARTURE);
-        trip.setTravelers(3);
-        trip.setPriority(TripPriority.FASTEST);
-        return trip;
     }
 }

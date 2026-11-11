@@ -1,5 +1,22 @@
 .hero {
+  margin-bottom: var(--space-6);
+}
+
+.explore {
   margin-bottom: var(--space-8);
+}
+
+.explore__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+
+  h2 {
+    margin: 0;
+  }
 }
 
 .hero__lead {

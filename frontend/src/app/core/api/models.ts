@@ -85,7 +85,8 @@ export interface ModeOption {
 }
 
 export interface Comparison {
-  tripId: number;
+  /** Null for a preview of a route that is not saved as a trip. */
+  tripId: number | null;
   departureDate: string;
   travelers: number;
   priority: TripPriority;
@@ -95,6 +96,15 @@ export interface Comparison {
   weather: WeatherSummary[];
   /** Available modes best first, then unavailable ones. */
   options: ModeOption[];
+}
+
+/** Body of POST /api/comparisons: compare a route without saving a trip. */
+export interface ComparisonRequest {
+  originCityId: number;
+  destinationCityId: number;
+  departureDate: string;
+  travelers: number;
+  priority: TripPriority;
 }
 
 export interface Advice {

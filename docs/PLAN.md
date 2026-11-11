@@ -37,6 +37,7 @@ Distance = haversine between cities × road/rail factor.
 | PUT | `/api/trips/{id}` | Update trip |
 | DELETE | `/api/trips/{id}` | Delete trip (204) |
 | GET | `/api/trips/{id}/comparison` | Mode comparison + recommendation |
+| POST | `/api/comparisons` | Compare a route without saving a trip (same response, `tripId` null) |
 | GET | `/api/trips/{id}/advice` | AI/rule-based advice incl. weather |
 | POST | `/api/advisor/parse` | Free text → trip draft |
 | GET | `/api/cities` | Cities for autocomplete |
@@ -57,6 +58,7 @@ Distance = haversine between cities × road/rail factor.
 - [x] `feat/frontend-setup`: Angular scaffold, layout, API client, theming
 - [x] `feat/frontend-trips`: trip list, form, details, delete
 - [x] `feat/frontend-comparison`: comparison view, advice panel, free-text input
+- [x] `feat/ui-experience`: interactive route map, instant comparison, comparison chart
 - [ ] `docs/readme-demo`: README, screenshots, demo recording
 
 ## Decisions log
@@ -102,3 +104,10 @@ Distance = haversine between cities × road/rail factor.
 | 2026-11-11 | Comparison is one table (mode, time, cost, CO₂, score) with the recommended row marked by a badge and border; unavailable modes show their reason | Scannable side by side; nothing is conveyed by color alone |
 | 2026-11-11 | Free-text input sits above the form on the New trip page and only prefills it; the user reviews, fixes warnings and saves | The advisor never creates a trip by itself; unknown values stay empty and are validated by the form |
 | 2026-11-11 | Advice and drafts show their source ("AI advisor" / "Rule-based") | Users can tell AI wording from computed results |
+| 2026-11-12 | `POST /api/comparisons` compares an unsaved route; same response as a trip's comparison with `tripId` null, same city and date rules as a trip | Lets the UI show a comparison while the user explores; one response shape for both cases |
+| 2026-11-12 | Route map is hand-drawn SVG: cities placed with a Mercator projection of their coordinates on a dot grid, no base map, no map library | Distinctive, no dependency or external tiles; the 25 cities are enough to read as a map |
+| 2026-11-12 | Map and chart are never the only way: dropdowns mirror the map in the form, the table mirrors the chart, selection is stated in text | Keyboard and screen-reader users get the same information |
+| 2026-11-12 | Comparison chart shows one metric at a time; the recommended mode is the only accent bar, the others are gray | One series is the point: emphasis reads faster than five colors, and stays clear for color-blind users |
+| 2026-11-12 | The takeaway line is computed from the comparison only (CO₂ and money saved against the highest-emitting alternative, or time gained) | A concrete fact, never an invented equivalence |
+| 2026-11-12 | A new trip's title follows the chosen cities until the user types their own | Prefilled titles no longer go stale when a city is changed |
+| 2026-11-12 | On narrow screens the interactive map keeps its size and scrolls sideways | City names stay readable instead of shrinking to about 7 px |

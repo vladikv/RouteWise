@@ -64,8 +64,9 @@ describe('TripListPage', () => {
     expect(items).toHaveLength(2);
     expect(items[0].querySelector('h2 a')?.textContent).toContain('Berlin to Vienna');
     expect(items[0].querySelector('h2 a')?.getAttribute('href')).toBe('/trips/7');
-    expect(items[0].querySelector('.trip__route')?.textContent).toMatch(/Berlin\s+→\s*to\s+Vienna/);
+    expect(items[0].querySelector('.trip__route')?.textContent).toMatch(/Berlin\s+to\s+Vienna/);
     expect(items[0].querySelector('.trip__meta')?.textContent).toContain('May 20, 2099');
+    expect(items[0].querySelector('.trip__meta')?.textContent).toMatch(/\(in \d+ days\)/);
     expect(items[0].querySelector('.trip__meta')?.textContent).toContain('2 travelers');
     expect(items[0].querySelector('.badge')?.textContent).toBe('Greenest');
     expect(items[1].querySelector('.trip__meta')?.textContent).toContain('1 traveler');
