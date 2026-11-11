@@ -28,11 +28,11 @@ Resources: `application.yml`, Flyway migrations in `src/main/resources/db/migrat
 | Task | Command |
 |---|---|
 | Run | `./mvnw spring-boot:run` |
-| Run on another port | `./mvnw spring-boot:run -Dspring-boot.run.arguments=--server.port=8081` |
+| Run on another port | `SERVER_PORT=8081 ./mvnw spring-boot:run` (default port: 8087) |
 | Build + all tests | `./mvnw verify` |
 | Single test class | `./mvnw test -Dtest=GlobalExceptionHandlerTest` |
 
-Swagger UI: `/swagger-ui.html` · OpenAPI JSON: `/v3/api-docs` ·
+Base URL: http://localhost:8087 · Swagger UI: `/swagger-ui.html` · OpenAPI JSON: `/v3/api-docs` ·
 H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty password).
 
 ## Conventions
