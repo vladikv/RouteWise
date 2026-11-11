@@ -34,7 +34,38 @@
 }
 
 .trip__route {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
   font-weight: 600;
+}
+
+/* A small route line between the two cities: dot, dashes, dot. */
+.trip__line {
+  position: relative;
+  width: 3rem;
+  height: 0;
+  border-top: 2px dashed var(--color-primary);
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: -5px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-primary);
+  }
+
+  &::before {
+    left: -4px;
+  }
+
+  &::after {
+    right: -4px;
+  }
 }
 
 .trip__meta .badge {

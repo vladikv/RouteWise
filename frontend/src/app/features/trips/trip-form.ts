@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   effect,
   inject,
   input,
@@ -14,9 +15,11 @@ import {
   ValidationErrors,
   Validators,
 } from '@angular/forms';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { FieldError } from '../../core/api/api-error';
 import { City, Trip, TripDraft, TripPriority, TripRequest } from '../../core/api/models';
+import { RouteMap, RouteSelection } from '../../shared/map/route-map';
 import { todayIso } from '../../shared/util/date';
 import { PRIORITIES, PRIORITY_LABELS } from '../../shared/util/labels';
 
@@ -28,6 +31,14 @@ type FieldName =
   | 'travelers'
   | 'priority'
   | 'notes';
+
+/** Starting values for a new trip; every field is optional. */
+export type TripPreset = Partial<
+  Pick<
+    TripRequest,
+    'title' | 'originCityId' | 'destinationCityId' | 'departureDate' | 'travelers' | 'priority'
+  >
+>;
 
 const MESSAGES: Record<string, string> = {
   required: 'This field is required.',
@@ -46,7 +57,7 @@ const MESSAGES: Record<string, string> = {
  */
 @Component({
   selector: 'app-trip-form',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, RouteMap],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './trip-form.html',
   styleUrl: './trip-form.scss',
@@ -57,6 +68,8 @@ export class TripForm {
   readonly trip = input<Trip | null>(null);
   /** A draft from the advisor to prefill a new trip; unknown values stay empty. */
   readonly draft = input<TripDraft | null>(null);
+  /** Values chosen elsewhere (the route explorer) to start a new trip with. */
+  readonly preset = input<TripPreset | null>(null);
   readonly submitting = input(false);
   /** Field errors returned by the API for the last submit. */
   readonly serverErrors = input<FieldError[]>([]);
@@ -84,7 +97,41 @@ export class TripForm {
     { validators: differentCities },
   );
 
+  /** The chosen cities as signals, so the map follows the dropdowns. */
+  private readonly formValue = toSignal(this.form.valueChanges, {
+    initialValue: this.form.getRawValue(),
+  });
+  protected readonly originId = computed(() => this.formValue().originCityId ?? null);
+  protected readonly destinationId = computed(() => this.formValue().destinationCityId ?? null);
+
+  /** E.g. "Berlin to Vienna" once both cities are chosen. */
+  private readonly suggestedTitle = computed(() => {
+    const origin = this.cities().find((city) => city.id === this.originId());
+    const destination = this.cities().find((city) => city.id === this.destinationId());
+    return origin && destination ? `${origin.name} to ${destination.name}` : null;
+  });
+  private lastSuggestedTitle: string | null = null;
+
   constructor() {
+    // The title follows the cities while it is empty or still the previous
+    // suggestion; a title the user wrote is never replaced.
+    effect(() => {
+      const suggested = this.suggestedTitle();
+      if (!suggested) {
+        return;
+      }
+      const title = this.form.controls.title;
+      if (title.value.trim() === '' || title.value === this.lastSuggestedTitle) {
+        title.setValue(suggested);
+      }
+      this.lastSuggestedTitle = suggested;
+    });
+    effect(() => {
+      const preset = this.preset();
+      if (preset) {
+        this.form.patchValue(preset);
+      }
+    });
     effect(() => {
       const trip = this.trip();
       if (trip) {
@@ -121,6 +168,16 @@ export class TripForm {
         control?.markAsTouched();
       }
     });
+  }
+
+  /** Applies a selection made on the map to the From/To dropdowns. */
+  protected selectRoute(selection: RouteSelection): void {
+    this.form.patchValue({
+      originCityId: selection.originId,
+      destinationCityId: selection.destinationId,
+    });
+    this.form.controls.originCityId.markAsDirty();
+    this.form.controls.destinationCityId.markAsDirty();
   }
 
   protected submit(): void {

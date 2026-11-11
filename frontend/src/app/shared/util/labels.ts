@@ -31,6 +31,20 @@ export const HAZARD_LABELS: Record<WeatherHazard, string> = {
   ICE: 'Icy roads',
 };
 
+/** How far away a departure is, e.g. "today", "tomorrow", "in 9 days", "3 days ago". */
+export function countdownLabel(daysUntil: number): string {
+  if (daysUntil === 0) {
+    return 'today';
+  }
+  if (daysUntil === 1) {
+    return 'tomorrow';
+  }
+  if (daysUntil === -1) {
+    return 'yesterday';
+  }
+  return daysUntil > 0 ? `in ${daysUntil} days` : `${-daysUntil} days ago`;
+}
+
 /** E.g. 373 → "6 h 13 min", 180 → "3 h", 45 → "45 min". */
 export function durationLabel(totalMinutes: number): string {
   const hours = Math.floor(totalMinutes / 60);

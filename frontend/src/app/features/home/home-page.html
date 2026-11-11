@@ -1,13 +1,20 @@
 <section class="hero">
   <h1>Find the best way to get there</h1>
   <p class="hero__lead">
-    RouteWise compares train, bus, car, bike and plane for your trip by travel time, cost and CO₂,
-    and takes the weather forecast into account.
+    Pick two cities on the map. RouteWise compares train, bus, car, bike and plane by travel time,
+    cost and CO₂, and takes the weather forecast into account.
   </p>
-  <div class="actions">
-    <a class="button button--primary" routerLink="/trips/new">Plan a trip</a>
-    <a class="button" routerLink="/trips">View trips</a>
+</section>
+
+<section class="card explore" aria-labelledby="explore-heading">
+  <div class="explore__header">
+    <h2 id="explore-heading">Explore a route</h2>
+    <div class="actions">
+      <a class="button" routerLink="/trips/new">Describe a trip instead</a>
+      <a class="button" routerLink="/trips">View trips</a>
+    </div>
   </div>
+  <app-route-explorer />
 </section>
 
 <section class="card" aria-labelledby="modes-heading">

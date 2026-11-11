@@ -177,6 +177,46 @@ describe('TripFormPage', () => {
     expect(page.querySelector<HTMLInputElement>('#trip-title')?.value).toBe('  Berlin to Vienna ');
   });
 
+  it('prefills a new trip from the route explorer query parameters', async () => {
+    fixture.componentRef.setInput('from', '3');
+    fixture.componentRef.setInput('to', '23');
+    fixture.componentRef.setInput('date', '2099-05-20');
+    fixture.componentRef.setInput('travelers', '4');
+    fixture.componentRef.setInput('priority', 'GREENEST');
+    await openNew();
+
+    expect(page.querySelector<HTMLInputElement>('#trip-title')?.value).toBe('Berlin to Vienna');
+    expect(
+      page.querySelector<HTMLSelectElement>('#trip-origin')?.selectedOptions[0].text,
+    ).toContain('Berlin');
+    expect(
+      page.querySelector<HTMLSelectElement>('#trip-destination')?.selectedOptions[0].text,
+    ).toContain('Vienna');
+    expect(page.querySelector<HTMLInputElement>('#trip-date')?.value).toBe('2099-05-20');
+    expect(page.querySelector<HTMLInputElement>('#trip-travelers')?.value).toBe('4');
+    expect(
+      page
+        .querySelector('input[type="radio"][formcontrolname="priority"]:checked')
+        ?.closest('label')?.textContent,
+    ).toContain('Greenest');
+  });
+
+  it('ignores query parameters that are not valid values', async () => {
+    fixture.componentRef.setInput('from', '999');
+    fixture.componentRef.setInput('to', 'abc');
+    fixture.componentRef.setInput('date', 'tomorrow');
+    fixture.componentRef.setInput('travelers', '40');
+    fixture.componentRef.setInput('priority', 'LUXURY');
+    await openNew();
+
+    expect(page.querySelector<HTMLInputElement>('#trip-title')?.value).toBe('');
+    expect(
+      page.querySelector<HTMLSelectElement>('#trip-origin')?.selectedOptions[0].text,
+    ).toContain('Choose a city');
+    expect(page.querySelector<HTMLInputElement>('#trip-date')?.value).toBe('');
+    expect(page.querySelector<HTMLInputElement>('#trip-travelers')?.value).toBe('1');
+  });
+
   it('offers the description input only for new trips', async () => {
     fixture.componentRef.setInput('id', '7');
     fixture.detectChanges();

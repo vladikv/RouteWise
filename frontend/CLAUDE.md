@@ -15,6 +15,7 @@ src/
     │   └── theme/       ThemeService (light/dark)
     ├── layout/          app chrome: header (nav, theme toggle)
     ├── shared/ui/       presentational building blocks (spinner, error message, confirm action)
+    ├── shared/map/      route map (SVG) and its pure projection maths
     ├── shared/util/     pure helpers (dates, labels)
     ├── features/<name>/ routed pages and their child components
     ├── app.ts           shell: skip link, header, <router-outlet>, footer
@@ -41,7 +42,7 @@ src/
 - **Smart/presentational split:** pages in `features/` load data through API
   services; components in `shared/ui/` only take inputs and emit outputs.
 - **HTTP:** only through the services in `core/api/` (`TripApi`, `CityApi`,
-  `TransportModeApi`, `AdvisorApi`); components never use `HttpClient`.
+  `TransportModeApi`, `ComparisonApi`, `AdvisorApi`); components never use `HttpClient`.
   URLs are built from the `API_BASE_URL` token. `models.ts` mirrors the
   backend DTO records: change both sides together.
 - **Errors:** `apiErrorInterceptor` turns every failed call into an `ApiError`
@@ -60,6 +61,16 @@ src/
 - **Dependent data:** a resource that needs another's result takes it as
   `params` (e.g. comparison and advice wait for the trip), so a missing trip
   produces one error, not three. Each section shows its own loading and error state.
+- **Map and charts:** hand-drawn SVG/HTML, no library. `RouteMap` places cities
+  with `createProjection` (Mercator); it is presentational and emits the
+  selection. `ComparisonChart` shows one metric at a time with the
+  recommended mode as the only accent bar (`--color-primary`, others
+  `--color-bar`). Neither may be the only way to get information: keep a
+  text or form equivalent (dropdowns for the map, the table for the chart)
+  and state selection in text and `aria-pressed`, not color alone.
+  Mode icons (`ModeIcon`) are decorative and always sit next to the name.
+- **Query parameters** also arrive as component inputs; `/trips/new` accepts
+  `from`, `to`, `date`, `travelers`, `priority` and ignores invalid values.
 - **Destructive actions:** `<app-confirm-action>` (inline two-step confirm),
   never a one-click delete.
 - **Async views:** load with `rxResource` and render all states: loading
@@ -67,7 +78,8 @@ src/
 - **Styling:** no UI library. Use the tokens in `styles.scss` (`var(--color-…)`,
   `var(--space-…)`), never raw colors, so light and dark both work. Shared
   classes: `.card`, `.button` (`--primary`, `--danger`), `.page-header`,
-  `.actions`, `.badge`, `.field` (`__hint`, `__error`), `.muted`, `.visually-hidden`.
+  `.actions`, `.badge`, `.segmented` (radio group as buttons), `.field`
+  (`__hint`, `__error`), `.muted`, `.visually-hidden`.
   Component styles stay small (4 kB budget).
 - **Theme:** follows the OS until the user toggles; `ThemeService` stores the
   choice in `localStorage` (`routewise.theme`) and sets `data-theme` on `<html>`.

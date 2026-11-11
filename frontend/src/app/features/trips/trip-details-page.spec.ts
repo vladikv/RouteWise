@@ -7,9 +7,10 @@ import { API_BASE_URL } from '../../core/api/api-config';
 import { Trip } from '../../core/api/models';
 import { ADVICE, COMPARISON } from './comparison/comparison.testing';
 import { TripDetailsPage } from './trip-details-page';
-import { TRIP } from './trip-form.testing';
+import { CITIES, TRIP } from './trip-form.testing';
 
 const TRIP_URL = 'http://api.test/api/trips/7';
+const CITIES_URL = 'http://api.test/api/cities';
 const COMPARISON_URL = `${TRIP_URL}/comparison`;
 const ADVICE_URL = `${TRIP_URL}/advice`;
 const NOT_FOUND = { title: 'Not Found', detail: 'Trip with id 7 not found', status: 404 };
@@ -36,6 +37,7 @@ describe('TripDetailsPage', () => {
     fixture.componentRef.setInput('id', '7');
     page = fixture.nativeElement as HTMLElement;
     fixture.detectChanges();
+    httpTesting.expectOne(CITIES_URL).flush(CITIES); // for the route map
   });
 
   afterEach(() => httpTesting.verify());
@@ -85,6 +87,10 @@ describe('TripDetailsPage', () => {
     expect(details).toContain('Greenest');
     expect(details).toContain('Window seat');
     expect(page.querySelector('.actions a')?.getAttribute('href')).toBe('/trips/7/edit');
+    expect(page.querySelector('app-route-map svg')?.getAttribute('role')).toBe('img');
+    expect(page.querySelector('app-route-map svg')?.getAttribute('aria-label')).toBe(
+      'Route from Berlin to Vienna, 524 km straight-line.',
+    );
   });
 
   it('omits the notes row when the trip has no notes', async () => {
@@ -112,6 +118,9 @@ describe('TripDetailsPage', () => {
       'Take the train from Berlin to Vienna.',
     );
     expect(section('comparison-heading').querySelectorAll('tbody tr')).toHaveLength(3);
+    expect(
+      section('comparison-heading').querySelectorAll('app-comparison-chart .bar'),
+    ).toHaveLength(2);
     expect(section('comparison-heading').textContent).toContain('Recommended');
     expect(page.querySelector('[role="status"]')).toBeNull();
   });

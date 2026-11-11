@@ -19,6 +19,16 @@
     }
   </div>
 
+  <div class="route-picker">
+    <p class="field__hint">Pick the route on the map or with the lists below.</p>
+    <app-route-map
+      [cities]="cities()"
+      [originId]="originId()"
+      [destinationId]="destinationId()"
+      (selectionChange)="selectRoute($event)"
+    />
+  </div>
+
   <div class="row">
     <div class="field">
       <label for="trip-origin">From</label>

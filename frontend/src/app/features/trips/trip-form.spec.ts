@@ -84,6 +84,7 @@ describe('TripForm', () => {
 
   it('rejects a past date, a blank title and travelers out of range', async () => {
     fillValidTrip(form);
+    await fixture.whenStable();
     typeInto(form, '#trip-title', '   ');
     typeInto(form, '#trip-date', '2000-01-01');
     typeInto(form, '#trip-travelers', '10');
@@ -160,6 +161,79 @@ describe('TripForm', () => {
 
     expect(errorText(form, 'trip-destination')).toBe('This field is required.');
     expect(emitted).toEqual([]);
+  });
+
+  it('keeps the map and the dropdowns in sync in both directions', async () => {
+    const marker = (name: string) =>
+      Array.from(form.querySelectorAll('app-route-map g.city')).find((g) =>
+        g.getAttribute('aria-label')?.startsWith(name),
+      );
+    const selected = (id: string) =>
+      form.querySelector<HTMLSelectElement>(id)?.selectedOptions[0].text.trim();
+
+    marker('Berlin')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await fixture.whenStable();
+    marker('Vienna')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await fixture.whenStable();
+
+    expect(selected('#trip-origin')).toBe('Berlin (DE)');
+    expect(selected('#trip-destination')).toBe('Vienna (AT)');
+    expect(form.querySelector('app-route-map [role="status"]')?.textContent).toContain(
+      'Route from Berlin to Vienna',
+    );
+
+    choose(form, '#trip-origin', 'Vienna');
+    choose(form, '#trip-destination', 'Berlin');
+    await fixture.whenStable();
+
+    expect(marker('Vienna')?.getAttribute('aria-label')).toBe('Vienna, origin');
+    expect(marker('Berlin')?.getAttribute('aria-label')).toBe('Berlin, destination');
+  });
+
+  it('starts a new trip from preset values and leaves the rest untouched', async () => {
+    fixture.componentRef.setInput('preset', {
+      title: 'Berlin to Vienna',
+      originCityId: 3,
+      destinationCityId: 23,
+      departureDate: '2099-05-20',
+      travelers: 4,
+      priority: 'FASTEST',
+    });
+    await fixture.whenStable();
+    submit(form);
+    await fixture.whenStable();
+
+    expect(emitted).toEqual([
+      {
+        title: 'Berlin to Vienna',
+        originCityId: 3,
+        destinationCityId: 23,
+        departureDate: '2099-05-20',
+        travelers: 4,
+        priority: 'FASTEST',
+        notes: null,
+      },
+    ]);
+  });
+
+  it('suggests a title from the cities and keeps a title the user wrote', async () => {
+    const title = () => form.querySelector<HTMLInputElement>('#trip-title')?.value;
+
+    choose(form, '#trip-origin', 'Berlin');
+    choose(form, '#trip-destination', 'Vienna');
+    await fixture.whenStable();
+    expect(title()).toBe('Berlin to Vienna');
+
+    choose(form, '#trip-origin', 'Vienna');
+    choose(form, '#trip-destination', 'Berlin');
+    await fixture.whenStable();
+    expect(title()).toBe('Vienna to Berlin');
+
+    typeInto(form, '#trip-title', 'Anniversary weekend');
+    choose(form, '#trip-origin', 'Berlin');
+    choose(form, '#trip-destination', 'Vienna');
+    await fixture.whenStable();
+    expect(title()).toBe('Anniversary weekend');
   });
 
   it('disables the submit button while saving', async () => {

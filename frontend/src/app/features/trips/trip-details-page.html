@@ -23,7 +23,7 @@
     </div>
   }
 
-  <section class="card" aria-label="Trip details">
+  <section class="card overview" aria-label="Trip details">
     <dl class="details">
       <div>
         <dt>From</dt>
@@ -52,6 +52,15 @@
         </div>
       }
     </dl>
+    @if (cities.value(); as cityList) {
+      <app-route-map
+        class="overview__map"
+        [cities]="cityList"
+        [originId]="trip.origin.id"
+        [destinationId]="trip.destination.id"
+        [interactive]="false"
+      />
+    }
   </section>
 
   <section class="card" aria-labelledby="advice-heading">
@@ -72,6 +81,8 @@
     } @else if (comparison.error(); as error) {
       <app-error-message [error]="error" (retry)="comparison.reload()" />
     } @else if (comparison.value(); as value) {
+      <app-comparison-chart [comparison]="value" />
+      <h3 class="exact-heading">Exact numbers</h3>
       <app-comparison-panel [comparison]="value" />
     }
   </section>

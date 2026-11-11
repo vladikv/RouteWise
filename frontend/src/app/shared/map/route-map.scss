@@ -1,0 +1,112 @@
+:host {
+  display: block;
+}
+
+/* On narrow screens the interactive map keeps a legible size and scrolls sideways
+   instead of shrinking its city names below reading size. */
+.map-scroll {
+  overflow-x: auto;
+  border-radius: var(--radius);
+}
+
+.map--interactive {
+  min-width: 30rem;
+}
+
+.map {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 34rem;
+  border-radius: var(--radius);
+  /* A dot grid stands in for a base map: light, and it works in both themes. */
+  background-color: var(--color-surface-muted);
+  background-image: radial-gradient(var(--color-border) 1px, transparent 1.5px);
+  background-size: 22px 22px;
+}
+
+.city {
+  cursor: pointer;
+  outline: none;
+}
+
+.city--static {
+  cursor: default;
+}
+
+.city__hit {
+  fill: transparent;
+}
+
+.city__dot {
+  fill: var(--color-text-muted);
+  transition: r 0.15s ease;
+}
+
+.city__name {
+  fill: var(--color-text);
+  font-size: 15px;
+  font-weight: 500;
+  /* A halo keeps names readable where they cross the route or the grid. */
+  paint-order: stroke;
+  stroke: var(--color-surface-muted);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.city__ring {
+  fill: var(--color-primary);
+}
+
+.city__letter {
+  fill: var(--color-on-primary);
+  font-size: 12px;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.city:hover .city__dot,
+.city:focus-visible .city__dot {
+  r: 7;
+  fill: var(--color-primary);
+}
+
+.city:focus-visible .city__hit {
+  stroke: var(--color-focus);
+  stroke-width: 3;
+}
+
+.city--origin .city__name,
+.city--destination .city__name {
+  font-weight: 700;
+}
+
+.city--faded .city__dot {
+  opacity: 0.45;
+}
+
+.route {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  animation: draw-route 0.7s ease-out both;
+}
+
+@keyframes draw-route {
+  from {
+    stroke-dashoffset: 1;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.status {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.9375rem;
+}

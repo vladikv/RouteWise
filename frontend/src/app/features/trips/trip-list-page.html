@@ -30,12 +30,13 @@
             </h2>
             <p class="trip__route">
               {{ trip.origin.name }}
-              <span aria-hidden="true">→</span>
+              <span class="trip__line" aria-hidden="true"></span>
               <span class="visually-hidden">to</span>
               {{ trip.destination.name }}
             </p>
             <p class="trip__meta muted">
-              {{ trip.departureDate | date: 'mediumDate' }} · {{ travelersLabel(trip.travelers) }}
+              {{ trip.departureDate | date: 'mediumDate' }} ({{ countdown(trip) }}) ·
+              {{ travelersLabel(trip.travelers) }}
               <span class="badge">{{ priorityLabels[trip.priority] }}</span>
             </p>
           </div>

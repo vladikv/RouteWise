@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { AdvisorApi } from './advisor-api';
 import { API_BASE_URL } from './api-config';
 import { CityApi } from './city-api';
+import { ComparisonApi } from './comparison-api';
 import { TripRequest } from './models';
 import { TransportModeApi } from './transport-mode-api';
 import { TripApi } from './trip-api';
@@ -95,6 +96,23 @@ describe('API services', () => {
       TestBed.inject(TransportModeApi).findAll().subscribe();
 
       httpTesting.expectOne({ method: 'GET', url: `${BASE}/api/transport-modes` });
+    });
+  });
+
+  describe('ComparisonApi', () => {
+    it('posts a route to compare without saving a trip', () => {
+      const request = {
+        originCityId: 3,
+        destinationCityId: 23,
+        departureDate: '2026-11-20',
+        travelers: 2,
+        priority: 'GREENEST' as const,
+      };
+
+      TestBed.inject(ComparisonApi).preview(request).subscribe();
+
+      const call = httpTesting.expectOne({ method: 'POST', url: `${BASE}/api/comparisons` });
+      expect(call.request.body).toEqual(request);
     });
   });
 
