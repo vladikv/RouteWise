@@ -10,16 +10,21 @@ Package-by-feature under `com.routewise`. Each feature owns its layers:
 ```
 com.routewise
 ├── common/
-│   ├── config/       CORS, OpenAPI, shared @ConfigurationProperties
+│   ├── config/       cross-cutting config: CORS, OpenAPI, Clock
 │   └── exception/    RouteWiseException hierarchy, GlobalExceptionHandler
-└── <feature>/        e.g. trip, city, comparison, advisor
+└── <feature>/        e.g. trip, city, comparison, weather, advisor
     ├── controller/   @RestController, DTOs in/out only
-    ├── service/      business logic, transactions
+    ├── service/      business logic, transactions, pure rule classes
     ├── repository/   Spring Data JPA interfaces
-    ├── domain/       JPA entities, enums
+    ├── domain/       JPA entities, enums, plain domain records (engine input/output)
     ├── dto/          request/response records
-    └── mapper/       entity ↔ DTO mapping
+    ├── mapper/       entity ↔ DTO mapping
+    ├── client/       external API client: interface + implementation (if any)
+    └── config/       the feature's @ConfigurationProperties and beans (if any)
 ```
+
+A feature only has the subpackages it needs (`weather` has no controller or
+repository; `city` has no client).
 
 Resources: `application.yml`, Flyway migrations in `src/main/resources/db/migration/`.
 
@@ -64,12 +69,21 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
   `ddl-auto=validate`, `open-in-view=false`. Never edit an existing migration.
   Services map entities to DTOs inside their transaction; repositories use
   `@EntityGraph` for associations the response needs (no lazy loading outside).
+  Exception: services that call external APIs (e.g. `ComparisonService`) are
+  not transactional; they load what they need via `@EntityGraph` queries and
+  map detached entities.
   H2 is pinned to 2.3.232 in `pom.xml` (see the comment there) — keep the pin
   until a fixed H2 release is verified with the `TripRepositoryTest` suite.
 - **External HTTP** (weather, LLM): use `RestClient` built from the injected
-  `RestClient.Builder`, with explicit connect and read timeouts from
-  configuration. Each client sits behind an interface in the feature package
-  so it can be mocked and swapped.
+  `RestClient.Builder` (from `spring-boot-starter-restclient`), with explicit
+  connect and read timeouts from configuration (see `WeatherClientConfig`).
+  Each client sits behind an interface in the feature's `client/` package
+  so it can be mocked and swapped. Clients throw on failure; the feature's
+  service catches `RestClientException` and degrades (e.g. `WeatherService`
+  returns no forecast). Never let an external outage fail a request.
+  Don't hold a database transaction open across external calls.
+- **Pure business rules** (e.g. `ComparisonEngine`, `GeoDistance`) take plain
+  records as input (`ComparisonInput`, `ModeParameters`), not entities, and do no I/O.
 - **CORS:** handled centrally in `CorsConfig` for `/api/**`; origins come from
   `routewise.cors.allowed-origins` (env `ROUTEWISE_CORS_ALLOWED_ORIGINS`).
 - New endpoints: follow the `add-rest-endpoint` skill.
@@ -80,6 +94,12 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
 - Services: plain unit tests with Mockito, no Spring context.
 - Controllers: `@WebMvcTest(XController.class)` with `@MockitoBean` services;
   cover success, 400 (validation) and 404.
+- HTTP clients: `MockRestServiceServer.bindTo(RestClient.builder())`; cover
+  success, missing data, server error and timeout. Test that configured
+  timeouts are applied against a local `com.sun.net.httpserver.HttpServer`
+  (see `WeatherClientConfigTest`). Never call real services in tests.
+- Scoring/rule tests assert hand-computed literal values (document the
+  calculation in the test), not values derived from the code under test.
 - Repositories: `@DataJpaTest` only for custom queries; Flyway runs, so tests
   validate the real schema.
 - `RoutewiseApiApplicationTests` (`@SpringBootTest`) must keep passing; it
