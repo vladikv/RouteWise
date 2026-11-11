@@ -36,6 +36,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(FieldValidationException.class)
+    ProblemDetail handleFieldValidation(FieldValidationException ex) {
+        return validationProblem(ex.getErrors());
+    }
+
     @ExceptionHandler(Exception.class)
     ProblemDetail handleUnexpected(Exception ex) {
         log.error("Unexpected error", ex);
