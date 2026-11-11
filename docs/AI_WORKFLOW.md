@@ -244,3 +244,40 @@ corrected manually, and why.
 - Screenshots show layout, not behavior. Clicking through the real app is
   what proves a flow; it is cheap enough to script.
 - Permission to do something once is not permission to do it again.
+
+## `feat/ui-experience` (2026-11-12)
+
+**Delegated to AI**
+- Proposed the direction in plan mode after the human asked for a more
+  unique and interactive site: an interactive route map as the signature
+  element, instant comparison without saving a trip, and a visual chart.
+- Backend: `POST /api/comparisons` for unsaved routes, with tests.
+- Frontend: the SVG route map (home page, trip form, trip details), the route
+  explorer with live priority, travelers and date controls, the comparison
+  chart with a metric switcher and a computed takeaway line, mode icons, and
+  a countdown on trip cards.
+- 38 new frontend tests (107 in total) and 8 new backend tests (193).
+- Drove the real app in headless Chrome through the whole flow, and reviewed
+  screenshots in light and dark themes, at 375 px and with reduced motion.
+
+**Corrected manually / human decisions**
+- The human approved the plan as proposed.
+- Found by looking at the running app, not by tests:
+  - the distance badge on the map covered city names; it was removed, since
+    the distance is already stated in text below the map
+  - the small map on trip details was unreadable; it now zooms to the route
+  - a prefilled title went stale when a city was changed afterwards; the
+    title now follows the cities until the user edits it
+  - on phones the map's city names shrank to about 7 px; the map now scrolls
+    sideways instead
+- One binding landed on the wrong component because two elements shared the
+  same attribute line; the build caught it.
+- Deviation from the plan: the frontend went into one commit instead of
+  three, because the map, the explorer and the chart were built together and
+  share files.
+- The chart palette was checked with the validator from the data
+  visualisation guidance instead of by eye.
+
+**Why**
+- Interactive UI has to be judged while it runs: every correction above came
+  from using the page, and none would have failed a unit test first.
