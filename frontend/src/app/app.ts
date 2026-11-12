@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { Header } from './layout/header/header';
+import { ToastOutlet } from './shared/ui/toast-outlet';
 
 /** App shell: skip link, header, routed page and footer. */
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, Header],
+  imports: [RouterOutlet, Header, ToastOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="glow-layer" aria-hidden="true"><span></span><span></span><span></span></div>
@@ -17,6 +18,7 @@ import { Header } from './layout/header/header';
     <footer class="footer">
       <p>RouteWise compares travel time, cost and CO₂. Weather data by Open-Meteo.</p>
     </footer>
+    <app-toast-outlet />
   `,
   styles: `
     :host {
