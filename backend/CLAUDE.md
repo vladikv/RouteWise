@@ -89,8 +89,16 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
 - **LLM output is untrusted input:** validate it like a request (see
   `TripDraftResolver`) and never let it override computed results
   (the comparison engine picks the recommended mode).
-- **Pure business rules** (e.g. `ComparisonEngine`, `GeoDistance`) take plain
-  records as input (`ComparisonInput`, `ModeParameters`), not entities, and do no I/O.
+- **Pure business rules** (e.g. `ComparisonEngine`, `GeoDistance`,
+  `ItineraryCalculator`) take plain records as input (`ComparisonInput`,
+  `ModeParameters`, `Leg`), not entities, and do no I/O.
+- **Trips and stops:** `Trip` is the aggregate root of its `TripStop`s (2–10,
+  `TripStops.MIN`/`MAX`); change them only through `Trip.replaceStops`, which
+  reuses rows by position so the unique (trip, position) constraint holds.
+  Stop lists from requests (trips and `POST /api/comparisons`) go through
+  `StopResolver`, which reports every bad stop as `stops[i].cityId`.
+  Comparisons run the engine once per leg (stop *i* to *i+1*, that leg's
+  weather), then `ItineraryCalculator` builds the mixed plan and single-mode totals.
 - **CORS:** handled centrally in `CorsConfig` for `/api/**`; origins come from
   `routewise.cors.allowed-origins` (env `ROUTEWISE_CORS_ALLOWED_ORIGINS`).
   Credentials are allowed, so origins must stay explicit (never `*`).
