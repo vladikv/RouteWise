@@ -45,8 +45,8 @@ public class DemoDataSeeder implements ApplicationRunner {
     static final List<SampleTrip> SAMPLE_TRIPS = List.of(
             new SampleTrip("Weekend in Vienna", List.of("Berlin", "Vienna"), 14, 2, TripPriority.GREENEST,
                     "City break with a friend"),
-            new SampleTrip("Central Europe rail loop", List.of("Berlin", "Prague", "Vienna", "Munich", "Berlin"),
-                    21, 2, TripPriority.BALANCED, "Two nights in each city"),
+            new SampleTrip("Central Europe loop", List.of("Berlin", "Prague", "Vienna", "Munich", "Berlin"),
+                    21, 2, TripPriority.FASTEST, "Short on time: two nights in each city"),
             new SampleTrip("Client meeting in Amsterdam", List.of("Paris", "Amsterdam"), 30, 1,
                     TripPriority.FASTEST, null),
             new SampleTrip("Family trip to Prague", List.of("Munich", "Prague"), 45, 4, TripPriority.CHEAPEST,

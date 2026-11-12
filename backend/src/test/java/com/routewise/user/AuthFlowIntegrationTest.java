@@ -119,7 +119,7 @@ class AuthFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(4))
                 .andExpect(jsonPath("$[0].title").value("Weekend in Vienna"))
-                .andExpect(jsonPath("$[1].title").value("Central Europe rail loop"))
+                .andExpect(jsonPath("$[1].title").value("Central Europe loop"))
                 .andExpect(jsonPath("$[1].stops.length()").value(5));
     }
 

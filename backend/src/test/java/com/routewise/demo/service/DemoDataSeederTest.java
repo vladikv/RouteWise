@@ -74,8 +74,8 @@ class DemoDataSeederTest {
         assertThat(trips.getAllValues()).containsExactly(
                 new TripRequest("Weekend in Vienna", stops(1L, 2L), LocalDate.of(2026, 11, 26), 2,
                         TripPriority.GREENEST, "City break with a friend"),
-                new TripRequest("Central Europe rail loop", stops(1L, 6L, 2L, 5L, 1L), LocalDate.of(2026, 12, 3), 2,
-                        TripPriority.BALANCED, "Two nights in each city"),
+                new TripRequest("Central Europe loop", stops(1L, 6L, 2L, 5L, 1L), LocalDate.of(2026, 12, 3), 2,
+                        TripPriority.FASTEST, "Short on time: two nights in each city"),
                 new TripRequest("Client meeting in Amsterdam", stops(3L, 4L), LocalDate.of(2026, 12, 12), 1,
                         TripPriority.FASTEST, null),
                 new TripRequest("Family trip to Prague", stops(5L, 6L), LocalDate.of(2026, 12, 27), 4,
