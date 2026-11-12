@@ -49,16 +49,11 @@ tbody tr:last-child > * {
 
 /* Recommended: border and badge, not color alone. */
 .recommended > * {
-  background: var(--color-surface-muted);
+  background: var(--color-highlight-bg);
 }
 
 .recommended > th {
-  box-shadow: inset 4px 0 0 var(--color-primary);
-}
-
-.badge--recommended {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  box-shadow: inset 4px 0 0 var(--color-highlight);
 }
 
 .unavailable {

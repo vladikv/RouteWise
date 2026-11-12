@@ -66,7 +66,7 @@
 }
 
 .bar--recommended .bar__fill {
-  background: var(--color-primary);
+  background: var(--color-highlight);
 }
 
 .bar__value {
@@ -74,11 +74,6 @@
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   white-space: nowrap;
-}
-
-.badge--recommended {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
 }
 
 .unavailable {

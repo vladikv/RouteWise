@@ -115,7 +115,8 @@ import { ThemeService } from '../../core/theme/theme.service';
       padding: var(--space-2) var(--space-3);
       border-bottom: 2px solid transparent;
       color: var(--color-text-muted);
-      font-weight: 600;
+      font-family: var(--font-display);
+      font-weight: 700;
       text-decoration: none;
     }
 
@@ -146,7 +147,6 @@ import { ThemeService } from '../../core/theme/theme.service';
     .account .button,
     .theme-toggle {
       min-height: 2.5rem;
-      font-weight: 500;
     }
 
     /* Phones: icon only, so the header stays on one row; the label remains for screen readers. */

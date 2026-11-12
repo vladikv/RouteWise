@@ -5,56 +5,80 @@
  * (ThemeService sets data-theme on <html>).
  */
 
+/*
+ * "Fresh travel" palette: ocean-blue primary, sunset highlight for the
+ * recommended option. Every text pair meets WCAG AA (4.5:1) and every
+ * meaningful mark 3:1 in both themes; re-check when changing a value.
+ */
 @mixin dark-tokens {
-  --color-bg: #10151c;
-  --color-surface: #1a212b;
-  --color-surface-muted: #232c38;
-  --color-border: #344050;
-  --color-text: #e8edf3;
-  --color-text-muted: #a3b0c0;
-  --color-primary: #5eb1a2;
-  --color-primary-hover: #7cc4b6;
-  --color-on-primary: #0b1f1b;
-  --color-accent: #f0b35a;
-  --color-danger: #f28b82;
-  --color-danger-bg: #3a1f1f;
-  --color-focus: #9ad0ff;
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 40%);
-  --color-bar: #6b7888;
-  --map-sea: #101b26;
-  --map-land: #1f2a36;
-  --map-border: #3a4859;
-  --map-city: #a3b0c0;
+  --color-bg: #0b1220;
+  --color-surface: #131c2e;
+  --color-surface-muted: #1b263b;
+  --color-border: #2a3852;
+  --color-border-strong: #6b7c99;
+  --color-text: #e9eef6;
+  --color-text-muted: #a9b6ca;
+  --color-primary: #6ea2ff;
+  --color-primary-hover: #8db6ff;
+  --color-primary-soft: #16264a;
+  --color-on-primary: #0b1220;
+  --color-highlight: #f5a65b;
+  --color-highlight-bg: #3a2513;
+  --color-on-highlight: #ffc58f;
+  --color-success: #5fd3a0;
+  --color-accent: #f5b871;
+  --color-danger: #ff8a80;
+  --color-danger-bg: #3a1b1e;
+  --color-focus: #8db6ff;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 35%), 0 8px 24px rgb(0 0 0 / 25%);
+  --shadow-raised: 0 10px 28px rgb(0 0 0 / 45%);
+  --color-bar: #5f6e86;
+  --map-sea: #0e1a2c;
+  --map-land: #1a2538;
+  --map-border: #3b4c68;
+  --map-city: #a9b6ca;
 }
 
 :root {
   color-scheme: light dark;
 
-  --color-bg: #f5f7f9;
+  --color-bg: #f7f9fc;
   --color-surface: #ffffff;
-  --color-surface-muted: #eef2f5;
-  --color-border: #d3dbe3;
-  --color-text: #17202a;
-  --color-text-muted: #556270;
-  --color-primary: #0f6b5c;
-  --color-primary-hover: #0b5448;
+  --color-surface-muted: #eef3fa;
+  --color-border: #d5deea;
+  /* Borders that identify a control (inputs): 3:1 against the surface. */
+  --color-border-strong: #7d8ca3;
+  --color-text: #0f1b2d;
+  --color-text-muted: #4a5a70;
+  --color-primary: #1f5fd6;
+  --color-primary-hover: #184cad;
+  /* Tinted backgrounds for selected states. */
+  --color-primary-soft: #e8f0fd;
   --color-on-primary: #ffffff;
-  --color-accent: #a85d00;
-  --color-danger: #b3261e;
-  --color-danger-bg: #fdecea;
-  --color-focus: #1a73e8;
-  --shadow-card: 0 1px 2px rgb(16 24 40 / 8%);
+  /* Sunset: marks the recommended option. Text on it uses --color-on-highlight. */
+  --color-highlight: #dd6d16;
+  --color-highlight-bg: #fff1e4;
+  --color-on-highlight: #8a3d00;
+  --color-success: #137a50;
+  /* Weather warnings. */
+  --color-accent: #a34f0c;
+  --color-danger: #c4291c;
+  --color-danger-bg: #fdedec;
+  --color-focus: #1f5fd6;
+  --shadow-card: 0 1px 2px rgb(15 27 45 / 6%), 0 6px 20px rgb(15 27 45 / 6%);
+  --shadow-raised: 0 12px 32px rgb(15 27 45 / 16%);
   /* De-emphasised chart bars; the accent bar uses --color-primary. */
-  --color-bar: #8a96a3;
+  --color-bar: #8593a6;
   /* Route map */
-  --map-sea: #dfeaf2;
-  --map-land: #fbfaf6;
-  --map-border: #c5ccd4;
-  --map-city: #556270;
+  --map-sea: #dce9f7;
+  --map-land: #fbfcfe;
+  --map-border: #b9c6d6;
+  --map-city: #4a5a70;
 
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --radius: 10px;
-  --radius-sm: 6px;
+  --font-display: 'Manrope', var(--font-sans);
+  --radius: 14px;
+  --radius-sm: 8px;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -91,23 +115,35 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans);
-  font-size: 1rem;
-  line-height: 1.5;
+  /* 17 px body text with generous leading for easier reading. */
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
 }
 
 h1,
 h2,
 h3 {
-  line-height: 1.2;
   margin: 0 0 var(--space-3);
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
 }
 
 h1 {
-  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  font-size: clamp(1.9rem, 4.5vw, 2.6rem);
 }
 
 h2 {
-  font-size: 1.25rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
 }
 
 p {
@@ -116,6 +152,11 @@ p {
 
 a {
   color: var(--color-primary);
+  text-underline-offset: 0.18em;
+
+  &:hover {
+    color: var(--color-primary-hover);
+  }
 }
 
 :focus-visible {
@@ -130,7 +171,7 @@ a {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-card);
-  padding: var(--space-6);
+  padding: clamp(var(--space-4), 3vw, var(--space-8));
 }
 
 .button {
@@ -145,12 +186,23 @@ a {
   background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 700;
   text-decoration: none;
   cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.1s ease;
 
   &:hover {
+    border-color: var(--color-border-strong);
     background: var(--color-surface-muted);
+    color: var(--color-text);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
   }
 }
 
@@ -158,10 +210,12 @@ a {
   border-color: var(--color-primary);
   background: var(--color-primary);
   color: var(--color-on-primary);
+  box-shadow: 0 2px 8px rgb(31 95 214 / 25%);
 
   &:hover {
     border-color: var(--color-primary-hover);
     background: var(--color-primary-hover);
+    color: var(--color-on-primary);
   }
 }
 
@@ -206,13 +260,21 @@ a {
 
 .badge {
   display: inline-block;
-  padding: 0.1rem var(--space-2);
+  padding: 0.15rem 0.6rem;
   border: 1px solid var(--color-border);
   border-radius: 999px;
   background: var(--color-surface-muted);
+  font-family: var(--font-display);
   font-size: 0.8125rem;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
+}
+
+/* The recommended mode (table, chart): sunset, always with its "★ Recommended" text. */
+.badge--recommended {
+  border-color: var(--color-highlight);
+  background: var(--color-highlight-bg);
+  color: var(--color-on-highlight);
 }
 
 /* Segmented control: a radio group shown as a row of buttons. */
@@ -255,7 +317,8 @@ a {
 
   input:checked + span {
     border-color: var(--color-primary);
-    background: var(--color-surface);
+    background: var(--color-primary-soft);
+    color: var(--color-text);
     box-shadow: var(--shadow-card);
   }
 
@@ -282,7 +345,8 @@ a {
 
 .field label,
 .field legend {
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 700;
 }
 
 .field__hint {
@@ -300,13 +364,22 @@ input,
 select,
 textarea {
   width: 100%;
-  min-height: 2.75rem;
+  min-height: 2.875rem;
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
+  transition: border-color 0.15s ease;
+
+  &:hover {
+    border-color: var(--color-text-muted);
+  }
+
+  &:focus-visible {
+    border-color: var(--color-primary);
+  }
 }
 
 textarea {
