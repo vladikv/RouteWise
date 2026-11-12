@@ -40,7 +40,7 @@
 }
 
 .leg--blocked .leg__number {
-  background: var(--color-surface-muted);
+  background: var(--glass-bg-strong);
   color: var(--color-text);
   border: 1px solid var(--color-border-strong);
 }
@@ -144,9 +144,10 @@ h3 {
 
 .leg-details {
   margin-bottom: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
   padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg-strong);
 }
 
 .leg-details > summary {

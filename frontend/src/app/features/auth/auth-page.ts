@@ -163,10 +163,9 @@ import { AuthForm, AuthMode } from './auth-form';
 
     .demo {
       padding: var(--space-6);
-      border: 1px solid var(--color-border);
-      border-left: 4px solid var(--color-primary);
-      border-radius: var(--radius);
-      background: var(--color-surface);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      background: var(--glass-bg);
     }
 
     .demo h3 {

@@ -7,20 +7,42 @@ import { ApiError } from '../../core/api/api-error';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="error" role="alert">
-      <p class="error__title">{{ title() }}</p>
-      <p class="error__detail">{{ detail() }}</p>
-      @if (retryable()) {
-        <button type="button" class="button" (click)="retry.emit()">Try again</button>
-      }
+      <svg class="error__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M12 3.5l9 16H3l9-16zM12 10v4M12 17h.01" />
+      </svg>
+      <div class="error__body">
+        <p class="error__title">{{ title() }}</p>
+        <p class="error__detail">{{ detail() }}</p>
+        @if (retryable()) {
+          <button type="button" class="button" (click)="retry.emit()">Try again</button>
+        }
+      </div>
     </div>
   `,
   styles: `
     .error {
+      display: flex;
+      gap: var(--space-3);
       padding: var(--space-4);
       border: 1px solid var(--color-danger);
-      border-left-width: 4px;
-      border-radius: var(--radius-sm);
+      border-radius: var(--radius-lg);
       background: var(--color-danger-bg);
+    }
+
+    .error__icon {
+      flex: none;
+      width: 1.5rem;
+      height: 1.5rem;
+      margin-top: 0.1rem;
+      fill: none;
+      stroke: var(--color-danger);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .error__body {
+      min-width: 0;
     }
 
     .error__title {

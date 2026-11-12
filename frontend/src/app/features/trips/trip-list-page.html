@@ -81,7 +81,7 @@
     <app-error-message [error]="error" (retry)="trips.reload()" />
   } @else if (trips.value(); as list) {
     @if (list.length === 0) {
-      <section class="empty">
+      <section class="empty-state">
         <h2>No trips yet</h2>
         <p class="muted">Create your first trip to compare how to get there.</p>
         <a class="button button--primary" routerLink="/trips/new">Create a trip</a>
@@ -97,7 +97,7 @@
       />
 
       @if (visible().length === 0) {
-        <section class="empty">
+        <section class="empty-state">
           <h2>No trips match your filters</h2>
           <p class="muted">Try another search or remove a filter.</p>
           <button type="button" class="button" (click)="clearFilters()">Clear filters</button>

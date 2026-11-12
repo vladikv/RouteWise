@@ -25,48 +25,66 @@ import { TripForm, TripPreset } from './trip-form';
       <h1>{{ id() ? 'Edit trip' : 'New trip' }}</h1>
     </div>
 
-    @if (!id()) {
-      <section class="card draft" aria-label="Describe your trip">
-        <app-trip-draft-input
-          [busy]="parsing()"
-          [draft]="draft()"
-          [error]="parseError()"
-          (parse)="parseDescription($event)"
-        />
-      </section>
-    }
-
-    <section class="card">
-      @if (cities.isLoading() || trip.isLoading()) {
-        <app-spinner label="Loading…" />
-      } @else if (cities.error() ?? trip.error(); as error) {
-        <app-error-message [error]="error" (retry)="reload()" />
-      } @else if (cities.value(); as cityList) {
-        @if (saveError(); as error) {
-          <div class="save-error">
-            <app-error-message [error]="error" [retryable]="false" />
-          </div>
-        }
-        <app-trip-form
-          [cities]="cityList"
-          [trip]="trip.value() ?? null"
-          [draft]="draft()"
-          [preset]="preset()"
-          [submitting]="saving()"
-          [serverErrors]="fieldErrors()"
-          [cancelLink]="cancelLink()"
-          (submitted)="save($event)"
-        />
+    <div class="layout" [class.layout--single]="id()">
+      @if (!id()) {
+        <section class="card draft" aria-label="Describe your trip">
+          <app-trip-draft-input
+            [busy]="parsing()"
+            [draft]="draft()"
+            [error]="parseError()"
+            (parse)="parseDescription($event)"
+          />
+        </section>
       }
-    </section>
+
+      <section class="card form">
+        @if (cities.isLoading() || trip.isLoading()) {
+          <app-spinner label="Loading…" />
+        } @else if (cities.error() ?? trip.error(); as error) {
+          <app-error-message [error]="error" (retry)="reload()" />
+        } @else if (cities.value(); as cityList) {
+          @if (saveError(); as error) {
+            <div class="save-error">
+              <app-error-message [error]="error" [retryable]="false" />
+            </div>
+          }
+          <app-trip-form
+            [cities]="cityList"
+            [trip]="trip.value() ?? null"
+            [draft]="draft()"
+            [preset]="preset()"
+            [submitting]="saving()"
+            [serverErrors]="fieldErrors()"
+            [cancelLink]="cancelLink()"
+            (submitted)="save($event)"
+          />
+        }
+      </section>
+    </div>
   `,
   styles: `
-    .card {
+    .layout {
+      display: grid;
+      gap: var(--space-6);
       max-width: 44rem;
     }
 
-    .draft {
-      margin-bottom: var(--space-6);
+    /* Wide screens: the description sits beside the form and stays in view while it scrolls. */
+    @media (min-width: 64rem) {
+      .layout {
+        grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr);
+        align-items: start;
+        max-width: none;
+      }
+
+      .layout--single {
+        grid-template-columns: minmax(0, 44rem);
+      }
+
+      .draft {
+        position: sticky;
+        top: var(--space-4);
+      }
     }
 
     .save-error {

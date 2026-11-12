@@ -69,10 +69,9 @@ import { ErrorMessage } from '../../shared/ui/error-message';
 
     .result[role='status'] {
       padding: var(--space-3) var(--space-4);
-      border: 1px solid var(--color-border);
-      border-left: 4px solid var(--color-primary);
-      border-radius: var(--radius-sm);
-      background: var(--color-surface-muted);
+      border: 1px solid var(--color-primary);
+      border-radius: var(--radius-md);
+      background: var(--color-primary-a12);
     }
 
     .result__title {

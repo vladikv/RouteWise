@@ -172,7 +172,7 @@ describe('TripListPage', () => {
     await load([]);
 
     expect(page.textContent).toContain('No trips yet');
-    expect(page.querySelector('.empty a')?.getAttribute('href')).toBe('/trips/new');
+    expect(page.querySelector('.empty-state a')?.getAttribute('href')).toBe('/trips/new');
     expect(page.querySelector('app-stat-chip')).toBeNull();
     expect(page.querySelector('input[type="search"]')).toBeNull();
   });

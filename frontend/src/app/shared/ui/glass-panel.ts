@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input, model } from '@angular/core';
 
 let nextId = 0;
@@ -8,32 +9,52 @@ let nextId = 0;
  */
 @Component({
   selector: 'app-glass-panel',
+  imports: [NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="panel" [class.panel--strong]="strong()">
+    <ng-template #content>
       @if (collapsible()) {
-        <h2 class="heading" [attr.aria-level]="headingLevel()">
-          <button
-            type="button"
-            class="toggle"
-            [attr.aria-expanded]="!collapsed()"
-            [attr.aria-controls]="bodyId"
-            (click)="collapsed.set(!collapsed())"
+        <button
+          type="button"
+          class="toggle"
+          [attr.aria-expanded]="!collapsed()"
+          [attr.aria-controls]="bodyId"
+          (click)="collapsed.set(!collapsed())"
+        >
+          <span>{{ heading() || 'Details' }}</span>
+          <svg
+            class="chevron"
+            [class.chevron--open]="!collapsed()"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            focusable="false"
           >
-            <span>{{ heading() || 'Details' }}</span>
-            <svg
-              class="chevron"
-              [class.chevron--open]="!collapsed()"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </button>
-        </h2>
-      } @else if (heading()) {
-        <h2 class="heading heading--static" [attr.aria-level]="headingLevel()">{{ heading() }}</h2>
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+      } @else {
+        {{ heading() }}
+      }
+    </ng-template>
+    <section class="panel" [class.panel--strong]="strong()">
+      @if (collapsible() || heading()) {
+        @switch (headingLevel()) {
+          @case (1) {
+            <h1 class="heading" [class.heading--static]="!collapsible()">
+              <ng-container [ngTemplateOutlet]="content" />
+            </h1>
+          }
+          @case (3) {
+            <h3 class="heading" [class.heading--static]="!collapsible()">
+              <ng-container [ngTemplateOutlet]="content" />
+            </h3>
+          }
+          @default {
+            <h2 class="heading" [class.heading--static]="!collapsible()">
+              <ng-container [ngTemplateOutlet]="content" />
+            </h2>
+          }
+        }
       }
       <div class="body" [id]="bodyId" [hidden]="collapsible() && collapsed()">
         <ng-content />
@@ -62,6 +83,7 @@ let nextId = 0;
     .heading {
       margin: 0;
       font-size: 1.1rem;
+      line-height: 1.3;
     }
 
     .heading:has(+ .body:not([hidden])),
@@ -106,8 +128,8 @@ let nextId = 0;
 })
 export class GlassPanel {
   readonly heading = input<string>();
-  /** Outline level announced for the heading (it is an h2 element); the page's main panel can pass 1. */
-  readonly headingLevel = input<1 | 2 | 3 | null>(null);
+  /** Element used for the heading: h1 for the page's main panel, h2 by default, or h3. */
+  readonly headingLevel = input<1 | 2 | 3>(2);
   readonly collapsible = input(false);
   readonly collapsed = model(false);
   /** Lighter fill, for a panel that sits on top of other glass. */

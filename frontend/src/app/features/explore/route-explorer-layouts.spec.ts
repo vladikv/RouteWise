@@ -57,7 +57,8 @@ describe('RouteExplorer layouts', () => {
       expect(count('.dock--left app-glass-panel')).toBe(1);
       expect(count('.dock--right app-glass-panel')).toBe(1);
       expect(count('app-bottom-sheet')).toBe(0);
-      expect(explorer.querySelector('.dock--left .heading')?.getAttribute('aria-level')).toBe('1');
+      expect(explorer.querySelector('.dock--left .heading')?.tagName).toBe('H1');
+      expect(explorer.querySelector('h1')).toBe(explorer.querySelector('.dock--left .heading'));
       expect(explorer.querySelector('.dock--left .heading')?.textContent).toContain(
         'Find the best way to get there',
       );

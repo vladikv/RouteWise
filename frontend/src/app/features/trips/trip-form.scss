@@ -30,9 +30,25 @@
   gap: var(--space-1);
 }
 
-.stop__button {
-  min-width: 2.75rem;
-  padding: 0;
+/* On phones the move and remove buttons drop below the picker so its text stays readable. */
+@media (max-width: 30rem) {
+  .stop {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stop__actions {
+    justify-content: flex-end;
+  }
+
+  .priority .segmented {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-radius: var(--radius-lg);
+  }
+
+  .priority .segmented span {
+    justify-content: center;
+  }
 }
 
 .stop__error {
@@ -56,40 +72,10 @@
   margin-bottom: var(--space-2);
 }
 
-.priority__options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.priority__option {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: 2.75rem;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-weight: 500;
-  cursor: pointer;
-
-  input {
-    width: auto;
-    min-height: 0;
-    accent-color: var(--color-primary);
-  }
-
-  &:has(input:checked) {
-    border-color: var(--color-primary);
-    background: var(--color-surface-muted);
-  }
-}
-
 .form-summary {
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-danger);
-  border-left-width: 4px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--color-danger-bg);
   color: var(--color-danger);
   font-weight: 600;

@@ -13,10 +13,12 @@ src/
     ├── core/
     │   ├── api/         typed API layer: models, one service per resource, ApiError
     │   └── auth/        Session (who is logged in), authGuard, credentialsInterceptor
-    ├── layout/          app chrome: header (nav, account)
-    ├── shared/ui/       presentational building blocks (spinner, error message, confirm action)
+    ├── layout/          app chrome: header (full width, same 24 px gutter as the Home panels; 16 px on phones)
+    ├── shared/ui/       presentational building blocks: glass panel, pill nav, stat chip, tabs,
+    │                    segmented toggle, filter chip, icon button, bottom sheet, spinner,
+    │                    error message, confirm action, pickers, mode icon
     ├── shared/map/      route map (SVG) and its pure projection maths
-    ├── shared/util/     pure helpers (dates, labels)
+    ├── shared/util/     pure helpers (dates, labels, `LayoutBreakpoint`)
     ├── features/<name>/ routed pages and their child components
     ├── app.ts           shell: skip link, header, <router-outlet>, footer
     ├── app.routes.ts    lazy routes (`loadComponent`)
@@ -83,9 +85,12 @@ src/
   `[stops]` (an ordered list of city ids), draws every leg with numbered pins
   and emits `cityPick` instead. With `[wide]="true"` (home page) a map
   at least 720 px wide shows the whole land outline in a landscape view; below
-  that, and on the small maps, it keeps the near-square view. The land data
+  that, and on the small maps, it keeps the near-square view. `[fill]` makes the map fill its
+  container (Home wide and narrow), `controls` (`corner` | `bottom`) places the zoom buttons and
+  `insetStart`/`insetEnd` (px) keep the fitted route clear of floating panels. The route is
+  drawn with a non-scaling stroke and no dash pattern, so it stays crisp when zooming. The land data
   (`europe-land.ts`) comes from `scripts/gen-europe-land.py`; its box must match
-  `LAND_WEST`/`LAND_EAST` in `route-map.ts`. `ComparisonChart` shows one metric at a time with the
+  `LAND_WEST`/`LAND_EAST` in `route-map.ts`. `ComparisonChart` shows one metric at a time (switched with `Tabs`) with the
   recommended mode as the only accent bar (`--color-highlight`, others
   `--color-bar`). Neither may be the only way to get information: keep a
   text or form equivalent (dropdowns for the map, the table for the chart)
@@ -99,6 +104,13 @@ src/
   `legComparison(comparison, index)`). A two-stop trip and the home explorer
   show that single leg as before; a multi-stop trip uses `ItineraryView`
   (leg timeline, whole-trip totals, each leg's details).
+- **Home layouts** (`LayoutBreakpoint.layout()`: `wide` >= 1280 px, `medium` 768-1279 px,
+  `narrow` < 768 px): wide = full-bleed map with two floating `GlassPanel`s (settings left, with the
+  page `<h1>`; results right, with `WeatherCard`), both collapsible; medium = map, settings and
+  results stacked; narrow = map plus a `BottomSheet` (peek/expanded, draggable) with settings and results.
+- **Trips list** (`features/trips/list/`): `TripToolbar` (search, `FilterChip`s, Board/List
+  `SegmentedToggle`, New trip), `TripBoard` (columns by priority), `TripTable`, `TripCard`, `TripMenu`;
+  `trip-figures.ts` derives cost, CO₂ and KPIs from each trip's comparison (no extra API).
 - **Explorer state** is mirrored in the URL (`from`, `to`, `date`, `travelers`,
   `priority`; defaults left out).
 - **Query parameters** also arrive as component inputs; `/trips/new` accepts
@@ -106,7 +118,8 @@ src/
 - **Destructive actions:** `<app-confirm-action>` (inline two-step confirm),
   never a one-click delete.
 - **Async views:** load with `rxResource` and render all states: loading
-  (`<app-spinner>`), error with retry, empty, and data.
+  (`<app-spinner>`, `role="status"`), error with retry (`<app-error-message>`, `role="alert"`), empty
+  (`.empty-state`: centered glass panel with heading, hint and action) and data.
 - **Styling:** no UI library. Use the tokens in `styles.scss` (`var(--color-…)`,
   `var(--space-…)`), never raw colors. Palette is a strict 60/30/10: midnight
   black backgrounds (`--color-bg`, `--color-surface`), pure white text and lines
@@ -130,8 +143,12 @@ src/
   `index.html`, weights 400-800) is the only font (`--font-sans`; `--font-display`
   is an alias). Shared classes: `.card`, `.button` (`--primary`,
   `--danger`), `.page-header`, `.actions`, `.badge` (`--recommended`),
-  `.segmented` (radio group as buttons), `.field` (`__hint`, `__error`),
-  `.muted`, `.visually-hidden`. Component styles stay small (4 kB budget).
+  `.empty-state`, `.segmented` (radio group as buttons), `.field` (`__hint`, `__error`),
+  `.muted`, `.visually-hidden`. Building blocks in `shared/ui/`: `GlassPanel` (`headingLevel` 1-3 renders
+  the matching `<h1>`-`<h3>`; optional collapse), `PillNav`, `StatChip`, `Tabs` (ARIA tabs, e.g. the
+  metric switch), `SegmentedToggle`, `FilterChip`, `IconButton`, `BottomSheet`; prefer them over new
+  one-off controls. Blur only on a few top-level panels, never per list row. Component styles stay
+  small (4 kB budget).
 - **Theme:** one dark theme only (`color-scheme: dark`); there is no theme
   toggle. Do not add light-mode styles.
 - **Accessibility:** semantic HTML and landmarks, labels on inputs, visible

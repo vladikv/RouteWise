@@ -244,6 +244,33 @@ a {
   color: var(--color-text-muted);
 }
 
+/* Empty state: a centered glass panel with a heading, a hint and an action. */
+.empty-state {
+  padding: var(--space-8) var(--space-4);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  text-align: center;
+
+  h1,
+  h2 {
+    margin-bottom: var(--space-2);
+  }
+
+  p {
+    max-width: 48ch;
+    margin-inline: auto;
+  }
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+
+  p + .button {
+    margin-top: var(--space-2);
+  }
+}
+
 .page-header {
   display: flex;
   flex-wrap: wrap;
