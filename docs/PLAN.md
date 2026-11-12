@@ -11,6 +11,8 @@ checkboxes when a milestone is completed.
 - Works with zero configuration (rule-based fallback without an AI key)
 - Accounts (email + password, session login); saved trips are private to their owner
 - Demo account with sample trips (`demo@routewise.app` / `demo1234`), one click on the login page
+- Multi-stop trips: an ordered list of 2–10 stops; the comparison is computed per leg
+  and recommends a mixed itinerary, compared with single-mode alternatives
 
 Out of scope for v1: social login, password reset, email verification,
 real-time timetables, booking.
@@ -26,12 +28,20 @@ real-time timetables, booking.
 **TransportMode**: seeded reference data
 `code (TRAIN|BUS|CAR|BIKE|PLANE), avgSpeedKmh, costPerKm, co2GramsPerKm, fixedOverheadMinutes, maxDistanceKm`
 
-**Trip**: user-owned, full CRUD, visible only to its owner
-`id, ownerId, title, originCityId, destinationCityId, departureDate, travelers, priority (FASTEST|CHEAPEST|GREENEST|BALANCED), notes, createdAt, updatedAt`
+**Trip**: user-owned, full CRUD, visible only to its owner; aggregate root of its stops
+`id, ownerId, title, departureDate, travelers, priority (FASTEST|CHEAPEST|GREENEST|BALANCED), notes, createdAt, updatedAt, stops`
+*(changed in `feat/multi-stop-trips`: `originCityId`/`destinationCityId` replaced by `stops`)*
 
-**Comparison**: computed, not stored
-Per mode: `durationMinutes, totalCost, co2Kg, score, recommended`.
-Distance = haversine between cities × road/rail factor.
+**TripStop**: part of a trip (cascade + orphan removal, ordered by `position`) *(new)*
+`id, trip (ManyToOne), city (ManyToOne), position (0-based)`.
+2–10 stops; no two consecutive stops in the same city (a round trip, first = last, is allowed).
+A simple A → B trip is a trip with 2 stops.
+
+**Comparison**: computed, not stored *(changed: per leg)*
+A leg is stop *i* → stop *i+1*. Per leg and mode: `durationMinutes, totalCost, co2Kg, score, recommended`,
+with the leg's weather. Per trip: `recommendedItinerary` (sum of each leg's recommended mode)
+and `singleModeTotals` (one mode for every leg, only if that mode is available on every leg).
+Distance = haversine between cities × road/rail factor. All legs use the trip's departure date.
 
 ## API
 
@@ -45,17 +55,20 @@ Changing requests need the `X-XSRF-TOKEN` header echoing the `XSRF-TOKEN` cookie
 | POST | `/api/auth/login` | Log in; starts a session |
 | POST | `/api/auth/logout` | End the session (204) |
 | GET | `/api/auth/me` | The logged-in account (401 when logged out) |
-| GET | `/api/trips` | List your trips |
-| GET | `/api/trips/{id}` | Trip details |
-| POST | `/api/trips` | Create trip (201 + Location) |
-| PUT | `/api/trips/{id}` | Update trip |
+| GET | `/api/trips` | List your trips *(changed: `stops` instead of `origin`/`destination`)* |
+| GET | `/api/trips/{id}` | Trip details *(changed: `stops: [{cityId, cityName, position}]`)* |
+| POST | `/api/trips` | Create trip (201 + Location) *(changed: request `stops: [{cityId}]`)* |
+| PUT | `/api/trips/{id}` | Update trip; replaces the whole ordered stop list *(changed)* |
 | DELETE | `/api/trips/{id}` | Delete trip (204) |
-| GET | `/api/trips/{id}/comparison` | Mode comparison + recommendation |
-| POST | `/api/comparisons` | Compare a route without saving a trip (same response, `tripId` null) |
-| GET | `/api/trips/{id}/advice` | AI/rule-based advice incl. weather |
-| POST | `/api/advisor/parse` | Free text → trip draft |
+| GET | `/api/trips/{id}/comparison` | Per-leg comparison: `legs[]` (from, to, distanceKm, options[], recommendedMode), `recommendedItinerary`, `singleModeTotals[]` *(changed)* |
+| POST | `/api/comparisons` | Compare stops without saving a trip; request `stops: [{cityId}]`, same response, `tripId` null *(changed)* |
+| GET | `/api/trips/{id}/advice` | AI/rule-based advice incl. weather; explains the itinerary leg by leg *(changed)* |
+| POST | `/api/advisor/parse` | Free text → trip draft with ordered `stops` *(changed)* |
 | GET | `/api/cities` | Cities for autocomplete |
 | GET | `/api/transport-modes` | Mode parameters |
+
+Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads replace
+`origin`/`destination` (`originCityId`/`destinationCityId`) with `stops`; the UI changes in the same milestone.
 
 ## External services
 - **Open-Meteo**: weather forecast, no API key required
@@ -76,6 +89,13 @@ Changing requests need the `X-XSRF-TOKEN` header echoing the `XSRF-TOKEN` cookie
 - [x] `feat/map-filters`: land outline, zoom and pan, collision-free labels, city pickers, URL state
 - [x] `feat/auth`: accounts, session login, private trips, login/registration UI
 - [x] `feat/visual-refresh`: midnight/white/lime 60/30/10 dark theme, Manrope headings, 17 px body, split-screen login, AA contrast
+- [ ] `feat/multi-stop-trips`: trips with 2–10 ordered stops, per-leg comparison with a mixed itinerary vs single-mode totals, multi-stop parsing and advice, stops editor and leg timeline in the UI
+  - Backend: `TripStop` + V5 migration converting each existing trip into 2 stops and dropping the origin/destination columns (no old migration edited); validation 2–10 stops, existing cities, no consecutive duplicates → 400 with field errors (`stops[i].cityId`); ownership unchanged
+  - Comparison: per-leg scoring stays in pure functions (`ComparisonEngine` per leg + a pure itinerary/totals calculator); weather per leg (worst of its two cities)
+  - Advisor: parse returns ordered stops (LLM schema and rule-based parser), unknown cities → null stop + warning, only the first date is kept (warning for later dates); advice explains the itinerary leg by leg, also in the rule-based writer
+  - Demo data: the seeder's trips use stops; at least one has 3+ stops
+  - Frontend: trip form with a stops list (add, remove, move up/down, city picker, inline validation); trip list and details show the stops; comparison as a leg timeline with the recommended mode per leg and totals vs single-mode alternatives; maps draw every leg; the home explorer stays A → B (2 stops)
+  - Done when: tests for the migration (existing rows converted), validation cases, per-leg calculation, totals, ownership, parse with stops, rule-based fallback, UI specs; `./mvnw verify` and `npm test` green; README "Data & assumptions" updated if it exists by then; `docs/AI_WORKFLOW.md` entry
 - [ ] `docs/readme-demo`: README, screenshots, demo recording
 
 ## Decisions log
@@ -157,3 +177,8 @@ Changing requests need the `X-XSRF-TOKEN` header echoing the `XSRF-TOKEN` cookie
 | 2026-11-12 | Home page: the map spans the full width on top; below it the settings (route, priority, date, travelers) sit on the left and the results on the right (sticky), stacked on narrow screens | Requested by the human; the map is the main way in, and results next to the settings show the effect of each change at once |
 | 2026-11-12 | The wide map widens its view to the land outline (lon -18..30, about 1.5:1) instead of stretching or cropping the square map | Same projection and labels, no empty bands or cut-off coasts, and the map does not grow taller than the screen |
 | 2026-11-12 | Land outline regenerated for longitude -30..48 (was -18..30; 56 kB, lazy map chunk) with `frontend/scripts/gen-europe-land.py`, and the wide home map shows only the band the cities occupy | The full-width map dropped from about 830 to about 465 px tall on a laptop with every city still visible; the generator is now in the repo so the data can really be regenerated |
+| 2026-11-12 | Multi-stop trips: `Trip` owns an ordered list of 2–10 `TripStop`s; a simple trip is 2 stops; stops are part of the trip resource, not a separate endpoint | Real journeys have several legs; keeping stops inside the trip aggregate means one request saves a consistent route |
+| 2026-11-12 | Comparison is computed per leg; the recommended itinerary sums each leg's best mode, compared with `singleModeTotals` (a mode only if allowed on every leg) | Shows when mixing modes beats sticking to one; per-leg scoring reuses the existing pure engine |
+| 2026-11-12 | `POST /api/comparisons` also takes `stops` and returns the same legs-based response; the home explorer sends 2 stops | One comparison contract for saved and unsaved routes |
+| 2026-11-12 | City list stays at the 25 seeded cities; unknown cities in free text give a null stop and a warning | No new reference data or map density; same handling as unknown cities today |
+| 2026-11-12 | Stops have no dates: every leg uses the trip's departure date for weather; the parser keeps the first date and warns about later ones | Matches the current model; per-stop dates can be a later milestone |
