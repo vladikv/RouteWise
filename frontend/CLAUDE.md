@@ -75,7 +75,9 @@ src/
   (generated from Natural Earth; regenerate, do not edit). Zoom and pan change
   the `viewBox` (`viewport.ts`); marks and text are sized per CSS pixel via
   `unit()`; labels are placed by `layoutLabels` (no overlaps). It is
-  presentational and emits the selection. `ComparisonChart` shows one metric at a time with the
+  presentational and emits the selection. With `[wide]="true"` (home page) a map
+  at least 720 px wide shows the whole land outline in a landscape view; below
+  that, and on the small maps, it keeps the near-square view. `ComparisonChart` shows one metric at a time with the
   recommended mode as the only accent bar (`--color-highlight`, others
   `--color-bar`). Neither may be the only way to get information: keep a
   text or form equivalent (dropdowns for the map, the table for the chart)

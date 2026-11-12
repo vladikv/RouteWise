@@ -416,3 +416,15 @@ corrected manually, and why.
 - Found by looking at the screenshots: the score meters in the comparison
   table were lime on every row, which broke the "lime = recommended" rule;
   they are now gray except for the recommended mode.
+
+**Follow-up: full-width map on the home page (same day)**
+- The human asked for the map at full width with the other controls
+  below, split into left and right. Settings went left, results right.
+- The square map would have grown about 1000 px tall at full width, so
+  `RouteMap` got a `wide` mode that shows more of the land outline
+  instead. A new spec caught a bug in the first version: the small maps
+  also lost their height limit.
+- The full UI suite became flaky (5 s timeouts on the first test of map
+  pages). A/B runs showed the same code taking 9-23 s just to compile,
+  so the cause was machine load (app, Maven and Chrome running in
+  parallel), not the change; reruns with less load pass.
