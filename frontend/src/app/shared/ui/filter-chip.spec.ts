@@ -4,7 +4,9 @@ import { FilterChip } from './filter-chip';
 
 @Component({
   imports: [FilterChip],
-  template: `<app-filter-chip label="Cheap" [count]="count()" [(selected)]="selected" />`,
+  template: `<app-filter-chip label="Cheap" [count]="count()" [(selected)]="selected">
+    <i class="lead"></i>
+  </app-filter-chip>`,
 })
 class Host {
   readonly selected = signal(false);
@@ -38,5 +40,12 @@ describe('FilterChip', () => {
     fixture.componentInstance.count.set(undefined);
     await fixture.whenStable();
     expect(element.querySelector('.count')).toBeNull();
+  });
+
+  it('projects leading content into the button', async () => {
+    const fixture = TestBed.createComponent(Host);
+    await fixture.whenStable();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('button .lead')).not.toBeNull();
   });
 });

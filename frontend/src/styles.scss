@@ -45,6 +45,7 @@
   --color-text-a14: rgb(255 255 255 / 14%);
   --color-primary-a12: rgb(182 242 60 / 12%);
   --color-primary-a20: rgb(182 242 60 / 20%);
+  --color-accent-a12: rgb(245 184 113 / 12%);
   /* Glass surfaces; --glass-bg-strong is the lighter fill for active items. */
   --glass-bg: var(--color-surface-a60);
   --glass-bg-strong: var(--color-surface-muted-a80);
@@ -429,4 +430,9 @@ textarea[aria-invalid='true'] {
     max-width: none;
     padding: 0;
   }
+}
+
+/* The Trips page uses more width for its four-column board. */
+#main:has(.trips-page) {
+  max-width: 84rem;
 }

@@ -1,0 +1,57 @@
+<article
+  class="trip"
+  [class.trip--lime]="tint() === 'lime'"
+  [class.trip--amber]="tint() === 'amber'"
+>
+  <p class="trip__date muted">
+    {{ trip().departureDate | date: 'mediumDate' }} · {{ countdown() }} ·
+    {{ travelersLabel(trip().travelers) }}
+  </p>
+  <h3 class="trip__title">
+    <a [routerLink]="['/trips', trip().id]">{{ trip().title }}</a>
+  </h3>
+  <p class="trip__stops">
+    @for (stop of trip().stops; track stop.position; let first = $first) {
+      @if (!first) {
+        <span aria-hidden="true">→</span>
+        <span class="visually-hidden">to</span>
+      }
+      {{ stop.cityName }}
+    }
+  </p>
+
+  @switch (state().status) {
+    @case ('loading') {
+      <p class="trip__loading" aria-busy="true">
+        <span class="trip__placeholder" aria-hidden="true"></span>
+        <span class="visually-hidden">Loading figures</span>
+      </p>
+    }
+    @case ('failed') {
+      <p class="muted">Figures unavailable</p>
+    }
+    @default {
+      @if (figures(); as figures) {
+        <p class="trip__value">
+          {{ figures.cost | currency: figures.currency : 'symbol' : '1.0-0' }}
+        </p>
+        <p class="trip__secondary muted">{{ figures.co2Kg | number: '1.0-0' }} kg CO₂</p>
+        <p class="trip__mode">
+          @for (mode of figures.modes; track mode) {
+            <app-mode-icon [mode]="mode" />
+          }
+          {{ modeSummary(figures) }}
+        </p>
+      } @else {
+        <p class="muted">No available route</p>
+      }
+    }
+  }
+
+  <app-trip-menu
+    class="trip__menu"
+    [trip]="trip()"
+    [busy]="deleting()"
+    (deleted)="deleted.emit()"
+  />
+</article>

@@ -1,0 +1,51 @@
+<div class="toolbar">
+  <div class="toolbar__row">
+    <label class="search">
+      <span class="visually-hidden">Search trips by title or city</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <circle cx="11" cy="11" r="6.5" />
+        <path d="M16 16l4.5 4.5" />
+      </svg>
+      <input
+        type="search"
+        placeholder="Search trips or cities"
+        autocomplete="off"
+        [value]="search()"
+        (input)="onSearch($event)"
+      />
+    </label>
+    <app-segmented-toggle
+      ariaLabel="Trip layout"
+      [options]="viewOptions"
+      [value]="view()"
+      (valueChange)="view.set($event)"
+    />
+    <a class="button button--primary" routerLink="/trips/new">New trip</a>
+  </div>
+
+  <div class="toolbar__row">
+    <div class="chips" role="group" aria-labelledby="filter-priority">
+      <span class="chips__label muted" id="filter-priority">Priority</span>
+      @for (priority of priorityOptions; track priority) {
+        <app-filter-chip
+          [label]="priorityLabels[priority]"
+          [count]="priorityCounts()[priority]"
+          [selected]="priorities().includes(priority)"
+          (selectedChange)="setPriority(priority, $event)"
+        />
+      }
+    </div>
+    <div class="chips" role="group" aria-labelledby="filter-mode">
+      <span class="chips__label muted" id="filter-mode">Mode</span>
+      @for (mode of modeOptions; track mode) {
+        <app-filter-chip
+          [label]="modeLabels[mode]"
+          [selected]="modes().includes(mode)"
+          (selectedChange)="setMode(mode, $event)"
+        >
+          <app-mode-icon [mode]="mode" />
+        </app-filter-chip>
+      }
+    </div>
+  </div>
+</div>

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, model } from '@angular/core';
 
-/** Toggle chip with an optional count; the state is in `aria-pressed` and a check mark. */
+/** Toggle chip with an optional count and projected leading content (an icon); the state is in `aria-pressed` and a check mark. */
 @Component({
   selector: 'app-filter-chip',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -9,6 +9,7 @@ import { ChangeDetectionStrategy, Component, input, model } from '@angular/core'
       @if (selected()) {
         <span aria-hidden="true">✓</span>
       }
+      <ng-content />
       <span>{{ label() }}</span>
       @if (count() !== undefined) {
         <span class="count">{{ count() }}</span>

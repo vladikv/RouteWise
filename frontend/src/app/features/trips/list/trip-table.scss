@@ -1,0 +1,97 @@
+/* Plain translucent fill, no blur: this list can be long. */
+.trips {
+  width: 100%;
+  border: 1px solid var(--glass-border);
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+}
+
+th,
+td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--glass-border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+thead th {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.trip__name {
+  font-weight: 400;
+}
+
+.trip__name a {
+  color: var(--color-text);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.trip__name a:hover {
+  text-decoration: underline;
+}
+
+.trip__line {
+  display: block;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.trip__date {
+  white-space: nowrap;
+}
+
+.trip__mode {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 600;
+}
+
+.trip__placeholder {
+  display: inline-block;
+  width: 3.5rem;
+  height: 1.25rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-border);
+  vertical-align: middle;
+}
+
+.trip__actions {
+  width: 1%;
+  padding-left: 0;
+  text-align: right;
+}
+
+.narrow-only {
+  display: none;
+}
+
+@media (max-width: 47.99rem) {
+  .wide-only {
+    display: none;
+  }
+
+  .narrow-only {
+    display: inline;
+  }
+
+  th,
+  td {
+    padding: var(--space-3);
+  }
+}
