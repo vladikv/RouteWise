@@ -1,5 +1,6 @@
 package com.routewise.advisor.controller;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -9,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 
 import com.routewise.advisor.domain.AdvisorSource;
@@ -52,8 +54,9 @@ class AdvisorControllerTest {
     @Test
     void parse_returnsDraft() throws Exception {
         when(advisorService.parse("Berlin to Vienna tomorrow")).thenReturn(new TripDraftResponse(
-                "Berlin to Vienna", new CitySummary(1L, "Berlin", "DE"), null, LocalDate.of(2026, 11, 12), 1,
-                TripPriority.BALANCED, null, AdvisorSource.RULES, List.of("\"Wien\" is not a supported city.")));
+                "Berlin to Vienna", Arrays.asList(new CitySummary(1L, "Berlin", "DE"), null),
+                LocalDate.of(2026, 11, 12), 1, TripPriority.BALANCED, null, AdvisorSource.RULES,
+                List.of("\"Wien\" is not a supported city.")));
 
         mockMvc.perform(post("/api/advisor/parse")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -62,9 +65,10 @@ class AdvisorControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("Berlin to Vienna"))
-                .andExpect(jsonPath("$.origin.id").value(1))
-                .andExpect(jsonPath("$.origin.name").value("Berlin"))
-                .andExpect(jsonPath("$.destination").doesNotExist())
+                .andExpect(jsonPath("$.stops.length()").value(2))
+                .andExpect(jsonPath("$.stops[0].id").value(1))
+                .andExpect(jsonPath("$.stops[0].name").value("Berlin"))
+                .andExpect(jsonPath("$.stops[1]").value(nullValue()))
                 .andExpect(jsonPath("$.departureDate").value("2026-11-12"))
                 .andExpect(jsonPath("$.travelers").value(1))
                 .andExpect(jsonPath("$.priority").value("BALANCED"))
@@ -103,14 +107,17 @@ class AdvisorControllerTest {
 
     @Test
     void advise_returnsAdvice() throws Exception {
-        when(advisorService.advise(1L, TestUsers.ALICE_ID)).thenReturn(new AdviceResponse(1L, TransportModeCode.TRAIN,
-                "Take the train.", List.of("Pack an umbrella."), AdvisorSource.AI));
+        when(advisorService.advise(1L, TestUsers.ALICE_ID)).thenReturn(new AdviceResponse(1L,
+                List.of(TransportModeCode.TRAIN, TransportModeCode.BUS), "Train, then bus.",
+                List.of("Leg 1: train.", "Leg 2: bus."), List.of("Pack an umbrella."), AdvisorSource.AI));
 
         mockMvc.perform(get("/api/trips/1/advice"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tripId").value(1))
-                .andExpect(jsonPath("$.recommendedMode").value("TRAIN"))
-                .andExpect(jsonPath("$.summary").value("Take the train."))
+                .andExpect(jsonPath("$.recommendedModes[0]").value("TRAIN"))
+                .andExpect(jsonPath("$.recommendedModes[1]").value("BUS"))
+                .andExpect(jsonPath("$.summary").value("Train, then bus."))
+                .andExpect(jsonPath("$.legs[1]").value("Leg 2: bus."))
                 .andExpect(jsonPath("$.tips[0]").value("Pack an umbrella."))
                 .andExpect(jsonPath("$.source").value("AI"));
     }

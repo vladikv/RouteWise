@@ -18,10 +18,11 @@ import com.routewise.advisor.dto.TripDraftResponse;
 import com.routewise.city.dto.CitySummary;
 import com.routewise.city.service.CityService;
 import com.routewise.comparison.dto.ComparisonResponse;
-import com.routewise.comparison.dto.ModeOptionResponse;
+import com.routewise.comparison.dto.LegResponse;
 import com.routewise.comparison.service.ComparisonService;
 import com.routewise.transportmode.domain.TransportModeCode;
 import com.routewise.trip.dto.TripResponse;
+import com.routewise.trip.dto.TripStopResponse;
 import com.routewise.trip.service.TripService;
 
 import org.slf4j.Logger;
@@ -80,23 +81,23 @@ public class AdvisorService {
     }
 
     /**
-     * Explains the weather-aware comparison of a stored trip.
+     * Explains the weather-aware, per-leg comparison of a stored trip.
      *
      * @throws com.routewise.common.exception.ResourceNotFoundException if the trip does not exist
      */
     public AdviceResponse advise(Long tripId, Long ownerId) {
         TripResponse trip = tripService.findById(tripId, ownerId);
         ComparisonResponse comparison = comparisonService.compare(tripId, ownerId);
-        AdviceContext context = new AdviceContext(trip.origin().name(), trip.destination().name(), comparison);
+        List<String> stops = trip.stops().stream().map(TripStopResponse::cityName).toList();
+        AdviceContext context = new AdviceContext(stops, comparison);
 
         Optional<AdviceText> aiAdvice = tryAdvisorClient(client -> client.writeAdvice(context), "advice");
         AdviceText advice = aiAdvice.orElseGet(() -> adviceWriter.write(context));
-        TransportModeCode recommendedMode = comparison.options().stream()
-                .filter(ModeOptionResponse::recommended)
-                .map(ModeOptionResponse::mode)
-                .findFirst()
-                .orElse(null);
-        return new AdviceResponse(tripId, recommendedMode, advice.summary(), advice.tips(),
+        // A leg without any available mode has a null entry; Stream.toList() allows nulls.
+        List<TransportModeCode> recommendedModes = comparison.legs().stream()
+                .map(LegResponse::recommendedMode)
+                .toList();
+        return new AdviceResponse(tripId, recommendedModes, advice.summary(), advice.legs(), advice.tips(),
                 aiAdvice.isPresent() ? AdvisorSource.AI : AdvisorSource.RULES);
     }
 
@@ -116,7 +117,7 @@ public class AdvisorService {
     }
 
     private static TripDraftResponse toResponse(TripDraft draft, AdvisorSource source) {
-        return new TripDraftResponse(draft.title(), draft.origin(), draft.destination(), draft.departureDate(),
-                draft.travelers(), draft.priority(), draft.notes(), source, draft.warnings());
+        return new TripDraftResponse(draft.title(), draft.stops(), draft.departureDate(), draft.travelers(),
+                draft.priority(), draft.notes(), source, draft.warnings());
     }
 }

@@ -1,6 +1,7 @@
 package com.routewise.advisor.client;
 
 import static com.routewise.advisor.AdvisorTestData.TODAY;
+import static com.routewise.advisor.AdvisorTestData.berlinPragueVienna;
 import static com.routewise.advisor.AdvisorTestData.berlinToVienna;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,6 +33,8 @@ import org.junit.jupiter.api.Test;
  * (no external calls). Timeouts are covered by {@code AdvisorClientConfigTest}.
  */
 class ClaudeAdvisorClientTest {
+
+    private static final List<String> BERLIN_VIENNA = List.of("Berlin", "Vienna");
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -68,15 +71,16 @@ class ClaudeAdvisorClientTest {
     @Test
     void extractTrip_validResponse_mapsFieldsAndSendsStructuredRequest() throws Exception {
         respondWithText("end_turn", """
-                {"title": "Weekend in Vienna", "originCity": "Berlin", "destinationCity": "Vienna",
-                 "departureDate": "2026-11-13", "travelers": 2, "priority": "CHEAPEST", "notes": " "}
+                {"title": "Weekend in Vienna", "stops": ["Berlin", "Vienna", "Berlin"],
+                 "departureDate": "2026-11-13", "laterDates": true, "travelers": 2, "priority": "CHEAPEST",
+                 "notes": " "}
                 """);
 
-        TripExtraction result = client()
-                .extractTrip("Berlin to Wien next Friday, 2 of us, cheap", List.of("Berlin", "Vienna"), TODAY);
+        TripExtraction result = client().extractTrip("Berlin to Wien next Friday and back Sunday, 2 of us, cheap",
+                List.of("Berlin", "Vienna"), TODAY);
 
-        assertThat(result).isEqualTo(new TripExtraction("Weekend in Vienna", "Berlin", "Vienna",
-                LocalDate.of(2026, 11, 13), 2, TripPriority.CHEAPEST, null));
+        assertThat(result).isEqualTo(new TripExtraction("Weekend in Vienna", List.of("Berlin", "Vienna", "Berlin"),
+                LocalDate.of(2026, 11, 13), true, 2, TripPriority.CHEAPEST, null));
         assertThat(lastRequest.path("model").asText()).isEqualTo("claude-opus-5-5");
         assertThat(lastRequest.path("system").asText()).isEqualTo(ClaudeAdvisorClient.EXTRACTION_SYSTEM_PROMPT);
         assertThat(lastRequest.path("output_config").path("effort").asText()).isEqualTo("low");
@@ -84,7 +88,7 @@ class ClaudeAdvisorClientTest {
         assertThat(lastRequest.path("fallbacks").asText()).isEqualTo("default");
         assertThat(lastRequest.path("messages").path(0).path("content").asText())
                 .contains("Supported cities: Berlin, Vienna", "Today: 2026-11-11 (WEDNESDAY)",
-                        "<request>\nBerlin to Wien next Friday, 2 of us, cheap\n</request>");
+                        "<request>\nBerlin to Wien next Friday and back Sunday, 2 of us, cheap\n</request>");
         assertThat(header("authorization")).isEqualTo("Bearer test-key");
         assertThat(header("anthropic-beta")).contains(ClaudeAdvisorClient.FALLBACK_BETA);
     }
@@ -92,39 +96,52 @@ class ClaudeAdvisorClientTest {
     @Test
     void extractTrip_unknownValues_becomeNull() throws Exception {
         respondWithText("end_turn", """
-                {"title": "", "originCity": "", "destinationCity": "Vienna", "departureDate": "next friday",
+                {"title": "", "stops": [" ", "Vienna"], "departureDate": "next friday", "laterDates": false,
                  "travelers": 0, "priority": "BALANCED", "notes": ""}
                 """);
 
         TripExtraction result = client().extractTrip("to Vienna", List.of("Vienna"), TODAY);
 
-        assertThat(result).isEqualTo(new TripExtraction(null, null, "Vienna", null, null,
+        assertThat(result).isEqualTo(new TripExtraction(null, List.of("Vienna"), null, false, null,
                 TripPriority.BALANCED, null));
     }
 
     @Test
     void writeAdvice_validResponse_sendsFactsAndCleansTips() throws Exception {
         respondWithText("end_turn", """
-                {"summary": "Take the train.", "tips": ["Pack an umbrella.", " ", "a", "b", "c", "d"]}
+                {"summary": "Take the train.", "legs": ["Train to Vienna."],
+                 "tips": ["Pack an umbrella.", " ", "a", "b", "c", "d"]}
                 """);
 
-        AdviceText advice = client()
-                .writeAdvice(new AdviceContext("Berlin", "Vienna", berlinToVienna()));
+        AdviceText advice = client().writeAdvice(new AdviceContext(BERLIN_VIENNA, berlinToVienna()));
 
-        assertThat(advice).isEqualTo(new AdviceText("Take the train.", List.of("Pack an umbrella.", "a", "b", "c")));
+        assertThat(advice).isEqualTo(new AdviceText("Take the train.", List.of("Train to Vienna."),
+                List.of("Pack an umbrella.", "a", "b", "c")));
         assertThat(lastRequest.path("system").asText()).isEqualTo(ClaudeAdvisorClient.ADVICE_SYSTEM_PROMPT);
         assertThat(lastRequest.path("messages").path(0).path("content").asText())
-                .contains("Trip: Berlin to Vienna on 2026-11-20", "TRAIN (recommended): 373 min");
+                .contains("Route: Berlin → Vienna on 2026-11-20", "TRAIN (recommended): 373 min");
+    }
+
+    @Test
+    void writeAdvice_legSentencesNotMatchingTheLegs_throws() throws Exception {
+        respondWithText("end_turn", """
+                {"summary": "Train, then bus.", "legs": ["Train to Prague."], "tips": []}
+                """);
+
+        assertThatThrownBy(() -> client().writeAdvice(new AdviceContext(List.of("Berlin", "Prague", "Vienna"),
+                berlinPragueVienna())))
+                .isInstanceOf(AdvisorClientException.class)
+                .hasMessageContaining("1 leg sentences for 2 legs");
     }
 
     @Test
     void writeAdvice_blankSummary_throws() throws Exception {
         respondWithText("end_turn", """
-                {"summary": " ", "tips": []}
+                {"summary": " ", "legs": ["x"], "tips": []}
                 """);
 
         assertThatThrownBy(() -> client()
-                .writeAdvice(new AdviceContext("Berlin", "Vienna", berlinToVienna())))
+                .writeAdvice(new AdviceContext(BERLIN_VIENNA, berlinToVienna())))
                 .isInstanceOf(AdvisorClientException.class)
                 .hasMessageContaining("without a summary");
     }
@@ -133,15 +150,16 @@ class ClaudeAdvisorClientTest {
     void writeAdvice_overlongSummary_throwsAndOverlongTipsAreDropped() throws Exception {
         String longTip = "t".repeat(ClaudeAdvisorClient.MAX_TIP_LENGTH + 1);
         respondWithText("end_turn", JSON.writeValueAsString(Map.of(
-                "summary", "Take the train.", "tips", List.of(longTip, "Short tip."))));
+                "summary", "Take the train.", "legs", List.of("Train."), "tips", List.of(longTip, "Short tip."))));
 
-        assertThat(client().writeAdvice(new AdviceContext("Berlin", "Vienna", berlinToVienna())).tips())
+        assertThat(client().writeAdvice(new AdviceContext(BERLIN_VIENNA, berlinToVienna())).tips())
                 .containsExactly("Short tip.");
 
         respondWithText("end_turn", JSON.writeValueAsString(Map.of(
-                "summary", "s".repeat(ClaudeAdvisorClient.MAX_SUMMARY_LENGTH + 1), "tips", List.of())));
+                "summary", "s".repeat(ClaudeAdvisorClient.MAX_SUMMARY_LENGTH + 1), "legs", List.of("Train."),
+                "tips", List.of())));
 
-        assertThatThrownBy(() -> client().writeAdvice(new AdviceContext("Berlin", "Vienna", berlinToVienna())))
+        assertThatThrownBy(() -> client().writeAdvice(new AdviceContext(BERLIN_VIENNA, berlinToVienna())))
                 .isInstanceOf(AdvisorClientException.class)
                 .hasMessageContaining("summary of 401 characters");
     }

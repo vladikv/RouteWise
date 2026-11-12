@@ -4,11 +4,18 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.IntStream;
 
+import com.routewise.comparison.domain.ItineraryTotals;
+import com.routewise.comparison.domain.Leg;
 import com.routewise.comparison.domain.ModeOption;
 import com.routewise.comparison.domain.ModeParameters;
+import com.routewise.comparison.domain.ModeTotals;
 import com.routewise.comparison.dto.ComparisonResponse;
+import com.routewise.comparison.dto.ItineraryTotalsResponse;
+import com.routewise.comparison.dto.LegResponse;
 import com.routewise.comparison.dto.ModeOptionResponse;
+import com.routewise.comparison.dto.ModeTotalsResponse;
 import com.routewise.comparison.dto.WeatherSummary;
 import com.routewise.transportmode.domain.TransportMode;
 import com.routewise.trip.domain.TripPriority;
@@ -31,8 +38,9 @@ public class ComparisonMapper {
      * @param tripId {@code null} for a comparison that does not belong to a stored trip
      */
     public ComparisonResponse toResponse(Long tripId, LocalDate departureDate, int travelers, TripPriority priority,
-                                         double distanceKm, List<LocationForecast> forecasts,
-                                         List<ModeOption> options) {
+                                         List<LocationForecast> forecasts, List<Leg> legs,
+                                         ItineraryTotals recommendedItinerary, List<ModeTotals> singleModeTotals) {
+        double distanceKm = legs.stream().mapToDouble(Leg::greatCircleKm).sum();
         return new ComparisonResponse(
                 tripId,
                 departureDate,
@@ -41,7 +49,32 @@ public class ComparisonMapper {
                 oneDecimal(distanceKm),
                 CURRENCY,
                 forecasts.stream().map(ComparisonMapper::toSummary).toList(),
-                options.stream().map(ComparisonMapper::toResponse).toList());
+                IntStream.range(0, legs.size()).mapToObj(i -> toResponse(i, legs.get(i))).toList(),
+                recommendedItinerary == null ? null : toResponse(recommendedItinerary),
+                singleModeTotals.stream().map(ComparisonMapper::toResponse).toList());
+    }
+
+    private static LegResponse toResponse(int index, Leg leg) {
+        return new LegResponse(
+                index,
+                leg.from(),
+                leg.to(),
+                oneDecimal(leg.greatCircleKm()),
+                leg.options().stream().map(ComparisonMapper::toResponse).toList(),
+                leg.recommended().map(ModeOption::mode).orElse(null));
+    }
+
+    private static ItineraryTotalsResponse toResponse(ItineraryTotals totals) {
+        return new ItineraryTotalsResponse(totals.modes(), totals.durationMinutes(), totals.totalCost(),
+                totals.co2Kg());
+    }
+
+    private static ModeTotalsResponse toResponse(ModeTotals modeTotals) {
+        ItineraryTotals totals = modeTotals.totals();
+        return totals == null
+                ? new ModeTotalsResponse(modeTotals.mode(), false, modeTotals.unavailableReason(), null, null, null)
+                : new ModeTotalsResponse(modeTotals.mode(), true, null, totals.durationMinutes(),
+                        totals.totalCost(), totals.co2Kg());
     }
 
     private static WeatherSummary toSummary(LocationForecast locationForecast) {

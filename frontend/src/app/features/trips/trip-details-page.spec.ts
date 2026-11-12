@@ -5,7 +5,7 @@ import { Router, provideRouter } from '@angular/router';
 import { apiErrorInterceptor } from '../../core/api/api-error';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { Trip } from '../../core/api/models';
-import { ADVICE, COMPARISON } from './comparison/comparison.testing';
+import { ADVICE, COMPARISON, MULTI_COMPARISON } from './comparison/comparison.testing';
 import { TripDetailsPage } from './trip-details-page';
 import { CITIES, TRIP } from './trip-form.testing';
 
@@ -89,8 +89,60 @@ describe('TripDetailsPage', () => {
     expect(page.querySelector('.actions a')?.getAttribute('href')).toBe('/trips/7/edit');
     expect(page.querySelector('app-route-map svg')?.getAttribute('role')).toBe('img');
     expect(page.querySelector('app-route-map svg')?.getAttribute('aria-label')).toBe(
-      'Route from Berlin to Vienna, 524 km straight-line.',
+      'Route Berlin → Vienna, 524 km straight-line.',
     );
+  });
+
+  it('shows a multi-stop trip as a leg timeline with whole-trip totals and advice per leg', async () => {
+    const loop: Trip = {
+      ...TRIP,
+      title: 'Central Europe loop',
+      stops: [
+        { cityId: 3, cityName: 'Berlin', country: 'DE', position: 0 },
+        { cityId: 18, cityName: 'Prague', country: 'CZ', position: 1 },
+        { cityId: 23, cityName: 'Vienna', country: 'AT', position: 2 },
+      ],
+    };
+    await loadTrip(loop);
+    httpTesting.expectOne(COMPARISON_URL).flush(MULTI_COMPARISON);
+    httpTesting.expectOne(ADVICE_URL).flush({
+      ...ADVICE,
+      recommendedModes: ['TRAIN', 'BUS'],
+      summary: 'Recommended plan for Berlin → Prague → Vienna: train, then bus.',
+      legs: ['Leg 1, Berlin to Prague: train.', 'Leg 2, Prague to Vienna: bus.'],
+    });
+    await fixture.whenStable();
+
+    const route = Array.from(page.querySelectorAll('.route-stops li')).map((li) =>
+      li.textContent?.trim(),
+    );
+    expect(route).toEqual(['Berlin (DE)', 'Prague (CZ)', 'Vienna (AT)']);
+    expect(page.querySelector('app-route-map svg')?.getAttribute('aria-label')).toContain(
+      'Route Berlin → Prague → Vienna',
+    );
+
+    const legs = Array.from(section('comparison-heading').querySelectorAll('.timeline .leg'));
+    expect(legs).toHaveLength(2);
+    expect(legs[0].textContent).toContain('Berlin');
+    expect(legs[0].textContent).toContain('Train');
+    expect(legs[1].textContent).toContain('Bus');
+
+    const totals = Array.from(
+      section('comparison-heading').querySelectorAll('table tbody tr'),
+      (row) => row.textContent?.replace(/\s+/g, ' ').trim(),
+    );
+    expect(totals[0]).toContain('Train, then bus');
+    expect(totals[0]).toContain('8 h 30 min');
+    expect(totals[1]).toContain('Train for every leg');
+    expect(totals[3]).toContain('Not possible: Leg 1 (Berlin to Prague)');
+
+    const adviceLegs = Array.from(section('advice-heading').querySelectorAll('.legs li'), (li) =>
+      li.textContent?.trim(),
+    );
+    expect(adviceLegs).toEqual([
+      'Leg 1, Berlin to Prague: train.',
+      'Leg 2, Prague to Vienna: bus.',
+    ]);
   });
 
   it('omits the notes row when the trip has no notes', async () => {

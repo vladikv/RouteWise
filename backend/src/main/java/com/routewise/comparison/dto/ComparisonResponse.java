@@ -7,13 +7,13 @@ import java.util.List;
 import com.routewise.trip.domain.TripPriority;
 
 /**
- * Mode comparison for a stored trip or an ad-hoc route.
+ * Per-leg comparison of a route with two or more stops.
  *
- * @param tripId     the stored trip; {@code null} for a preview of an unsaved route
- * @param distanceKm straight-line distance between the cities
- * @param weather    forecasts used for scoring; empty when none is available
- * @param options    available modes by score (best first), then unavailable ones;
- *                   at most one is {@code recommended} (none if no mode is available)
+ * @param tripId               {@code null} for a route that is not a stored trip
+ * @param distanceKm           straight-line distance summed over all legs
+ * @param weather              forecast per stop city (each city once), empty if unavailable
+ * @param recommendedItinerary each leg's recommended mode combined; {@code null} if a leg has no available mode
+ * @param singleModeTotals     one entry per mode, used for every leg, for comparison with the mixed plan
  */
 public record ComparisonResponse(
         Long tripId,
@@ -23,5 +23,7 @@ public record ComparisonResponse(
         BigDecimal distanceKm,
         String currency,
         List<WeatherSummary> weather,
-        List<ModeOptionResponse> options) {
+        List<LegResponse> legs,
+        ItineraryTotalsResponse recommendedItinerary,
+        List<ModeTotalsResponse> singleModeTotals) {
 }

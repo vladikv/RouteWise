@@ -26,14 +26,16 @@ function normalize(text: string): string {
   selector: 'app-city-picker',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <label class="picker__label" [for]="inputId">{{ label() }}</label>
+    <label class="picker__label" [for]="inputId()">{{ label() }}</label>
     <div class="picker" [class.picker--open]="open()">
       <span class="picker__pin" aria-hidden="true">{{ pin() }}</span>
       <input
         #field
-        [id]="inputId"
+        [id]="inputId()"
         type="text"
         role="combobox"
+        [attr.aria-invalid]="invalid() ? 'true' : null"
+        [attr.aria-describedby]="describedBy()"
         autocomplete="off"
         spellcheck="false"
         aria-autocomplete="list"
@@ -99,11 +101,18 @@ export class CityPicker {
   readonly placeholder = input('Search a city');
   /** Letter shown in the field, matching the map pins ("A" / "B"). */
   readonly pin = input('');
+  /** Id of the text field, e.g. for a form that refers to it; generated if not given. */
+  readonly id = input<string | null>(null);
+  /** Marks the field as invalid (red border, aria-invalid). */
+  readonly invalid = input(false);
+  /** Ids of elements that describe the field, such as an error message. */
+  readonly describedBy = input<string | null>(null);
   readonly valueChange = output<number | null>();
 
   private readonly field = viewChild.required<ElementRef<HTMLInputElement>>('field');
 
-  protected readonly inputId = `city-picker-${nextId}`;
+  private readonly generatedId = `city-picker-${nextId}`;
+  protected readonly inputId = computed(() => this.id() ?? this.generatedId);
   protected readonly listId = `city-picker-list-${nextId++}`;
   protected readonly open = signal(false);
   /** What the user typed; null while the field just shows the chosen city. */

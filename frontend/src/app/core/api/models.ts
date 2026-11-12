@@ -33,11 +33,24 @@ export interface TransportMode {
   maxDistanceKm: number;
 }
 
+/** One stop of a saved trip, in travel order. */
+export interface TripStop {
+  cityId: number;
+  cityName: string;
+  country: string;
+  /** 0-based. */
+  position: number;
+}
+
+/** 2–10 stops; a simple A → B trip has two. */
+export const MIN_STOPS = 2;
+export const MAX_STOPS = 10;
+
 export interface Trip {
   id: number;
   title: string;
-  origin: CitySummary;
-  destination: CitySummary;
+  /** At least two, in travel order. */
+  stops: TripStop[];
   /** ISO date, e.g. 2026-11-20. */
   departureDate: string;
   travelers: number;
@@ -50,8 +63,8 @@ export interface Trip {
 /** Body of POST /api/trips and PUT /api/trips/{id}. */
 export interface TripRequest {
   title: string;
-  originCityId: number;
-  destinationCityId: number;
+  /** Replaces the whole ordered stop list. */
+  stops: { cityId: number }[];
   departureDate: string;
   travelers: number;
   priority: TripPriority;
@@ -84,24 +97,59 @@ export interface ModeOption {
   notes: string[];
 }
 
+/** One leg of a route: stop `index` to stop `index + 1`. */
+export interface Leg {
+  index: number;
+  from: CitySummary;
+  to: CitySummary;
+  /** Straight-line distance. */
+  distanceKm: number;
+  /** Available modes best first, then unavailable ones; weather-adjusted for this leg. */
+  options: ModeOption[];
+  /** Null when no mode is available on this leg. */
+  recommendedMode: TransportModeCode | null;
+}
+
+/** Totals for the whole route; cost and CO₂ for all travelers. */
+export interface ItineraryTotals {
+  /** The mode used on each leg, in leg order. */
+  modes: TransportModeCode[];
+  durationMinutes: number;
+  totalCost: number;
+  co2Kg: number;
+}
+
+/** One mode used for every leg; metrics are null when it is not possible on some leg. */
+export interface ModeTotals {
+  mode: TransportModeCode;
+  available: boolean;
+  unavailableReason: string | null;
+  durationMinutes: number | null;
+  totalCost: number | null;
+  co2Kg: number | null;
+}
+
 export interface Comparison {
   /** Null for a preview of a route that is not saved as a trip. */
   tripId: number | null;
   departureDate: string;
   travelers: number;
   priority: TripPriority;
+  /** Straight-line distance summed over all legs. */
   distanceKm: number;
   currency: string;
-  /** Empty when no forecast is available for the departure date. */
+  /** One entry per stop city; empty when no forecast is available for the departure date. */
   weather: WeatherSummary[];
-  /** Available modes best first, then unavailable ones. */
-  options: ModeOption[];
+  legs: Leg[];
+  /** Each leg's recommended mode combined; null when some leg has no available mode. */
+  recommendedItinerary: ItineraryTotals | null;
+  /** One entry per mode, used for every leg. */
+  singleModeTotals: ModeTotals[];
 }
 
 /** Body of POST /api/comparisons: compare a route without saving a trip. */
 export interface ComparisonRequest {
-  originCityId: number;
-  destinationCityId: number;
+  stops: { cityId: number }[];
   departureDate: string;
   travelers: number;
   priority: TripPriority;
@@ -109,9 +157,11 @@ export interface ComparisonRequest {
 
 export interface Advice {
   tripId: number;
-  /** Null when no mode is available. */
-  recommendedMode: TransportModeCode | null;
+  /** One per leg; null where no mode is available on that leg. */
+  recommendedModes: (TransportModeCode | null)[];
   summary: string;
+  /** One sentence per leg. */
+  legs: string[];
   tips: string[];
   source: AdvisorSource;
 }
@@ -119,8 +169,8 @@ export interface Advice {
 /** A trip draft parsed from free text; unknown values are null and explained in warnings. */
 export interface TripDraft {
   title: string;
-  origin: CitySummary | null;
-  destination: CitySummary | null;
+  /** At least two, in travel order; null where a stop is unknown or not a supported city. */
+  stops: (CitySummary | null)[];
   departureDate: string | null;
   travelers: number;
   priority: TripPriority;

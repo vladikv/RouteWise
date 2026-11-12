@@ -1,5 +1,42 @@
-.route-picker {
-  margin-bottom: var(--space-4);
+/* Stops: ordered list of city pickers with move/remove buttons. */
+
+.stops-field {
+  margin-inline: 0;
+  padding: 0;
+  border: 0;
+}
+
+.stops-field app-route-map {
+  margin: var(--space-2) 0 var(--space-4);
+}
+
+.stops {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.stop {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-1) var(--space-2);
+}
+
+.stop__actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.stop__button {
+  min-width: 2.75rem;
+  padding: 0;
+}
+
+.stop__error {
+  grid-column: 1 / -1;
 }
 
 .row {

@@ -19,14 +19,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
-import com.routewise.city.dto.CitySummary;
 import com.routewise.common.config.SecurityConfig;
 import com.routewise.common.exception.FieldValidationException;
 import com.routewise.common.exception.ResourceNotFoundException;
 import com.routewise.trip.domain.TripPriority;
 import com.routewise.trip.dto.TripRequest;
 import com.routewise.trip.dto.TripResponse;
+import com.routewise.trip.dto.TripStopRequest;
+import com.routewise.trip.dto.TripStopResponse;
 import com.routewise.trip.service.TripService;
 import com.routewise.user.TestUsers;
 
@@ -67,8 +70,9 @@ class TripControllerTest {
         mockMvc.perform(get("/api/trips"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1))
-                .andExpect(jsonPath("$[0].origin.name").value("Berlin"))
-                .andExpect(jsonPath("$[0].destination.country").value("AT"));
+                .andExpect(jsonPath("$[0].stops[0].cityName").value("Berlin"))
+                .andExpect(jsonPath("$[0].stops[1].country").value("AT"))
+                .andExpect(jsonPath("$[0].stops[1].position").value(1));
     }
 
     @Test
@@ -103,21 +107,46 @@ class TripControllerTest {
                 .andExpect(header().string("Location", "http://localhost/api/trips/7"))
                 .andExpect(jsonPath("$.id").value(7));
 
-        verify(tripService).create(new TripRequest("Weekend in Vienna", 1L, 2L, DEPARTURE, 2,
+        verify(tripService).create(new TripRequest("Weekend in Vienna",
+                List.of(new TripStopRequest(1L), new TripStopRequest(2L)), DEPARTURE, 2,
                 TripPriority.GREENEST, null), TestUsers.ALICE_ID);
     }
 
     @Test
     void create_withInvalidBody_returns400WithFieldErrors() throws Exception {
         String body = """
-                {"title": "", "originCityId": null, "destinationCityId": 2,
+                {"title": "", "stops": [{"cityId": 1}, {"cityId": null}],
                  "departureDate": null, "travelers": 10, "priority": "GREENEST"}
                 """;
 
         mockMvc.perform(post("/api/trips").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[*].field")
-                        .value(containsInAnyOrder("title", "originCityId", "departureDate", "travelers")));
+                        .value(containsInAnyOrder("title", "stops[1].cityId", "departureDate", "travelers")));
+        verifyNoInteractions(tripService);
+    }
+
+    @Test
+    void create_withOneStop_returns400() throws Exception {
+        String body = validBody().replace("[{\"cityId\": 1}, {\"cityId\": 2}]", "[{\"cityId\": 1}]");
+
+        mockMvc.perform(post("/api/trips").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("stops"))
+                .andExpect(jsonPath("$.errors[0].message").value("size must be between 2 and 10"));
+        verifyNoInteractions(tripService);
+    }
+
+    @Test
+    void create_withElevenStops_returns400() throws Exception {
+        String elevenStops = IntStream.rangeClosed(1, 11)
+                .mapToObj(i -> "{\"cityId\": %d}".formatted(i % 2 + 1))
+                .collect(Collectors.joining(", ", "[", "]"));
+        String body = validBody().replace("[{\"cityId\": 1}, {\"cityId\": 2}]", elevenStops);
+
+        mockMvc.perform(post("/api/trips").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("stops"));
         verifyNoInteractions(tripService);
     }
 
@@ -134,13 +163,13 @@ class TripControllerTest {
     @Test
     void create_withUnknownCity_returns400WithFieldError() throws Exception {
         when(tripService.create(any(TripRequest.class), eq(TestUsers.ALICE_ID)))
-                .thenThrow(new FieldValidationException("originCityId", "unknown city id 1"));
+                .thenThrow(new FieldValidationException("stops[1].cityId", "unknown city id 2"));
 
         mockMvc.perform(post("/api/trips").contentType(MediaType.APPLICATION_JSON).content(validBody()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation failed"))
-                .andExpect(jsonPath("$.errors[0].field").value("originCityId"))
-                .andExpect(jsonPath("$.errors[0].message").value("unknown city id 1"));
+                .andExpect(jsonPath("$.errors[0].field").value("stops[1].cityId"))
+                .andExpect(jsonPath("$.errors[0].message").value("unknown city id 2"));
     }
 
     @Test
@@ -187,14 +216,14 @@ class TripControllerTest {
 
     private static String validBody() {
         return """
-                {"title": "Weekend in Vienna", "originCityId": 1, "destinationCityId": 2,
+                {"title": "Weekend in Vienna", "stops": [{"cityId": 1}, {"cityId": 2}],
                  "departureDate": "%s", "travelers": 2, "priority": "GREENEST"}
                 """.formatted(DEPARTURE);
     }
 
     private static TripResponse response(Long id) {
         return new TripResponse(id, "Weekend in Vienna",
-                new CitySummary(1L, "Berlin", "DE"), new CitySummary(2L, "Vienna", "AT"),
+                List.of(new TripStopResponse(1L, "Berlin", "DE", 0), new TripStopResponse(2L, "Vienna", "AT", 1)),
                 DEPARTURE, 2, TripPriority.GREENEST, null, NOW, NOW);
     }
 }

@@ -2,13 +2,16 @@ package com.routewise.advisor.service;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import com.routewise.advisor.domain.TripDraft;
 import com.routewise.advisor.domain.TripExtraction;
 import com.routewise.city.dto.CitySummary;
 import com.routewise.trip.domain.TripPriority;
+import com.routewise.trip.domain.TripStops;
 
 import org.springframework.stereotype.Component;
 
@@ -31,33 +34,52 @@ public class TripDraftResolver {
      */
     public TripDraft resolve(TripExtraction extraction, List<CitySummary> cities, LocalDate today) {
         List<String> warnings = new ArrayList<>();
-        CitySummary origin = resolveCity(extraction.originCity(), "origin", cities, warnings);
-        CitySummary destination = resolveCity(extraction.destinationCity(), "destination", cities, warnings);
-        if (origin != null && origin.equals(destination)) {
-            warnings.add("Origin and destination are the same city; please choose a different destination.");
-            destination = null;
+        List<CitySummary> stops = resolveStops(extraction.stops(), cities, warnings);
+        LocalDate departureDate = resolveDate(extraction.departureDate(), today, warnings);
+        if (extraction.laterDates()) {
+            warnings.add("Only the departure date is used; later dates in the request (such as a return day) "
+                    + "are not stored.");
         }
         return new TripDraft(
-                title(extraction.title(), origin, destination),
-                origin,
-                destination,
-                resolveDate(extraction.departureDate(), today, warnings),
+                title(extraction.title(), stops),
+                stops,
+                departureDate,
                 resolveTravelers(extraction.travelers(), warnings),
                 extraction.priority() != null ? extraction.priority() : TripPriority.BALANCED,
                 truncate(extraction.notes(), MAX_NOTES_LENGTH),
                 List.copyOf(warnings));
     }
 
-    private static CitySummary resolveCity(String name, String role, List<CitySummary> cities, List<String> warnings) {
-        if (name == null) {
-            warnings.add("No %s city recognised.".formatted(role));
-            return null;
+    /**
+     * Maps names to seeded cities in order. Unknown names stay as an empty stop; a stop in the
+     * same city as the one before it is dropped; the list is cut at the maximum and padded to
+     * the minimum with empty stops, so the form always gets a usable stop list.
+     */
+    private static List<CitySummary> resolveStops(List<String> names, List<CitySummary> cities,
+                                                  List<String> warnings) {
+        List<CitySummary> stops = new ArrayList<>();
+        for (String name : names == null ? List.<String>of() : names) {
+            Optional<CitySummary> city = cities.stream().filter(c -> c.name().equalsIgnoreCase(name)).findFirst();
+            if (city.isEmpty()) {
+                warnings.add("\"%s\" is not a supported city; please choose a stop.".formatted(name));
+                stops.add(null);
+            } else if (!stops.isEmpty() && city.get().equals(stops.getLast())) {
+                warnings.add("%s appears twice in a row; it is kept once.".formatted(city.get().name()));
+            } else {
+                stops.add(city.get());
+            }
         }
-        Optional<CitySummary> city = cities.stream().filter(c -> c.name().equalsIgnoreCase(name)).findFirst();
-        if (city.isEmpty()) {
-            warnings.add("\"%s\" is not a supported %s city.".formatted(name, role));
+        if (stops.size() > TripStops.MAX) {
+            warnings.add("A trip has at most %d stops; the rest were left out.".formatted(TripStops.MAX));
+            stops = new ArrayList<>(stops.subList(0, TripStops.MAX));
         }
-        return city.orElse(null);
+        if (stops.stream().filter(Objects::nonNull).count() < TripStops.MIN && stops.size() < TripStops.MIN) {
+            warnings.add(stops.isEmpty() ? "No cities recognised." : "Fewer than two stops recognised.");
+        }
+        while (stops.size() < TripStops.MIN) {
+            stops.add(null);
+        }
+        return Collections.unmodifiableList(stops);
     }
 
     private static LocalDate resolveDate(LocalDate date, LocalDate today, List<String> warnings) {
@@ -85,15 +107,29 @@ public class TripDraftResolver {
         return travelers;
     }
 
-    private static String title(String title, CitySummary origin, CitySummary destination) {
+    /**
+     * The extracted title, or one built from the stops: "Berlin to Vienna",
+     * "Berlin to Vienna via Prague", "Round trip from Berlin" or "Trip to Vienna".
+     */
+    static String title(String title, List<CitySummary> stops) {
         if (title != null) {
             return truncate(title, MAX_TITLE_LENGTH);
         }
-        if (origin != null && destination != null) {
-            return "%s to %s".formatted(origin.name(), destination.name());
+        CitySummary first = stops.getFirst();
+        CitySummary last = stops.getLast();
+        if (first != null && last != null) {
+            if (first.equals(last)) {
+                return truncate("Round trip from " + first.name(), MAX_TITLE_LENGTH);
+            }
+            List<String> via = stops.subList(1, stops.size() - 1).stream()
+                    .filter(Objects::nonNull)
+                    .map(CitySummary::name)
+                    .toList();
+            String route = "%s to %s".formatted(first.name(), last.name());
+            return truncate(via.isEmpty() ? route : route + " via " + String.join(", ", via), MAX_TITLE_LENGTH);
         }
-        if (destination != null) {
-            return "Trip to " + destination.name();
+        if (last != null) {
+            return "Trip to " + last.name();
         }
         return "New trip";
     }

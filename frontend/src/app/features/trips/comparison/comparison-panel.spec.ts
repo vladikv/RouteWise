@@ -1,8 +1,8 @@
 import { TestBed } from '@angular/core/testing';
-import { Comparison } from '../../../core/api/models';
+import { LegComparison } from './leg-comparison';
 import { AdvicePanel } from './advice-panel';
 import { ComparisonPanel } from './comparison-panel';
-import { ADVICE, COMPARISON } from './comparison.testing';
+import { ADVICE, LEG_COMPARISON } from './comparison.testing';
 
 function cells(row: Element): string[] {
   return Array.from(row.querySelectorAll('td')).map((cell) =>
@@ -11,7 +11,7 @@ function cells(row: Element): string[] {
 }
 
 describe('ComparisonPanel', () => {
-  function render(comparison: Comparison): HTMLElement {
+  function render(comparison: LegComparison): HTMLElement {
     const fixture = TestBed.createComponent(ComparisonPanel);
     fixture.componentRef.setInput('comparison', comparison);
     fixture.detectChanges();
@@ -19,7 +19,7 @@ describe('ComparisonPanel', () => {
   }
 
   it('shows time, cost, CO₂ and score side by side and marks the recommended mode', () => {
-    const panel = render(COMPARISON);
+    const panel = render(LEG_COMPARISON);
     const rows = panel.querySelectorAll('tbody tr');
 
     expect(panel.querySelector('.summary')?.textContent).toContain('524 km straight-line');
@@ -39,7 +39,7 @@ describe('ComparisonPanel', () => {
   });
 
   it('explains why a mode is unavailable instead of showing metrics', () => {
-    const row = render(COMPARISON).querySelectorAll('tbody tr')[2];
+    const row = render(LEG_COMPARISON).querySelectorAll('tbody tr')[2];
 
     expect(row.querySelector('th')?.textContent).toContain('Bike');
     expect(cells(row)).toEqual(['Not available: Route of 681 km exceeds the BIKE limit of 150 km']);
@@ -47,7 +47,7 @@ describe('ComparisonPanel', () => {
   });
 
   it('shows the forecast with hazards as text', () => {
-    const weather = render(COMPARISON).querySelector('.weather li')?.textContent ?? '';
+    const weather = render(LEG_COMPARISON).querySelector('.weather li')?.textContent ?? '';
 
     expect(weather).toContain('Vienna');
     expect(weather).toContain('Rain');
@@ -57,7 +57,7 @@ describe('ComparisonPanel', () => {
   });
 
   it('says so when there is no forecast', () => {
-    const panel = render({ ...COMPARISON, weather: [] });
+    const panel = render({ ...LEG_COMPARISON, weather: [] });
 
     expect(panel.querySelector('.weather')).toBeNull();
     expect(panel.textContent).toContain('No forecast is available for this date');

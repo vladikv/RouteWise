@@ -428,3 +428,41 @@ corrected manually, and why.
   pages). A/B runs showed the same code taking 9-23 s just to compile,
   so the cause was machine load (app, Maven and Chrome running in
   parallel), not the change; reruns with less load pass.
+
+## `feat/multi-stop-trips` (2026-11-12)
+
+**Delegated to AI**
+- Planned the milestone with the new `add-milestone` skill before any code:
+  impact analysis, breaking API changes marked in `docs/PLAN.md`, and three
+  open points settled with the human first (preview endpoint takes stops,
+  no new cities, every leg uses the trip date).
+- Backend: `TripStop` aggregate and V5 migration, `StopResolver`, per-leg
+  comparison with a pure `ItineraryCalculator`, multi-stop parsing (rules
+  and Claude schema) and leg-by-leg advice, demo loop with 5 stops.
+- Frontend: stop list with city pickers (add, remove, move, inline errors),
+  the map in stops mode (numbered pins, every leg), `ItineraryView` (leg
+  timeline, whole-trip totals, each leg's details), advice per leg.
+- 58 new or rewritten backend tests (251 in total, including a migration
+  test from a V4 database with data) and 9 new UI tests (177 in total).
+  Checked the running app in headless Chrome at 1280 and 375 px.
+
+**Corrected manually / human decisions**
+- The human's spec named `/start-milestone`, which does not exist; the AI
+  followed the existing branch-and-implement rules instead.
+- The parse example (Rzeszów, Zakopane) uses cities that are not seeded;
+  the human chose warnings over new reference data.
+- Found by looking at the running app, not by tests: with the demo's
+  BALANCED priority every leg chose the bus, so the "mixed itinerary" never
+  showed; the AI measured several routes and priorities through the API
+  and switched the sample to FASTEST (train, train, plane, plane). The
+  whole-trip table also repeated the plan as "Bus for every leg"; that
+  duplicate row is now hidden.
+- The AI's own test bugs: a spec selector also matched the tables inside
+  the collapsed leg details, and Maven skipped recompiling unchanged test
+  sources after the main code changed, so a first `test-compile` falsely
+  reported success; a clean build found the 15 test files to update.
+
+**Why**
+- A breaking change across API, AI and UI is easier to review when the plan
+  and its open questions come first; the screenshots then showed that a
+  correct feature can still demonstrate nothing with the wrong sample data.

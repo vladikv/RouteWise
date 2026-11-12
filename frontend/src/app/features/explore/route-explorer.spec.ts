@@ -89,8 +89,7 @@ describe('RouteExplorer', () => {
 
     const call = httpTesting.expectOne({ method: 'POST', url: COMPARISONS_URL });
     expect(call.request.body).toEqual({
-      originCityId: 3,
-      destinationCityId: 23,
+      stops: [{ cityId: 3 }, { cityId: 23 }],
       departureDate: DEFAULT_DATE,
       travelers: 1,
       priority: 'BALANCED',
@@ -131,8 +130,7 @@ describe('RouteExplorer', () => {
     button('Swap origin and destination').click();
     await settle();
     call = httpTesting.expectOne(COMPARISONS_URL);
-    expect(call.request.body.originCityId).toBe(23);
-    expect(call.request.body.destinationCityId).toBe(3);
+    expect(call.request.body.stops).toEqual([{ cityId: 23 }, { cityId: 3 }]);
     call.flush(COMPARISON);
     await fixture.whenStable();
   });
@@ -208,8 +206,7 @@ describe('RouteExplorer', () => {
     await settle();
 
     const call = httpTesting.expectOne(COMPARISONS_URL);
-    expect(call.request.body.originCityId).toBe(23);
-    expect(call.request.body.destinationCityId).toBe(3);
+    expect(call.request.body.stops).toEqual([{ cityId: 23 }, { cityId: 3 }]);
     call.flush(COMPARISON);
     await fixture.whenStable();
     expect(explorer.querySelector('app-route-map [role="status"]')?.textContent).toContain(
@@ -277,8 +274,7 @@ describe('RouteExplorer', () => {
 
     const call = httpTesting.expectOne(COMPARISONS_URL);
     expect(call.request.body).toEqual({
-      originCityId: 23,
-      destinationCityId: 3,
+      stops: [{ cityId: 23 }, { cityId: 3 }],
       departureDate: DEFAULT_DATE,
       travelers: 4,
       priority: 'FASTEST',

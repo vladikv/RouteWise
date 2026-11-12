@@ -117,8 +117,10 @@ class AuthFlowIntegrationTest {
 
         mockMvc.perform(demo.send(get("/api/trips")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(3))
-                .andExpect(jsonPath("$[0].title").value("Weekend in Vienna"));
+                .andExpect(jsonPath("$.length()").value(4))
+                .andExpect(jsonPath("$[0].title").value("Weekend in Vienna"))
+                .andExpect(jsonPath("$[1].title").value("Central Europe loop"))
+                .andExpect(jsonPath("$[1].stops.length()").value(5));
     }
 
     @Test
@@ -164,7 +166,7 @@ class AuthFlowIntegrationTest {
 
     private static String tripJson(String title) {
         return """
-                {"title": "%s", "originCityId": 1, "destinationCityId": 2,
+                {"title": "%s", "stops": [{"cityId": 1}, {"cityId": 2}],
                  "departureDate": "%s", "travelers": 1, "priority": "BALANCED"}
                 """.formatted(title, LocalDate.now().plusDays(30));
     }

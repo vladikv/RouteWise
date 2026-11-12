@@ -48,6 +48,7 @@
           [attr.data-id]="marker.city.id"
           [class.city--origin]="marker.role === 'origin'"
           [class.city--destination]="marker.role === 'destination'"
+          [class.city--stop]="marker.role === 'stop'"
           [class.city--dimmed]="marker.dimmed"
           [class.city--hovered]="hoveredId() === marker.city.id"
           role="button"
@@ -74,15 +75,15 @@
               class="city__ring"
               [attr.cx]="marker.point.x"
               [attr.cy]="marker.point.y"
-              [attr.r]="10 * u"
+              [attr.r]="(marker.pin.length > 2 ? 14 : 10) * u"
             />
             <text
               class="city__letter"
               [attr.x]="marker.point.x"
               [attr.y]="marker.point.y + 3.8 * u"
-              [attr.font-size]="11 * u"
+              [attr.font-size]="(marker.pin.length > 2 ? 9 : 11) * u"
             >
-              {{ marker.role === 'origin' ? 'A' : 'B' }}
+              {{ marker.pin }}
             </text>
           } @else {
             <circle
@@ -110,6 +111,7 @@
           class="city city--static"
           [class.city--origin]="marker.role === 'origin'"
           [class.city--destination]="marker.role === 'destination'"
+          [class.city--stop]="marker.role === 'stop'"
           [class.city--dimmed]="marker.dimmed"
           aria-hidden="true"
         >
@@ -118,15 +120,15 @@
               class="city__ring"
               [attr.cx]="marker.point.x"
               [attr.cy]="marker.point.y"
-              [attr.r]="10 * u"
+              [attr.r]="(marker.pin.length > 2 ? 14 : 10) * u"
             />
             <text
               class="city__letter"
               [attr.x]="marker.point.x"
               [attr.y]="marker.point.y + 3.8 * u"
-              [attr.font-size]="11 * u"
+              [attr.font-size]="(marker.pin.length > 2 ? 9 : 11) * u"
             >
-              {{ marker.role === 'origin' ? 'A' : 'B' }}
+              {{ marker.pin }}
             </text>
           } @else {
             <circle

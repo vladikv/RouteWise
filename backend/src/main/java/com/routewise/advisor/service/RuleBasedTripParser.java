@@ -24,7 +24,9 @@ import org.springframework.stereotype.Component;
 /**
  * Keyword- and pattern-based trip extraction, used when no LLM is configured or
  * it fails. Understands English requests such as "Berlin to Vienna next Friday,
- * 2 people, as cheap as possible". Holds no state and does no I/O.
+ * 2 people, as cheap as possible" or "Berlin to Prague, then Vienna, back home
+ * Sunday" (stops in order; "back home" returns to the first stop, and its date is a
+ * later date, not the departure). Holds no state and does no I/O.
  */
 @Component
 public class RuleBasedTripParser {
@@ -98,7 +100,23 @@ public class RuleBasedTripParser {
     private static final Pattern BALANCED = Pattern.compile("\\bbalanced?\\b");
 
     private static final Pattern ORIGIN_MARKER = Pattern.compile("\\bfrom\\s+$");
-    private static final Pattern DESTINATION_MARKER = Pattern.compile("\\b(?:to|towards)\\s+$");
+    /** Returning to the first stop: "back home Sunday", "and back", "return on Friday". */
+    private static final Pattern RETURN_MARKER = Pattern.compile(
+            "\\b(?:back home|and back|come back|coming back|go back|return(?:ing)?(?: home)?)\\b");
+    /**
+     * A capitalised place name after a route word ("to Zakopane", "then Bratislava"), or the first
+     * word of an "X to Y" request. Used to report cities that are not supported instead of
+     * silently dropping them. Matched on the text with diacritics removed but case kept.
+     */
+    private static final Pattern PLACE_AFTER_ROUTE_WORD = Pattern.compile(
+            "\\b(?:from|to|then|via|towards)\\s+(\\p{Lu}\\p{Ll}+(?:-\\p{Lu}\\p{Ll}+)?)");
+    private static final Pattern PLACE_AT_START = Pattern.compile(
+            "^\\s*(\\p{Lu}\\p{Ll}+(?:-\\p{Lu}\\p{Ll}+)?)\\s+(?:to|-|->|→)\\s");
+    /** Capitalised words that are not places. */
+    private static final Set<String> NOT_PLACES = Set.of("monday", "tuesday", "wednesday", "thursday", "friday",
+            "saturday", "sunday", "today", "tomorrow", "next", "this", "the", "my", "me", "we", "us", "i", "a",
+            "an", "january", "february", "march", "april", "may", "june", "july", "august", "september",
+            "october", "november", "december", "christmas", "easter", "weekend");
 
     /**
      * @param cityNames supported city names; mentions of other cities are ignored
@@ -106,12 +124,20 @@ public class RuleBasedTripParser {
      */
     public TripExtraction parse(String text, List<String> cityNames, LocalDate today) {
         String normalized = normalize(text);
-        List<String> cities = findOriginAndDestination(normalized, cityNames);
+        Matcher returnMarker = RETURN_MARKER.matcher(normalized);
+        boolean returns = returnMarker.find();
+        // A date after "back home" / "return" is the return day, not the departure.
+        String outbound = returns ? normalized.substring(0, returnMarker.start()) : normalized;
+        String inbound = returns ? normalized.substring(returnMarker.start()) : "";
+        List<String> stops = findStops(text, normalized, cityNames);
+        if (returns && !stops.isEmpty()) {
+            stops.add(stops.getFirst());
+        }
         return new TripExtraction(
                 null,
-                cities.get(0),
-                cities.get(1),
-                findDate(normalized, today).orElse(null),
+                stops,
+                findDate(outbound, today).orElse(null),
+                returns && findDate(inbound, today).isPresent(),
                 findTravelers(normalized).orElse(null),
                 findPriority(normalized).orElse(null),
                 null);
@@ -119,42 +145,59 @@ public class RuleBasedTripParser {
 
     /** Lower case without diacritics, so "Zürich" and "Kraków" match "zurich" and "krakow". */
     static String normalize(String text) {
-        return Normalizer.normalize(text, Normalizer.Form.NFD)
-                .replaceAll("\\p{M}", "")
-                .toLowerCase(Locale.ROOT);
+        return stripDiacritics(text).toLowerCase(Locale.ROOT);
+    }
+
+    private static String stripDiacritics(String text) {
+        return Normalizer.normalize(text, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
     }
 
     /**
-     * Returns [origin, destination], each possibly {@code null}. "from X" marks the
-     * origin and "to X" the destination; otherwise mentions are taken in order.
+     * Stops in the order they are mentioned; a city introduced with "from" goes first.
+     * Capitalised names of unsupported places after route words are kept (as written)
+     * so the resolver can report them.
      */
-    private static List<String> findOriginAndDestination(String text, List<String> cityNames) {
-        List<CityMention> mentions = findMentions(text, cityNames);
+    private static List<String> findStops(String original, String normalized, List<String> cityNames) {
+        List<CityMention> mentions = new ArrayList<>(findMentions(normalized, cityNames));
+        mentions.addAll(findUnknownPlaces(original, normalized, cityNames, mentions));
+        mentions.sort(Comparator.comparingInt(CityMention::start));
+        List<String> stops = new ArrayList<>();
         String origin = null;
-        String destination = null;
         for (CityMention mention : mentions) {
-            String before = text.substring(0, mention.start());
-            if (origin == null && ORIGIN_MARKER.matcher(before).find()) {
+            if (origin == null && ORIGIN_MARKER.matcher(normalized.substring(0, mention.start())).find()) {
                 origin = mention.city();
-            } else if (destination == null && DESTINATION_MARKER.matcher(before).find()) {
-                destination = mention.city();
+            } else {
+                stops.add(mention.city());
             }
         }
-        for (CityMention mention : mentions) {
-            String city = mention.city();
-            if (city.equals(origin) || city.equals(destination)) {
-                continue;
-            }
-            if (origin == null) {
-                origin = city;
-            } else if (destination == null) {
-                destination = city;
+        if (origin != null) {
+            stops.addFirst(origin);
+        }
+        return stops;
+    }
+
+    private static List<CityMention> findUnknownPlaces(String original, String normalized, List<String> cityNames,
+                                                       List<CityMention> known) {
+        String keepCase = stripDiacritics(original);
+        if (keepCase.length() != normalized.length() || keepCase.length() != original.length()) {
+            return List.of(); // positions would not line up; reporting unknown places is only a nicety
+        }
+        List<CityMention> unknown = new ArrayList<>();
+        for (Pattern pattern : List.of(PLACE_AT_START, PLACE_AFTER_ROUTE_WORD)) {
+            Matcher matcher = pattern.matcher(keepCase);
+            while (matcher.find()) {
+                int start = matcher.start(1);
+                String word = matcher.group(1).toLowerCase(Locale.ROOT);
+                boolean isKnown = known.stream().anyMatch(mention -> mention.start() == start)
+                        || cityNames.stream().anyMatch(city -> normalize(city).equals(word))
+                        || CITY_ALIASES.containsKey(word);
+                if (!isKnown && !NOT_PLACES.contains(word)
+                        && unknown.stream().noneMatch(mention -> mention.start() == start)) {
+                    unknown.add(new CityMention(original.substring(start, matcher.end(1)), start));
+                }
             }
         }
-        List<String> result = new ArrayList<>();
-        result.add(origin);
-        result.add(destination);
-        return result;
+        return unknown;
     }
 
     private static List<CityMention> findMentions(String text, List<String> cityNames) {

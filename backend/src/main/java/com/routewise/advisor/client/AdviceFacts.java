@@ -5,7 +5,10 @@ import java.util.stream.Collectors;
 
 import com.routewise.advisor.domain.AdviceContext;
 import com.routewise.comparison.dto.ComparisonResponse;
+import com.routewise.comparison.dto.ItineraryTotalsResponse;
+import com.routewise.comparison.dto.LegResponse;
 import com.routewise.comparison.dto.ModeOptionResponse;
+import com.routewise.comparison.dto.ModeTotalsResponse;
 import com.routewise.comparison.dto.WeatherSummary;
 import com.routewise.weather.domain.WeatherHazard;
 
@@ -20,16 +23,22 @@ final class AdviceFacts {
 
     static String describe(AdviceContext context) {
         ComparisonResponse comparison = context.comparison();
+        String currency = comparison.currency();
         StringBuilder facts = new StringBuilder()
-                .append("Trip: %s to %s on %s, %d traveler(s), priority %s.\n".formatted(
-                        context.originCity(), context.destinationCity(), comparison.departureDate(),
-                        comparison.travelers(), comparison.priority()))
-                .append("Straight-line distance: %s km. Costs (%s) and CO2 are totals for all travelers.\n"
-                        .formatted(comparison.distanceKm(), comparison.currency()))
-                .append("Modes, best first (score 0-100, weather already taken into account):\n");
-        comparison.options().forEach(option ->
-                facts.append("- ").append(describe(option, comparison.currency())).append('\n'));
-        facts.append(describeWeather(comparison.weather()));
+                .append("Route: %s on %s, %d traveler(s), priority %s, %d leg(s).\n".formatted(
+                        context.route(), comparison.departureDate(), comparison.travelers(),
+                        comparison.priority(), comparison.legs().size()))
+                .append("Straight-line distance: %s km in total. Costs (%s) and CO2 are totals for all travelers.\n"
+                        .formatted(comparison.distanceKm(), currency));
+        for (LegResponse leg : comparison.legs()) {
+            facts.append("Leg %d: %s to %s, %s km straight-line. Modes, best first (score 0-100, weather already "
+                            .formatted(leg.index() + 1, leg.from().name(), leg.to().name(), leg.distanceKm()))
+                    .append("taken into account):\n");
+            leg.options().forEach(option -> facts.append("- ").append(describe(option, currency)).append('\n'));
+        }
+        facts.append(describeItinerary(comparison.recommendedItinerary(), currency))
+                .append(describeSingleModes(comparison.singleModeTotals(), currency))
+                .append(describeWeather(comparison.weather()));
         return facts.toString();
     }
 
@@ -41,6 +50,24 @@ final class AdviceFacts {
                 option.recommended() ? " (recommended)" : "", option.durationMinutes(),
                 option.totalCost(), currency, option.co2Kg(), option.score());
         return option.notes().isEmpty() ? line : line + ". Notes: " + String.join(" ", option.notes());
+    }
+
+    private static String describeItinerary(ItineraryTotalsResponse itinerary, String currency) {
+        if (itinerary == null) {
+            return "Recommended plan: none, because at least one leg has no available mode.\n";
+        }
+        String modes = itinerary.modes().stream().map(Enum::name).collect(Collectors.joining(", then "));
+        return "Recommended plan (each leg's recommended mode): %s; total %d min, %s %s, %s kg CO2.\n".formatted(
+                modes, itinerary.durationMinutes(), itinerary.totalCost(), currency, itinerary.co2Kg());
+    }
+
+    private static String describeSingleModes(List<ModeTotalsResponse> totals, String currency) {
+        return totals.stream()
+                .map(mode -> mode.available()
+                        ? "- %s for every leg: %d min, %s %s, %s kg CO2".formatted(mode.mode(),
+                                mode.durationMinutes(), mode.totalCost(), currency, mode.co2Kg())
+                        : "- %s for every leg: not possible (%s)".formatted(mode.mode(), mode.unavailableReason()))
+                .collect(Collectors.joining("\n", "Single-mode alternatives:\n", "\n"));
     }
 
     private static String describeWeather(List<WeatherSummary> weather) {

@@ -136,7 +136,7 @@
           </div>
         } @else if (comparison.error(); as error) {
           <app-error-message [error]="error" (retry)="comparison.reload()" />
-        } @else if (shown(); as result) {
+        } @else if (shownLeg(); as result) {
           <div class="results__content">
             <app-comparison-chart [comparison]="result" />
             <details class="exact">

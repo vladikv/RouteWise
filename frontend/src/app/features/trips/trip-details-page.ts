@@ -1,8 +1,9 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { CityApi } from '../../core/api/city-api';
+import { Comparison } from '../../core/api/models';
 import { TripApi } from '../../core/api/trip-api';
 import { RouteMap } from '../../shared/map/route-map';
 import { ConfirmAction } from '../../shared/ui/confirm-action';
@@ -12,6 +13,8 @@ import { PRIORITY_LABELS, travelersLabel } from '../../shared/util/labels';
 import { AdvicePanel } from './comparison/advice-panel';
 import { ComparisonChart } from './comparison/comparison-chart';
 import { ComparisonPanel } from './comparison/comparison-panel';
+import { ItineraryView } from './comparison/itinerary-view';
+import { LegComparison, legComparison } from './comparison/leg-comparison';
 
 /** One trip: details, the advisor's recommendation, the mode comparison, and edit and delete. */
 @Component({
@@ -24,6 +27,7 @@ import { ComparisonPanel } from './comparison/comparison-panel';
     ComparisonPanel,
     ConfirmAction,
     ErrorMessage,
+    ItineraryView,
     RouteMap,
     Spinner,
   ],
@@ -58,6 +62,14 @@ export class TripDetailsPage {
   protected readonly deleteError = signal<unknown>(null);
   protected readonly priorityLabels = PRIORITY_LABELS;
   protected readonly travelersLabel = travelersLabel;
+  /** The stop cities in order, for the map. */
+  protected readonly stopIds = computed(
+    () => this.trip.value()?.stops.map((stop) => stop.cityId) ?? [],
+  );
+
+  protected singleLeg(comparison: Comparison): LegComparison {
+    return legComparison(comparison, 0);
+  }
 
   protected delete(): void {
     this.deleting.set(true);

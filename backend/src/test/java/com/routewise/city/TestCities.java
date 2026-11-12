@@ -31,4 +31,8 @@ public final class TestCities {
     public static City vienna() {
         return city(2L, "Vienna", "AT", 48.2082, 16.3738);
     }
+
+    public static City prague() {
+        return city(3L, "Prague", "CZ", 50.0755, 14.4378);
+    }
 }

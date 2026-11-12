@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import java.util.List;
 
 import com.routewise.city.domain.City;
-import com.routewise.city.repository.CityRepository;
 import com.routewise.common.exception.FieldValidationException;
 import com.routewise.common.exception.ResourceNotFoundException;
 import com.routewise.trip.domain.Trip;
@@ -24,14 +23,14 @@ public class TripService {
     private static final String RESOURCE = "Trip";
 
     private final TripRepository tripRepository;
-    private final CityRepository cityRepository;
+    private final StopResolver stopResolver;
     private final TripMapper tripMapper;
     private final Clock clock;
 
-    public TripService(TripRepository tripRepository, CityRepository cityRepository, TripMapper tripMapper,
+    public TripService(TripRepository tripRepository, StopResolver stopResolver, TripMapper tripMapper,
                        Clock clock) {
         this.tripRepository = tripRepository;
-        this.cityRepository = cityRepository;
+        this.stopResolver = stopResolver;
         this.tripMapper = tripMapper;
         this.clock = clock;
     }
@@ -82,7 +81,7 @@ public class TripService {
 
     /** Someone else's trip is "not found", like a missing one. */
     private Trip getTrip(Long id, Long ownerId) {
-        return tripRepository.findWithCitiesByIdAndOwnerId(id, ownerId)
+        return tripRepository.findWithStopsByIdAndOwnerId(id, ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException(RESOURCE, id));
     }
 
@@ -93,16 +92,7 @@ public class TripService {
     }
 
     private void apply(TripRequest request, Trip trip) {
-        if (request.originCityId().equals(request.destinationCityId())) {
-            throw new FieldValidationException("destinationCityId", "must differ from originCityId");
-        }
-        City origin = findCity("originCityId", request.originCityId());
-        City destination = findCity("destinationCityId", request.destinationCityId());
-        tripMapper.updateEntity(trip, request, origin, destination);
-    }
-
-    private City findCity(String field, Long cityId) {
-        return cityRepository.findById(cityId)
-                .orElseThrow(() -> new FieldValidationException(field, "unknown city id " + cityId));
+        List<City> stopCities = stopResolver.resolve(request.stops());
+        tripMapper.updateEntity(trip, request, stopCities);
     }
 }

@@ -52,7 +52,7 @@ describe('TripDraftInput', () => {
     const status = element.querySelector('[role="status"]');
     expect(status?.textContent).toContain('Form filled in from your description');
     expect(status?.querySelector('.badge')?.textContent).toBe('Rule-based');
-    expect(status?.querySelector('li')?.textContent).toBe('No destination city recognised.');
+    expect(status?.querySelector('li')?.textContent).toBe('Fewer than two stops recognised.');
   });
 
   it('confirms a draft without warnings and labels AI drafts', async () => {

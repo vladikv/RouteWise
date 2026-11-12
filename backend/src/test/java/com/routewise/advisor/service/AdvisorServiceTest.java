@@ -1,6 +1,7 @@
 package com.routewise.advisor.service;
 
 import static com.routewise.advisor.AdvisorTestData.TODAY;
+import static com.routewise.advisor.AdvisorTestData.berlinPragueVienna;
 import static com.routewise.advisor.AdvisorTestData.berlinToVienna;
 import static com.routewise.advisor.AdvisorTestData.bikeUnavailable;
 import static com.routewise.advisor.AdvisorTestData.comparison;
@@ -17,6 +18,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import com.routewise.advisor.client.AdvisorClient;
 import com.routewise.advisor.client.AdvisorClientException;
@@ -34,6 +36,7 @@ import com.routewise.comparison.service.ComparisonService;
 import com.routewise.transportmode.domain.TransportModeCode;
 import com.routewise.trip.domain.TripPriority;
 import com.routewise.trip.dto.TripResponse;
+import com.routewise.trip.dto.TripStopResponse;
 import com.routewise.trip.service.TripService;
 import com.routewise.user.TestUsers;
 
@@ -52,6 +55,7 @@ class AdvisorServiceTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-11T10:00:00Z"), ZoneOffset.UTC);
     private static final CitySummary BERLIN = new CitySummary(1L, "Berlin", "DE");
     private static final CitySummary VIENNA = new CitySummary(2L, "Vienna", "AT");
+    private static final CitySummary PRAGUE = new CitySummary(3L, "Prague", "CZ");
     private static final String REQUEST = "Berlin to Vienna next Friday, 2 people, cheap";
 
     @Mock
@@ -75,23 +79,23 @@ class AdvisorServiceTest {
     void parse_withoutAdvisorClient_usesRules() {
         TripDraftResponse draft = service(Optional.empty()).parse(REQUEST);
 
-        assertThat(draft).isEqualTo(new TripDraftResponse("Berlin to Vienna", BERLIN, VIENNA,
+        assertThat(draft).isEqualTo(new TripDraftResponse("Berlin to Vienna", List.of(BERLIN, VIENNA),
                 LocalDate.of(2026, 11, 13), 2, TripPriority.CHEAPEST, null, AdvisorSource.RULES, List.of()));
     }
 
     @Test
     void parse_withAdvisorClient_usesAiExtractionAndChecksIt() {
         when(advisorClient.extractTrip(REQUEST, List.of("Berlin", "Vienna"), TODAY)).thenReturn(
-                new TripExtraction("Cheap trip to Vienna", "Berlin", "Oslo", LocalDate.of(2026, 11, 13), 2,
-                        TripPriority.CHEAPEST, "Prefers mornings"));
+                new TripExtraction("Cheap trip to Vienna", List.of("Berlin", "Oslo"), LocalDate.of(2026, 11, 13),
+                        false, 2, TripPriority.CHEAPEST, "Prefers mornings"));
 
         TripDraftResponse draft = service(Optional.of(advisorClient)).parse(REQUEST);
 
         assertThat(draft.source()).isEqualTo(AdvisorSource.AI);
         assertThat(draft.title()).isEqualTo("Cheap trip to Vienna");
         assertThat(draft.notes()).isEqualTo("Prefers mornings");
-        assertThat(draft.destination()).isNull();
-        assertThat(draft.warnings()).containsExactly("\"Oslo\" is not a supported destination city.");
+        assertThat(draft.stops()).containsExactly(BERLIN, null);
+        assertThat(draft.warnings()).containsExactly("\"Oslo\" is not a supported city; please choose a stop.");
     }
 
     @Test
@@ -101,8 +105,19 @@ class AdvisorServiceTest {
         TripDraftResponse draft = service(Optional.of(advisorClient)).parse(REQUEST);
 
         assertThat(draft.source()).isEqualTo(AdvisorSource.RULES);
-        assertThat(draft.origin()).isEqualTo(BERLIN);
-        assertThat(draft.destination()).isEqualTo(VIENNA);
+        assertThat(draft.stops()).containsExactly(BERLIN, VIENNA);
+    }
+
+    @Test
+    void parse_multiStopRequestWithoutAdvisorClient_returnsOrderedStopsAndWarnings() {
+        TripDraftResponse draft = service(Optional.empty())
+                .parse("Berlin to Vienna, then Zakopane, back home on Sunday");
+
+        assertThat(draft.stops()).containsExactly(BERLIN, VIENNA, null, BERLIN);
+        assertThat(draft.warnings()).containsExactly(
+                "\"Zakopane\" is not a supported city; please choose a stop.",
+                "No departure date recognised.",
+                "Only the departure date is used; later dates in the request (such as a return day) are not stored.");
     }
 
     @Test
@@ -119,22 +134,23 @@ class AdvisorServiceTest {
         AdviceResponse advice = service(Optional.empty()).advise(1L, TestUsers.ALICE_ID);
 
         assertThat(advice.tripId()).isEqualTo(1L);
-        assertThat(advice.recommendedMode()).isEqualTo(TransportModeCode.TRAIN);
+        assertThat(advice.recommendedModes()).containsExactly(TransportModeCode.TRAIN);
         assertThat(advice.source()).isEqualTo(AdvisorSource.RULES);
         assertThat(advice.summary()).startsWith("Take the train from Berlin to Vienna");
+        assertThat(advice.legs()).hasSize(1);
     }
 
     @Test
     void advise_withAdvisorClient_usesAiWordingButKeepsEngineRecommendation() {
         stubTrip();
-        AdviceContext expectedContext = new AdviceContext("Berlin", "Vienna", berlinToVienna());
+        AdviceContext expectedContext = new AdviceContext(List.of("Berlin", "Vienna"), berlinToVienna());
         when(advisorClient.writeAdvice(expectedContext))
-                .thenReturn(new AdviceText("Take the train.", List.of("Pack an umbrella.")));
+                .thenReturn(new AdviceText("Take the train.", List.of("Train to Vienna."), List.of("Pack an umbrella.")));
 
         AdviceResponse advice = service(Optional.of(advisorClient)).advise(1L, TestUsers.ALICE_ID);
 
-        assertThat(advice).isEqualTo(new AdviceResponse(1L, TransportModeCode.TRAIN, "Take the train.",
-                List.of("Pack an umbrella."), AdvisorSource.AI));
+        assertThat(advice).isEqualTo(new AdviceResponse(1L, List.of(TransportModeCode.TRAIN), "Take the train.",
+                List.of("Train to Vienna."), List.of("Pack an umbrella."), AdvisorSource.AI));
     }
 
     @Test
@@ -145,17 +161,29 @@ class AdvisorServiceTest {
         AdviceResponse advice = service(Optional.of(advisorClient)).advise(1L, TestUsers.ALICE_ID);
 
         assertThat(advice.source()).isEqualTo(AdvisorSource.RULES);
-        assertThat(advice.recommendedMode()).isEqualTo(TransportModeCode.TRAIN);
+        assertThat(advice.recommendedModes()).containsExactly(TransportModeCode.TRAIN);
     }
 
     @Test
     void advise_noModeAvailable_hasNoRecommendedMode() {
-        when(tripService.findById(1L, TestUsers.ALICE_ID)).thenReturn(trip());
+        when(tripService.findById(1L, TestUsers.ALICE_ID)).thenReturn(trip(BERLIN, VIENNA));
         when(comparisonService.compare(1L, TestUsers.ALICE_ID)).thenReturn(comparison(List.of(), bikeUnavailable()));
 
         AdviceResponse advice = service(Optional.empty()).advise(1L, TestUsers.ALICE_ID);
 
-        assertThat(advice.recommendedMode()).isNull();
+        assertThat(advice.recommendedModes()).containsExactly((TransportModeCode) null);
+    }
+
+    @Test
+    void advise_twoLegs_returnsEachLegsModeAndExplainsTheMixedPlan() {
+        when(tripService.findById(1L, TestUsers.ALICE_ID)).thenReturn(trip(BERLIN, PRAGUE, VIENNA));
+        when(comparisonService.compare(1L, TestUsers.ALICE_ID)).thenReturn(berlinPragueVienna());
+
+        AdviceResponse advice = service(Optional.empty()).advise(1L, TestUsers.ALICE_ID);
+
+        assertThat(advice.recommendedModes()).containsExactly(TransportModeCode.TRAIN, TransportModeCode.BUS);
+        assertThat(advice.summary()).startsWith("Recommended plan for Berlin → Prague → Vienna: train, then bus.");
+        assertThat(advice.legs()).hasSize(2);
     }
 
     @Test
@@ -179,12 +207,15 @@ class AdvisorServiceTest {
     }
 
     private void stubTrip() {
-        when(tripService.findById(1L, TestUsers.ALICE_ID)).thenReturn(trip());
+        when(tripService.findById(1L, TestUsers.ALICE_ID)).thenReturn(trip(BERLIN, VIENNA));
         when(comparisonService.compare(1L, TestUsers.ALICE_ID)).thenReturn(berlinToVienna());
     }
 
-    private static TripResponse trip() {
-        return new TripResponse(1L, "Berlin to Vienna", BERLIN, VIENNA, LocalDate.of(2026, 11, 20), 2,
+    private static TripResponse trip(CitySummary... stops) {
+        List<TripStopResponse> stopResponses = IntStream.range(0, stops.length)
+                .mapToObj(i -> new TripStopResponse(stops[i].id(), stops[i].name(), stops[i].country(), i))
+                .toList();
+        return new TripResponse(1L, "Test trip", stopResponses, LocalDate.of(2026, 11, 20), 2,
                 TripPriority.GREENEST, null, Instant.EPOCH, Instant.EPOCH);
     }
 }

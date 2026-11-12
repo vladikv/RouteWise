@@ -7,14 +7,14 @@ import com.routewise.city.dto.CitySummary;
 import com.routewise.trip.domain.TripPriority;
 
 /**
- * A checked trip draft: cities are seeded cities, the date is not in the past
- * and travelers are in range. Fields that could not be determined are {@code null}
- * and explained in {@code warnings}.
+ * A checked trip draft: known stops are seeded cities, the date is not in the past
+ * and travelers are in range. {@code stops} has at least two entries, in travel
+ * order; an entry is {@code null} where a stop could not be determined (explained
+ * in {@code warnings}), so the form shows an empty stop to fill in.
  */
 public record TripDraft(
         String title,
-        CitySummary origin,
-        CitySummary destination,
+        List<CitySummary> stops,
         LocalDate departureDate,
         int travelers,
         TripPriority priority,

@@ -25,13 +25,15 @@
 
   <section class="card overview" aria-label="Trip details">
     <dl class="details">
-      <div>
-        <dt>From</dt>
-        <dd>{{ trip.origin.name }} ({{ trip.origin.country }})</dd>
-      </div>
-      <div>
-        <dt>To</dt>
-        <dd>{{ trip.destination.name }} ({{ trip.destination.country }})</dd>
+      <div class="details__wide">
+        <dt>Route</dt>
+        <dd>
+          <ol class="route-stops">
+            @for (stop of trip.stops; track stop.position) {
+              <li>{{ stop.cityName }} ({{ stop.country }})</li>
+            }
+          </ol>
+        </dd>
       </div>
       <div>
         <dt>Departure</dt>
@@ -56,8 +58,7 @@
       <app-route-map
         class="overview__map"
         [cities]="cityList"
-        [originId]="trip.origin.id"
-        [destinationId]="trip.destination.id"
+        [stops]="stopIds()"
         [interactive]="false"
       />
     }
@@ -81,9 +82,14 @@
     } @else if (comparison.error(); as error) {
       <app-error-message [error]="error" (retry)="comparison.reload()" />
     } @else if (comparison.value(); as value) {
-      <app-comparison-chart [comparison]="value" />
-      <h3 class="exact-heading">Exact numbers</h3>
-      <app-comparison-panel [comparison]="value" />
+      @if (value.legs.length === 1) {
+        @let leg = singleLeg(value);
+        <app-comparison-chart [comparison]="leg" />
+        <h3 class="exact-heading">Exact numbers</h3>
+        <app-comparison-panel [comparison]="leg" />
+      } @else {
+        <app-itinerary-view [comparison]="value" />
+      }
     }
   </section>
 }

@@ -1,4 +1,5 @@
-import { Comparison, ModeOption } from '../../../core/api/models';
+import { ModeOption } from '../../../core/api/models';
+import { LegComparison } from './leg-comparison';
 import { MODE_LABELS, durationLabel } from '../../../shared/util/labels';
 
 /**
@@ -7,7 +8,7 @@ import { MODE_LABELS, durationLabel } from '../../../shared/util/labels';
  * if it is itself the highest emitter, how much time it gains.
  * Null when there is nothing to compare (no recommendation or a single mode).
  */
-export function comparisonInsight(comparison: Comparison): string | null {
+export function comparisonInsight(comparison: LegComparison): string | null {
   const recommended = comparison.options.find((option) => option.recommended);
   const others = comparison.options.filter((option) => option.available && !option.recommended);
   if (!recommended || others.length === 0) {

@@ -31,8 +31,7 @@ describe('API services', () => {
   describe('TripApi', () => {
     const request: TripRequest = {
       title: 'Berlin to Vienna',
-      originCityId: 3,
-      destinationCityId: 23,
+      stops: [{ cityId: 3 }, { cityId: 23 }],
       departureDate: '2026-11-20',
       travelers: 2,
       priority: 'GREENEST',
@@ -103,8 +102,7 @@ describe('API services', () => {
   describe('ComparisonApi', () => {
     it('posts a route to compare without saving a trip', () => {
       const request = {
-        originCityId: 3,
-        destinationCityId: 23,
+        stops: [{ cityId: 3 }, { cityId: 23 }],
         departureDate: '2026-11-20',
         travelers: 2,
         priority: 'GREENEST' as const,

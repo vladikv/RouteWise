@@ -1,9 +1,10 @@
 import { CurrencyPipe, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
-import { Comparison, ModeOption } from '../../../core/api/models';
+import { ModeOption } from '../../../core/api/models';
 import { ModeIcon } from '../../../shared/ui/mode-icon';
 import { MODE_LABELS, durationLabel } from '../../../shared/util/labels';
 import { comparisonInsight } from './comparison-insight';
+import { LegComparison } from './leg-comparison';
 
 type Metric = 'score' | 'time' | 'cost' | 'co2';
 
@@ -44,7 +45,7 @@ let nextId = 0;
   styleUrl: './comparison-chart.scss',
 })
 export class ComparisonChart {
-  readonly comparison = input.required<Comparison>();
+  readonly comparison = input.required<LegComparison>();
 
   protected readonly metrics = METRICS;
   protected readonly metric = signal<Metric>('score');
