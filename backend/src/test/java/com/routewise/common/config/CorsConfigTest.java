@@ -52,6 +52,17 @@ class CorsConfigTest {
     }
 
     @Test
+    void preflight_allowsAuthorizationAndCsrfHeaders() throws Exception {
+        mockMvc.perform(options("/api/ping")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:4200")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "authorization, x-xsrf-token, content-type"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
+                        "authorization, x-xsrf-token, content-type"));
+    }
+
+    @Test
     void preflight_fromUnknownOrigin_isRejected() throws Exception {
         mockMvc.perform(options("/api/ping")
                         .header(HttpHeaders.ORIGIN, "http://evil.example")

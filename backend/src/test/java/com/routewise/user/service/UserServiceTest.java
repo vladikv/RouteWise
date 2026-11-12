@@ -10,7 +10,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Optional;
 
-import com.routewise.common.exception.FieldValidationException;
+import com.routewise.common.exception.DuplicateFieldException;
 import com.routewise.common.exception.ValidationError;
 import com.routewise.user.domain.AppUser;
 import com.routewise.user.domain.AuthUser;
@@ -23,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -65,15 +66,27 @@ class UserServiceTest {
     }
 
     @Test
-    void register_withTakenEmailInOtherCase_throwsFieldValidation() {
+    void register_withTakenEmailInOtherCase_throwsDuplicateField() {
         when(userRepository.existsByEmail("alice@example.com")).thenReturn(true);
 
         assertThatThrownBy(() -> userService.register(
                 new RegisterRequest("ALICE@example.com", "correct horse", "Alice")))
-                .isInstanceOf(FieldValidationException.class)
-                .extracting(ex -> ((FieldValidationException) ex).getErrors())
-                .isEqualTo(List.of(new ValidationError("email", "is already registered")));
+                .isInstanceOf(DuplicateFieldException.class)
+                .satisfies(ex -> {
+                    DuplicateFieldException duplicate = (DuplicateFieldException) ex;
+                    assertThat(duplicate.getStatus()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(duplicate.getErrors())
+                            .isEqualTo(List.of(new ValidationError("email", "is already registered")));
+                });
         verify(userRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void isRegistered_comparesTheNormalizedEmail() {
+        when(userRepository.existsByEmail("alice@example.com")).thenReturn(true);
+
+        assertThat(userService.isRegistered(" Alice@Example.com ")).isTrue();
+        assertThat(userService.isRegistered("bob@example.com")).isFalse();
     }
 
     @Test

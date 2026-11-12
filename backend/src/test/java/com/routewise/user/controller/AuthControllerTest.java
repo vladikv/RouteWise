@@ -14,7 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.routewise.common.config.SecurityConfig;
-import com.routewise.common.exception.FieldValidationException;
+import com.routewise.common.exception.DuplicateFieldException;
 import com.routewise.common.exception.InvalidCredentialsException;
 import com.routewise.user.TestUsers;
 import com.routewise.user.dto.RegisterRequest;
@@ -80,11 +80,14 @@ class AuthControllerTest {
     }
 
     @Test
-    void register_takenEmail_returns400() throws Exception {
-        when(userService.register(any())).thenThrow(new FieldValidationException("email", "is already registered"));
+    void register_takenEmail_returns409WithFieldError() throws Exception {
+        when(userService.register(any())).thenThrow(new DuplicateFieldException("email", "is already registered"));
 
         anonymous().perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(REGISTER_BODY))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isConflict())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Conflict"))
+                .andExpect(jsonPath("$.detail").value("email is already registered"))
                 .andExpect(jsonPath("$.errors[0].field").value("email"))
                 .andExpect(jsonPath("$.errors[0].message").value("is already registered"));
         verifyNoInteractions(sessionLogin);

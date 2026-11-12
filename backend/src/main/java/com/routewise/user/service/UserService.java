@@ -2,7 +2,7 @@ package com.routewise.user.service;
 
 import java.util.Locale;
 
-import com.routewise.common.exception.FieldValidationException;
+import com.routewise.common.exception.DuplicateFieldException;
 import com.routewise.user.domain.AppUser;
 import com.routewise.user.domain.AuthUser;
 import com.routewise.user.dto.RegisterRequest;
@@ -34,18 +34,23 @@ public class UserService implements UserDetailsService {
     /**
      * Creates an account with a BCrypt-hashed password.
      *
-     * @throws FieldValidationException when the email already has an account
+     * @throws DuplicateFieldException (409) when the email already has an account
      */
     public AuthUser register(RegisterRequest request) {
         String email = normalizeEmail(request.email());
-        if (userRepository.existsByEmail(email)) {
-            throw new FieldValidationException("email", "is already registered");
+        if (isRegistered(email)) {
+            throw new DuplicateFieldException("email", "is already registered");
         }
         AppUser user = new AppUser();
         user.setEmail(email);
         user.setDisplayName(request.displayName().strip());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         return AuthUser.of(userRepository.saveAndFlush(user)).withoutPassword();
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isRegistered(String email) {
+        return userRepository.existsByEmail(normalizeEmail(email));
     }
 
     @Override

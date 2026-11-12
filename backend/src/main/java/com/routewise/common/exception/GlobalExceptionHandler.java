@@ -41,7 +41,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(FieldValidationException.class)
     ProblemDetail handleFieldValidation(FieldValidationException ex) {
-        return validationProblem(ex.getErrors());
+        if (ex.getStatus() == HttpStatus.BAD_REQUEST) {
+            return validationProblem(ex.getErrors());
+        }
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(ex.getStatus(), ex.getMessage());
+        problem.setTitle(ex.getStatus().getReasonPhrase());
+        problem.setProperty(ERRORS_PROPERTY, ex.getErrors());
+        return problem;
     }
 
     /** Requests to protected endpoints without a login (raised by the security filter chain). */

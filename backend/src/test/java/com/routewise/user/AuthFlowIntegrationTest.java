@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -76,9 +77,48 @@ class AuthFlowIntegrationTest {
                 .andExpect(jsonPath("$.length()").value(0));
         mockMvc.perform(bob.send(get("/api/trips/" + tripId))).andExpect(status().isNotFound());
         mockMvc.perform(bob.send(get("/api/trips/" + tripId + "/comparison"))).andExpect(status().isNotFound());
+        mockMvc.perform(bob.send(get("/api/trips/" + tripId + "/advice"))).andExpect(status().isNotFound());
+        mockMvc.perform(bob.send(put("/api/trips/" + tripId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(tripJson("Taken over by Bob")))
+                .andExpect(status().isNotFound());
         mockMvc.perform(bob.send(delete("/api/trips/" + tripId))).andExpect(status().isNotFound());
 
-        mockMvc.perform(alice.send(get("/api/trips/" + tripId))).andExpect(status().isOk());
+        mockMvc.perform(alice.send(get("/api/trips/" + tripId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Alice's trip"));
+    }
+
+    @Test
+    void register_takenEmail_returns409() throws Exception {
+        register("dave.flow@example.com");
+
+        mockMvc.perform(withCsrf(post("/api/auth/register"), csrfCookie(mockMvc))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email": "Dave.Flow@example.com", "password": "correct horse", "displayName": "Dave"}
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errors[0].field").value("email"));
+    }
+
+    @Test
+    void demoAccount_isSeededWithSampleTrips() throws Exception {
+        Cookie csrf = csrfCookie(mockMvc);
+        MvcResult login = mockMvc.perform(withCsrf(post("/api/auth/login"), csrf)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email": "demo@routewise.app", "password": "demo1234"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.displayName").value("Demo traveller"))
+                .andReturn();
+        Client demo = new Client((MockHttpSession) login.getRequest().getSession(false), csrf);
+
+        mockMvc.perform(demo.send(get("/api/trips")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[0].title").value("Weekend in Vienna"));
     }
 
     @Test
