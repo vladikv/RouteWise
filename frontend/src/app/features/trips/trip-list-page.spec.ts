@@ -451,7 +451,15 @@ describe('TripListPage', () => {
 
     expect(
       Array.from(menu.querySelectorAll('a, button')).map((item) => item.textContent?.trim()),
-    ).toEqual(['Open', 'Edit', 'Duplicate', 'Delete']);
+    ).toEqual([
+      'Open',
+      'Edit',
+      'Duplicate',
+      'Move to Fastest',
+      'Move to Cheapest',
+      'Move to Balanced',
+      'Delete',
+    ]);
   });
 
   it('deletes from the quick action only after confirmation', async () => {

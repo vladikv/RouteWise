@@ -109,16 +109,21 @@
         <app-trip-board
           [columns]="columns()"
           [deletingId]="deletingId()"
+          [movingIds]="movingIds()"
           (deleted)="delete($event)"
+          (moved)="move($event)"
         />
       } @else {
         <app-trip-table
           [entries]="visible()"
           [(sort)]="sort"
           [deletingId]="deletingId()"
+          [movingIds]="movingIds()"
           (deleted)="delete($event)"
+          (moved)="move($event)"
         />
       }
     }
   }
+  <p class="visually-hidden" role="status">{{ announcement() }}</p>
 </div>

@@ -28,7 +28,11 @@
     @for (entry of rows(); track entry.trip.id) {
       @let trip = entry.trip;
       @let plan = figuresOf(entry);
-      <tr class="row">
+      <tr
+        class="row"
+        [class.row--moving]="movingIds().has(trip.id)"
+        [attr.aria-busy]="movingIds().has(trip.id) ? 'true' : null"
+      >
         <td class="wide-only trip__date">{{ trip.departureDate | date: 'mediumDate' }}</td>
         <th scope="row" class="trip__name">
           <a [routerLink]="['/trips', trip.id]">{{ trip.title }}</a>
@@ -102,6 +106,7 @@
               [trip]="trip"
               [busy]="deletingId() === trip.id"
               (deleted)="deleted.emit(trip)"
+              (moved)="move(trip, $event)"
             />
           </div>
         </td>

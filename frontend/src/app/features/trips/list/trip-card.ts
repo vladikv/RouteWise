@@ -1,7 +1,7 @@
 import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { Trip } from '../../../core/api/models';
+import { Trip, TripPriority } from '../../../core/api/models';
 import { ModeIcon } from '../../../shared/ui/mode-icon';
 import { daysBetween, todayIso } from '../../../shared/util/date';
 import { countdownLabel, travelersLabel } from '../../../shared/util/labels';
@@ -43,7 +43,10 @@ export class TripCard {
   readonly trip = input.required<Trip>();
   readonly state = input.required<FigureState>();
   readonly deleting = input(false);
+  /** A priority change is waiting for the API. */
+  readonly moving = input(false);
   readonly deleted = output<void>();
+  readonly moved = output<TripPriority>();
 
   protected readonly travelersLabel = travelersLabel;
   protected readonly modeSummary = modeSummary;

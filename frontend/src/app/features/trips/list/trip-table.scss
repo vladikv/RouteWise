@@ -54,6 +54,11 @@ thead th {
   inset: 0;
 }
 
+.row--moving > * {
+  opacity: 0.7;
+  cursor: progress;
+}
+
 .row:hover .trip__name a {
   text-decoration: underline;
 }
@@ -137,6 +142,11 @@ th[aria-sort='descending'] .sort {
 .trip__menu {
   position: relative;
   z-index: 2;
+}
+
+/* An open menu stays above the quick actions of the rows below it. */
+.trip__menu:focus-within {
+  z-index: 3;
 }
 
 .trip__quick {

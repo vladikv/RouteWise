@@ -128,6 +128,18 @@ src/
   **Duplicate** is a link to `/trips/new` with router navigation state `{ draft }` (`duplicateState`);
   `TripFormPage` reads it once (`presetFromState`: invalid fields dropped, ignored when editing) and the
   user still saves.
+- **Changing a trip's priority** (Trips page): `TripListPage.move` builds the existing update request from the
+  trip in the list (`moveRequest`, `list/trip-move.ts`: all fields, stops as city ids, date unchanged) and calls
+  `TripApi.update`. It is optimistic (`withPriority` in place, so the order is kept; `aria-busy` on the card/row
+  while pending), replaces the trip with the response and re-fetches that trip's comparison (the priority weights
+  the recommendation), and on failure restores the priority and shows an error `ToastService` toast with Retry.
+  Two ways in: the "Move to …" items of `TripMenu` (keyboard, touch) and dragging on `TripBoard`, which is
+  hand-written with pointer events (no CDK): a mouse/pen drag starts after `DRAG_THRESHOLD_PX`, a finger after a
+  `LONG_PRESS_MS` press (moving earlier means scrolling); `board-drag.ts` holds the pure hit test (`columnAt`
+  over the columns' rects). The ghost is a clone of the card on `<body>`; the original stays as a dashed
+  placeholder, the column under the pointer gets `column--target`; Escape or a drop outside cancels, a drop on
+  the own column is ignored, and the click after a drag is swallowed. A polite live region on the page announces
+  "Moved "<title>" to …".
 - **Menu, filter group, toast** (`shared/ui/`): `Menu` is a disclosure (built-in `IconButton` trigger via
   `label` + `menuIcon`, or your own `menuTrigger` button; panel content in `<ng-template appMenuContent>`,
   rendered only while open; Escape and outside click close, an item click closes unless
