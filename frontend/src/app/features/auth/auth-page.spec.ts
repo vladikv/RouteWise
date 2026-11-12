@@ -169,6 +169,16 @@ describe('AuthPage', () => {
     expect(navigateByUrl).toHaveBeenCalledWith('/trips/7');
   });
 
+  it('puts the form before the pitch, so phones and screen readers reach it first', async () => {
+    await open('login');
+
+    const form = page.querySelector('section[aria-labelledby="auth-title"]');
+    const pitch = page.querySelector('aside[aria-labelledby="pitch-title"]');
+    expect(form && pitch).toBeTruthy();
+    expect(form!.compareDocumentPosition(pitch!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(pitch?.querySelector('#demo-title')).not.toBeNull();
+  });
+
   it('keeps the return address when switching between login and registration', async () => {
     await open('login', '/trips/new');
 

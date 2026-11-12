@@ -76,8 +76,13 @@ tbody tr:last-child > * {
   span {
     display: block;
     height: 100%;
-    background: var(--color-primary);
+    background: var(--color-bar);
   }
+}
+
+/* Like the chart: only the recommended mode gets the accent. */
+.recommended .score__bar span {
+  background: var(--color-highlight);
 }
 
 h3 {

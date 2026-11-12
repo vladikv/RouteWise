@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { ApiError, FieldError } from '../../core/api/api-error';
 import { Observable } from 'rxjs';
+import { ApiError, FieldError } from '../../core/api/api-error';
 import { LoginRequest, RegisterRequest, User } from '../../core/api/models';
 import { safeReturnUrl } from '../../core/auth/auth-guard';
 import { DEMO_ACCOUNT } from '../../core/auth/demo-account';
@@ -12,86 +12,110 @@ import { AuthForm, AuthMode } from './auth-form';
 /**
  * Log in (`/login`) or create an account (`/register`); the mode comes from the
  * route data. Afterwards it returns to `returnUrl` (a path inside the app) or the trip list.
+ * Split screen on wide screens: what RouteWise offers (with the demo account) on the
+ * left, the form on the right. The form comes first in the DOM, so phones and screen
+ * readers reach it first.
  */
 @Component({
   selector: 'app-auth-page',
   imports: [AuthForm, ErrorMessage, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="page-header">
-      <h1>{{ isRegister() ? 'Create your account' : 'Log in' }}</h1>
-    </div>
-
-    @if (demo; as account) {
-      <section class="card demo" aria-labelledby="demo-title">
-        <h2 id="demo-title">Just looking around?</h2>
-        <p>
-          Try RouteWise with the demo account. It has a few sample trips. Email
-          <code>{{ account.email }}</code
-          >, password <code>{{ account.password }}</code
-          >.
+    <div class="auth">
+      <section class="card auth__form" aria-labelledby="auth-title">
+        <h1 id="auth-title">{{ isRegister() ? 'Create your account' : 'Log in' }}</h1>
+        <p class="muted intro">
+          {{
+            isRegister()
+              ? 'An account keeps your saved trips private to you.'
+              : 'Welcome back. Log in to see and plan your saved trips.'
+          }}
         </p>
-        <button
-          type="button"
-          class="button button--primary"
-          [disabled]="submitting()"
-          (click)="tryDemo(account)"
-        >
-          Try the demo
-        </button>
-      </section>
-    }
-
-    <section class="card">
-      <p class="muted intro">
-        {{
-          isRegister()
-            ? 'An account keeps your saved trips private to you.'
-            : 'Log in to see and plan your saved trips.'
-        }}
-      </p>
-      @if (error(); as error) {
-        <div class="error">
-          <app-error-message [error]="error" [retryable]="false" />
-        </div>
-      }
-      <app-auth-form
-        [mode]="mode()"
-        [submitting]="submitting()"
-        [serverErrors]="fieldErrors()"
-        (submitted)="send($event)"
-      />
-      <p class="switch">
-        @if (isRegister()) {
-          Already have an account?
-          <a routerLink="/login" [queryParams]="switchParams()">Log in</a>
-        } @else {
-          New to RouteWise?
-          <a routerLink="/register" [queryParams]="switchParams()">Create an account</a>
+        @if (error(); as error) {
+          <div class="error">
+            <app-error-message [error]="error" [retryable]="false" />
+          </div>
         }
-      </p>
-    </section>
+        <app-auth-form
+          [mode]="mode()"
+          [submitting]="submitting()"
+          [serverErrors]="fieldErrors()"
+          (submitted)="send($event)"
+        />
+        <p class="switch">
+          @if (isRegister()) {
+            Already have an account?
+            <a routerLink="/login" [queryParams]="switchParams()">Log in</a>
+          } @else {
+            New to RouteWise?
+            <a routerLink="/register" [queryParams]="switchParams()">Create an account</a>
+          }
+        </p>
+      </section>
+
+      <aside class="auth__pitch" aria-labelledby="pitch-title">
+        <h2 id="pitch-title" class="pitch__title">
+          Plan smarter trips.<span class="pitch__accent"> Greener too.</span>
+        </h2>
+        <ul class="pitch__list">
+          <li>Compare train, bus, car, bike and plane by time, cost and CO₂</li>
+          <li>Recommendations that take the weather forecast into account</li>
+          <li>Your saved trips stay private to your account</li>
+        </ul>
+        @if (demo; as account) {
+          <section class="demo" aria-labelledby="demo-title">
+            <h3 id="demo-title">Just looking around?</h3>
+            <p>
+              Use the demo account with a few sample trips: email
+              <code>{{ account.email }}</code
+              >, password <code>{{ account.password }}</code
+              >.
+            </p>
+            <button
+              type="button"
+              class="button button--primary"
+              [disabled]="submitting()"
+              (click)="tryDemo(account)"
+            >
+              Try the demo
+            </button>
+          </section>
+        }
+      </aside>
+    </div>
   `,
   styles: `
-    .card {
+    .auth {
+      display: grid;
+      grid-template-areas: 'form' 'pitch';
+      gap: var(--space-8);
+      align-items: center;
+      max-width: 60rem;
+      margin: 0 auto;
+    }
+
+    .auth__form {
+      grid-area: form;
+      width: 100%;
       max-width: 28rem;
+      justify-self: center;
     }
 
-    .demo {
-      margin-bottom: var(--space-6);
+    .auth__pitch {
+      grid-area: pitch;
     }
 
-    .demo h2 {
-      margin: 0 0 var(--space-2);
-      font-size: 1.1rem;
+    @media (min-width: 56rem) {
+      .auth {
+        grid-template-areas: 'pitch form';
+        grid-template-columns: 1fr minmax(0, 28rem);
+        gap: clamp(var(--space-8), 6vw, 5rem);
+        min-height: calc(100dvh - 15rem);
+      }
     }
 
-    .demo p {
-      margin: 0 0 var(--space-4);
-    }
-
-    .demo code {
-      overflow-wrap: anywhere;
+    h1 {
+      font-size: 1.9rem;
     }
 
     .intro {
@@ -104,6 +128,58 @@ import { AuthForm, AuthMode } from './auth-form';
 
     .switch {
       margin: var(--space-4) 0 0;
+    }
+
+    .pitch__title {
+      margin-bottom: var(--space-6);
+      font-size: clamp(2rem, 5vw, 3.25rem);
+      font-weight: 800;
+    }
+
+    .pitch__accent {
+      color: var(--color-primary);
+    }
+
+    .pitch__list {
+      display: grid;
+      gap: var(--space-3);
+      margin: 0 0 var(--space-8);
+      padding: 0;
+      list-style: none;
+      font-size: 1.1rem;
+    }
+
+    .pitch__list li {
+      display: flex;
+      gap: var(--space-3);
+    }
+
+    .pitch__list li::before {
+      content: '✓';
+      flex: none;
+      color: var(--color-primary);
+      font-weight: 800;
+    }
+
+    .demo {
+      padding: var(--space-6);
+      border: 1px solid var(--color-border);
+      border-left: 4px solid var(--color-primary);
+      border-radius: var(--radius);
+      background: var(--color-surface);
+    }
+
+    .demo h3 {
+      margin-bottom: var(--space-2);
+    }
+
+    .demo p {
+      color: var(--color-text-muted);
+    }
+
+    .demo code {
+      color: var(--color-text);
+      overflow-wrap: anywhere;
     }
   `,
 })

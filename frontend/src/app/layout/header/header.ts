@@ -1,9 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { IsActiveMatchOptions, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { Session } from '../../core/auth/session';
-import { ThemeService } from '../../core/theme/theme.service';
 
-/** App header: brand, main navigation, the account (log in / log out) and the theme toggle. */
+/** App header: brand, main navigation and the account (log in / log out). */
 @Component({
   selector: 'app-header',
   imports: [RouterLink, RouterLinkActive],
@@ -50,15 +49,6 @@ import { ThemeService } from '../../core/theme/theme.service';
             <a class="button" routerLink="/login">Log in</a>
           }
         </div>
-        <button
-          type="button"
-          class="button theme-toggle"
-          [attr.aria-pressed]="isDark()"
-          (click)="theme.toggle()"
-        >
-          <span aria-hidden="true">{{ isDark() ? '☾' : '☀' }}</span>
-          <span class="theme-toggle__label">Dark theme</span>
-        </button>
       </div>
     </header>
   `,
@@ -144,28 +134,20 @@ import { ThemeService } from '../../core/theme/theme.service';
       white-space: nowrap;
     }
 
-    .account .button,
-    .theme-toggle {
+    .account .button {
       min-height: 2.5rem;
     }
 
-    /* Phones: icon only, so the header stays on one row; the label remains for screen readers. */
+    /* Phones: the name gives way so brand, navigation and the account button share one row. */
     @media (max-width: 30rem) {
-      .theme-toggle__label {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip-path: inset(50%);
-        white-space: nowrap;
+      .account__name {
+        display: none;
       }
     }
   `,
 })
 export class Header {
-  protected readonly theme = inject(ThemeService);
   protected readonly session = inject(Session);
-  protected readonly isDark = computed(() => this.theme.theme() === 'dark');
   /** Home stays highlighted while the route explorer keeps its state in the query string. */
   protected readonly homeActiveOptions: IsActiveMatchOptions = {
     paths: 'exact',
