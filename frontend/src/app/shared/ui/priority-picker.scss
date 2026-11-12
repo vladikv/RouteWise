@@ -59,10 +59,10 @@
 }
 
 .priority__option input:checked + .priority__card {
-  border-color: var(--color-primary);
+  border-color: var(--color-primary-ink);
   box-shadow:
     var(--glass-highlight),
-    inset 0 0 0 1px var(--color-primary);
+    inset 0 0 0 1px var(--color-primary-ink);
   background: var(--glass-bg-strong);
 }
 
@@ -110,7 +110,7 @@
 /* The check mark shows the choice without relying on color. */
 .priority__option input:checked + .priority__card .priority__name::after {
   content: ' ✓';
-  color: var(--color-primary);
+  color: var(--color-primary-ink);
 }
 
 .priority__description {

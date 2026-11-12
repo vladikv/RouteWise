@@ -111,13 +111,13 @@
   }
 
   &[aria-pressed='true'] {
-    border-color: var(--color-primary);
-    background: var(--color-primary-a12);
+    border-color: var(--color-primary-ink);
+    background: var(--color-selected-bg);
   }
 
   &[aria-pressed='true']::before {
     content: '✓ ';
-    color: var(--color-primary);
+    color: var(--color-primary-ink);
   }
 }
 
@@ -185,7 +185,7 @@
     position: absolute;
     inset: 0 auto 0 0;
     width: 35%;
-    background: var(--color-primary);
+    background: var(--color-primary-ink);
     animation: progress 1s ease-in-out infinite;
   }
 }
@@ -221,7 +221,7 @@
 
 .exact summary {
   padding: var(--space-2) 0;
-  color: var(--color-primary);
+  color: var(--color-primary-ink);
   font-weight: 600;
   cursor: pointer;
 }

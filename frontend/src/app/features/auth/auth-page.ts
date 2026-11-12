@@ -137,7 +137,7 @@ import { AuthForm, AuthMode } from './auth-form';
     }
 
     .pitch__accent {
-      color: var(--color-primary);
+      color: var(--color-primary-ink);
     }
 
     .pitch__list {
@@ -157,7 +157,7 @@ import { AuthForm, AuthMode } from './auth-form';
     .pitch__list li::before {
       content: '✓';
       flex: none;
-      color: var(--color-primary);
+      color: var(--color-primary-ink);
       font-weight: 800;
     }
 

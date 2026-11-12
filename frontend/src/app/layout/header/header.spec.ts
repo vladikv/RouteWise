@@ -7,6 +7,7 @@ import { API_BASE_URL } from '../../core/api/api-config';
 import { AuthApi } from '../../core/api/auth-api';
 import { ALICE } from '../../core/auth/auth.testing';
 import { Session } from '../../core/auth/session';
+import { THEME_STORAGE_KEY } from '../../core/theme/theme';
 import { Header } from './header';
 
 describe('Header', () => {
@@ -26,6 +27,7 @@ describe('Header', () => {
         { provide: API_BASE_URL, useValue: 'http://api.test' },
       ],
     }).compileComponents();
+    localStorage.removeItem(THEME_STORAGE_KEY);
     fixture = TestBed.createComponent(Header);
     header = fixture.nativeElement as HTMLElement;
   });
@@ -181,5 +183,73 @@ describe('Header', () => {
     expect(Array.from(panel.querySelectorAll('button')).map((b) => b.textContent?.trim())).toEqual([
       'Log out',
     ]);
+  });
+
+  it('puts the navigation in the middle column between brand and actions', async () => {
+    await render();
+
+    const columns = Array.from(header.querySelector('.header__inner')!.children);
+    expect(columns.map((column) => column.className.split(' ')[0])).toEqual([
+      'brand',
+      'header__nav',
+      'header__actions',
+    ]);
+    expect(columns[1].querySelector('nav[aria-label="Main"]')).not.toBeNull();
+    expect(columns[2].querySelector('.menu--theme')).not.toBeNull();
+  });
+
+  it('shows the theme preference in the button label', async () => {
+    await render();
+
+    expect(button('Theme: System').getAttribute('aria-expanded')).toBe('false');
+    expect(button('Theme: System').getAttribute('aria-controls')).toBe('theme-menu');
+  });
+
+  it('chooses a theme from the theme menu and closes it', async () => {
+    await render();
+    const toggle = button('Theme: System');
+
+    toggle.click();
+    await render();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    const options = Array.from(header.querySelectorAll('#theme-menu button'));
+    expect(options.map((option) => option.textContent?.replace('✓', '').trim())).toEqual([
+      'Light',
+      'Dark',
+      'System',
+    ]);
+    expect(options.map((option) => option.getAttribute('aria-pressed'))).toEqual([
+      'false',
+      'false',
+      'true',
+    ]);
+    expect(options[2].textContent).toContain('✓');
+
+    (options[1] as HTMLButtonElement).click();
+    await render();
+
+    expect(header.querySelector('#theme-menu')).toBeNull();
+    expect(button('Theme: Dark')).toBe(toggle);
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it('closes the theme menu with Escape and on a click outside', async () => {
+    await render();
+    const toggle = button('Theme: System');
+
+    toggle.click();
+    await render();
+    header.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await render();
+    expect(header.querySelector('#theme-menu')).toBeNull();
+    expect(document.activeElement).toBe(toggle);
+
+    toggle.click();
+    await render();
+    document.body.click();
+    await render();
+    expect(header.querySelector('#theme-menu')).toBeNull();
   });
 });

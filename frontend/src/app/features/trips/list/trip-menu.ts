@@ -86,7 +86,7 @@ let nextId = 0;
     }
 
     .dropdown a:hover {
-      background: var(--color-primary-a12);
+      background: var(--color-selected-bg);
     }
 
     .dropdown ::ng-deep .button {

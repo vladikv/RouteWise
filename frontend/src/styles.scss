@@ -2,11 +2,19 @@
  * Global design tokens and base styles. Components use the tokens (var(--…)),
  * never raw colors.
  *
- * One dark theme, 60/30/10: midnight black (backgrounds, 60%), pure white
+ * Dark theme (default tokens), 60/30/10: midnight black (backgrounds, 60%), pure white
  * (text and lines, 30%), lime (the only accent, 10%: primary actions, links,
  * selection, focus, the recommended mode, the map route). Red and amber are
  * semantic only (errors, weather warnings). Every text pair meets WCAG AA
  * (4.5:1) and every meaningful mark 3:1; re-check when changing a value.
+ *
+ * Light theme (:root[data-theme='light'], set by ThemeService and the inline script in
+ * index.html): the same palette inverted. Midnight black (#0b0d12) becomes the ink for text
+ * and lines, white and ink alphas are the surfaces. Lime is a FILL only there (buttons,
+ * badges, selection tints, glows, the map route over an ink halo): lime text or thin lines
+ * on white fail contrast, so text, links, borders and focus use --color-primary-ink (ink).
+ * Red and amber are fills/borders with ink text. --color-text-aNN are alphas of the text
+ * colour: white in dark, ink in light.
  *
  * Glass: translucent surfaces are white at 6-10% (--color-text-aNN, NN = percent)
  * over a fixed layer of lime glows (.glow-layer), with a blur + saturation
@@ -14,7 +22,8 @@
  * checked against the brightest glow (peak alpha 16%) under the fill.
  * A second theme overrides the tokens under :root[data-theme='light'].
  */
-:root {
+:root,
+:root[data-theme='dark'] {
   color-scheme: dark;
 
   --color-bg: #0b0d12;
@@ -29,16 +38,26 @@
   --color-primary-hover: #c9f76a;
   /* Tinted backgrounds for selected states. */
   --color-primary-soft: #1e2814;
+  /* Selected controls (chips, tabs, options). */
+  --color-selected-bg: var(--color-primary-a12);
+  /* Lime where it is text, a thin line, a stroke or the focus ring; ink in the light theme. */
+  --color-primary-ink: var(--color-primary);
+  --color-link-hover: var(--color-primary-hover);
   --color-on-primary: #0b0d12;
   /* The recommended mode uses the same single accent. */
   --color-highlight: var(--color-primary);
   --color-highlight-bg: var(--color-primary-soft);
   --color-on-highlight: var(--color-primary);
+  /* Edge of recommended marks (stripe, bar outline, primary button border). */
+  --color-highlight-edge: var(--color-highlight);
   --color-success: var(--color-primary);
   /* Weather warnings. */
   --color-accent: #f5b871;
   --color-danger: #ff8a80;
   --color-danger-bg: #3a1b1e;
+  /* Red and amber as text; ink in the light theme where the hues fail as text on white. */
+  --color-danger-text: var(--color-danger);
+  --color-accent-text: var(--color-accent);
   --color-focus: var(--color-primary);
   /* Alpha variants of the palette above (same hues, written from the hex values). */
   --color-surface-a85: rgb(20 24 32 / 85%);
@@ -77,6 +96,8 @@
   --map-land: #191e28;
   --map-border: #343b4a;
   --map-city: #b8bfcc;
+  /* Dark outline under the route and pins so lime stays 3:1 against the land. */
+  --map-route-halo: var(--map-land);
 
   /* Manrope (loaded in index.html) is the only font; the system stack is the fallback. */
   --font-sans:
@@ -98,9 +119,59 @@
   --header-height: 4.25rem;
 }
 
-/* Glass becomes solid: no see-through surfaces, no blur. */
+/* Light theme: white glass over soft lime glows, ink text. Same hues as the dark palette. */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  /* Neutrals are ink #0b0d12 blended into white: no new hues. */
+  --color-bg: color-mix(in srgb, #0b0d12 4%, #ffffff);
+  --color-surface: #ffffff;
+  --color-surface-muted: color-mix(in srgb, #0b0d12 7%, #ffffff);
+  --color-border: rgb(11 13 18 / 14%);
+  --color-border-strong: rgb(11 13 18 / 60%);
+  --color-text: #0b0d12;
+  --color-text-muted: rgb(11 13 18 / 72%);
+  --color-primary-hover: color-mix(in srgb, #0b0d12 12%, #b6f23c);
+  --color-primary-soft: rgb(182 242 60 / 40%);
+  --color-selected-bg: rgb(182 242 60 / 40%);
+  --color-primary-ink: #0b0d12;
+  --color-link-hover: rgb(11 13 18 / 72%);
+  --color-on-highlight: #0b0d12;
+  --color-highlight-bg: rgb(182 242 60 / 40%);
+  --color-highlight-edge: rgb(11 13 18 / 80%);
+  --color-focus: #0b0d12;
+  --color-danger-bg: rgb(255 138 128 / 22%);
+  --color-danger-text: #0b0d12;
+  --color-accent-text: #0b0d12;
+  --color-surface-a85: rgb(255 255 255 / 85%);
+  --color-text-a06: rgb(11 13 18 / 6%);
+  --color-text-a10: rgb(11 13 18 / 10%);
+  --color-text-a12: rgb(11 13 18 / 12%);
+  --color-text-a14: rgb(11 13 18 / 14%);
+  --color-text-a50: rgb(11 13 18 / 50%);
+  --color-danger-bg-a70: rgb(255 138 128 / 22%);
+  --glass-bg: rgb(255 255 255 / 60%);
+  --glass-bg-strong: rgb(255 255 255 / 78%);
+  --glass-bg-menu: var(--color-surface-a85);
+  --glass-border: var(--color-text-a14);
+  --glass-highlight: inset 0 1px 0 rgb(255 255 255 / 90%);
+  --glow-1: rgb(182 242 60 / 34%);
+  --glow-2: rgb(182 242 60 / 26%);
+  --glow-3: rgb(182 242 60 / 26%);
+  --shadow-card: 0 1px 2px rgb(11 13 18 / 8%);
+  --shadow-raised: 0 8px 24px rgb(11 13 18 / 16%);
+  --map-sea: color-mix(in srgb, #0b0d12 9%, #ffffff);
+  --map-land: color-mix(in srgb, #0b0d12 2%, #ffffff);
+  --map-border: color-mix(in srgb, #0b0d12 25%, #ffffff);
+  --map-city: color-mix(in srgb, #0b0d12 70%, #ffffff);
+  --map-route-halo: #0b0d12;
+}
+
+/* Glass becomes solid in both themes: no see-through surfaces, no blur. */
 @media (prefers-reduced-transparency: reduce) {
-  :root {
+  :root,
+  :root[data-theme='dark'],
+  :root[data-theme='light'] {
     --glass-bg: var(--color-surface);
     --glass-bg-strong: var(--color-surface-muted);
     --glass-bg-menu: var(--color-surface-muted);
@@ -232,7 +303,7 @@ a {
   text-underline-offset: 0.18em;
 
   &:hover {
-    color: var(--color-primary-hover);
+    color: var(--color-link-hover);
   }
 }
 
@@ -287,7 +358,7 @@ a {
 }
 
 .button--primary {
-  border-color: var(--color-primary);
+  border-color: var(--color-highlight-edge);
   background: var(--color-primary);
   color: var(--color-on-primary);
   box-shadow:
@@ -296,7 +367,7 @@ a {
     0 4px 18px var(--color-primary-a20);
 
   &:hover {
-    border-color: var(--color-primary-hover);
+    border-color: var(--color-highlight-edge);
     background: var(--color-primary-hover);
     color: var(--color-on-primary);
   }
@@ -386,7 +457,7 @@ a {
 
 /* The recommended mode (table, chart): sunset, always with its "★ Recommended" text. */
 .badge--recommended {
-  border-color: var(--color-highlight);
+  border-color: var(--color-highlight-edge);
   background: var(--color-highlight-bg);
   color: var(--color-on-highlight);
 }
@@ -431,7 +502,7 @@ a {
   }
 
   input:checked + span {
-    border-color: var(--color-primary);
+    border-color: var(--color-primary-ink);
     background: var(--color-primary-soft);
     color: var(--color-text);
     box-shadow: var(--shadow-card);
@@ -440,7 +511,7 @@ a {
   /* The check mark makes the selection visible without relying on color. */
   input:checked + span::before {
     content: '✓';
-    color: var(--color-primary);
+    color: var(--color-primary-ink);
   }
 
   input:focus-visible + span {
@@ -494,7 +565,7 @@ textarea {
   }
 
   &:focus-visible {
-    border-color: var(--color-primary);
+    border-color: var(--color-primary-ink);
   }
 }
 

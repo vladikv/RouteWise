@@ -75,13 +75,13 @@ export interface ToggleOption<T extends string = string> {
     }
 
     button[aria-checked='true'] {
-      border-color: var(--color-primary);
-      background: var(--color-primary-a12);
+      border-color: var(--color-primary-ink);
+      background: var(--color-selected-bg);
       color: var(--color-text);
     }
 
     button[aria-checked='true'] span {
-      color: var(--color-primary);
+      color: var(--color-primary-ink);
     }
   `,
 })

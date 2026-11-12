@@ -33,7 +33,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       width: 1.25rem;
       height: 1.25rem;
       border: 3px solid var(--color-border);
-      border-top-color: var(--color-primary);
+      border-top-color: var(--color-primary-ink);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }

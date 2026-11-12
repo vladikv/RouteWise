@@ -37,7 +37,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       -webkit-backdrop-filter: var(--glass-filter);
       backdrop-filter: var(--glass-filter);
       box-shadow: var(--glass-highlight);
-      color: var(--color-primary);
+      color: var(--color-primary-ink);
     }
 
     .icon ::ng-deep svg {

@@ -47,9 +47,9 @@ import { ChangeDetectionStrategy, Component, input, model } from '@angular/core'
     }
 
     button[aria-pressed='true'] {
-      border-color: var(--color-primary);
-      background: var(--color-primary-a12);
-      color: var(--color-primary);
+      border-color: var(--color-primary-ink);
+      background: var(--color-selected-bg);
+      color: var(--color-primary-ink);
     }
 
     .count {

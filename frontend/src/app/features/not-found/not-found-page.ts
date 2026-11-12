@@ -21,7 +21,7 @@ import { RouterLink } from '@angular/router';
 
     .not-found__code {
       margin: 0 auto var(--space-2);
-      color: var(--color-primary);
+      color: var(--color-primary-ink);
       font-size: clamp(3.5rem, 14vw, 6rem);
       font-weight: 800;
       line-height: 1;

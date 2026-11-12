@@ -92,7 +92,7 @@ input::placeholder {
 
   li[aria-selected='true'] .picker__name::before {
     content: '✓ ';
-    color: var(--color-primary);
+    color: var(--color-primary-ink);
   }
 
   li[aria-disabled='true'] {
@@ -103,7 +103,7 @@ input::placeholder {
 
 .picker__option--active {
   background: var(--color-text-a14);
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--color-primary-ink);
   outline-offset: -2px;
 }
 

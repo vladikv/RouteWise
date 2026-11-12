@@ -50,9 +50,9 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
     button[aria-pressed='true'],
     button[aria-expanded='true'] {
-      border-color: var(--color-primary);
-      background: var(--color-primary-a12);
-      color: var(--color-primary);
+      border-color: var(--color-primary-ink);
+      background: var(--color-selected-bg);
+      color: var(--color-primary-ink);
     }
 
     button:disabled {

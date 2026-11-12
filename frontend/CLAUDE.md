@@ -12,8 +12,10 @@ src/
 └── app/
     ├── core/
     │   ├── api/         typed API layer: models, one service per resource, ApiError
-    │   └── auth/        Session (who is logged in), authGuard, credentialsInterceptor
-    ├── layout/          app chrome: header (full width, same 24 px gutter as the Home panels; 16 px on phones)
+    │   ├── auth/        Session (who is logged in), authGuard, credentialsInterceptor
+    │   └── theme/       ThemeService (light, dark or system preference, `data-theme` on `<html>`)
+    ├── layout/          app chrome: header (full width, same 24 px gutter as the Home panels; 16 px on phones;
+    │                    strict 3-column grid `1fr auto 1fr`: brand, centred nav pill, actions incl. the theme menu)
     ├── shared/ui/       presentational building blocks: glass panel, pill nav, stat chip, tabs,
     │                    segmented toggle, filter chip, icon button, bottom sheet, spinner,
     │                    error message, confirm action, pickers, mode icon
@@ -151,7 +153,7 @@ src/
   re-run the check when raising a glow, a fill or a tint (card tints are 8%).
   Under `prefers-reduced-transparency` the glass tokens become solid surfaces
   with `--glass-filter: none`, so never hard-code a blur or a translucent fill.
-  A second theme overrides the tokens under `:root[data-theme='light']`. Radii: `--radius-lg`
+  The light theme overrides the tokens under `:root[data-theme='light']` (see Theme). Radii: `--radius-lg`
   (cards), `--radius-md`, `--radius-pill` (buttons, inputs, badges). Type: 17 px body, Manrope (loaded in
   `index.html`, weights 400-800) is the only font (`--font-sans`; `--font-display`
   is an alias). Shared classes: `.card`, `.button` (`--primary`,
@@ -162,8 +164,24 @@ src/
   metric switch), `SegmentedToggle`, `FilterChip`, `IconButton`, `BottomSheet`; prefer them over new
   one-off controls. Blur only on a few top-level panels, never per list row. Component styles stay
   small (4 kB budget).
-- **Theme:** one dark theme only (`color-scheme: dark`); there is no theme
-  toggle. Do not add light-mode styles.
+- **Theme:** light, dark and system. `ThemeService` (`core/theme/theme.ts`) holds the
+  preference (`'light' | 'dark' | 'system'`, default system, saved in `localStorage` key
+  `routewise.theme`; every storage access is in try/catch and falls back to system), follows
+  `prefers-color-scheme` live while on system, and sets `data-theme` and `color-scheme` on
+  `<html>`. An inline script in `index.html` does the same before first paint (keep the key and
+  values in sync with the service). The header's theme menu (disclosure with three `aria-pressed`
+  buttons, current one also marked with a ✓) changes it. Dark tokens live in `:root`; light tokens
+  redefine them from the same palette (midnight black as ink, white and ink alphas as surfaces).
+  **Lime is a fill only in light mode** (primary buttons, badges, selected tints, glows, the map
+  route over a dark halo): anything that is lime text, a link, a thin line, a stroke or the focus
+  ring uses `--color-primary-ink` (lime in dark, ink in light), selected backgrounds use
+  `--color-selected-bg`, recommended stripes, bar outlines and primary-button borders use
+  `--color-highlight-edge`, and red/amber text uses `--color-danger-text`/`--color-accent-text`
+  (red and amber are borders and fills with ink text in light). Never write `color: var(--color-primary)`.
+  Map tokens (`--map-sea`, `--map-land`, `--map-border`, `--map-city`) have light variants and
+  `--map-route-halo` is the outline under the route and pins. Use only tokens in components so both
+  themes work; check any new pair in light and dark. `prefers-reduced-transparency` makes the glass
+  solid in both themes.
 - **Accessibility:** semantic HTML and landmarks, labels on inputs, visible
   focus, nothing conveyed by color alone, scrollable regions focusable.
   Layouts work down to 375 px.

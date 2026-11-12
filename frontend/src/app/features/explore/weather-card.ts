@@ -98,7 +98,7 @@ let nextId = 0;
     }
 
     .weather__description {
-      color: var(--color-accent);
+      color: var(--color-accent-text);
       font-weight: 600;
     }
 
@@ -120,7 +120,7 @@ let nextId = 0;
       padding: 0 var(--space-2);
       border: 1px solid var(--color-accent);
       border-radius: var(--radius-pill);
-      color: var(--color-accent);
+      color: var(--color-accent-text);
       font-size: 0.8125rem;
       font-weight: 700;
     }

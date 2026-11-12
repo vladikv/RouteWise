@@ -38,7 +38,7 @@ import { ApiError } from '../../core/api/api-error';
       height: 1.5rem;
       margin-top: 0.1rem;
       fill: none;
-      stroke: var(--color-danger);
+      stroke: var(--color-danger-text);
       stroke-width: 2;
       stroke-linecap: round;
       stroke-linejoin: round;
@@ -50,7 +50,7 @@ import { ApiError } from '../../core/api/api-error';
 
     .error__title {
       margin: 0 0 var(--space-1);
-      color: var(--color-danger);
+      color: var(--color-danger-text);
       font-weight: 700;
     }
 

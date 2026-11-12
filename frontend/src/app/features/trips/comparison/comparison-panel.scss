@@ -53,7 +53,7 @@ tbody tr:last-child > * {
 }
 
 .recommended > th {
-  box-shadow: inset 4px 0 0 var(--color-highlight);
+  box-shadow: inset 4px 0 0 var(--color-highlight-edge);
 }
 
 .unavailable {
@@ -83,6 +83,7 @@ tbody tr:last-child > * {
 /* Like the chart: only the recommended mode gets the accent. */
 .recommended .score__bar span {
   background: var(--color-highlight);
+  box-shadow: inset 0 0 0 1px var(--color-highlight-edge);
 }
 
 h3 {
@@ -110,5 +111,5 @@ h3 {
 
 .badge--hazard {
   border-color: var(--color-accent);
-  color: var(--color-accent);
+  color: var(--color-accent-text);
 }

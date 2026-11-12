@@ -99,7 +99,7 @@
 
 .city--hovered .city__dot,
 .city:focus-visible .city__dot {
-  fill: var(--color-primary);
+  fill: var(--color-primary-ink);
 }
 
 .city:focus-visible .city__hit {
@@ -135,7 +135,7 @@
 
 .city__ring {
   fill: var(--color-primary);
-  stroke: var(--map-land);
+  stroke: var(--map-route-halo);
   stroke-width: 2px;
   vector-effect: non-scaling-stroke;
 }
@@ -159,7 +159,7 @@
 }
 
 .route--halo {
-  stroke: var(--map-land);
+  stroke: var(--map-route-halo);
   stroke-width: 7px;
   stroke-dasharray: none;
   animation: none;
@@ -180,7 +180,7 @@
 
 .traveller {
   fill: var(--color-surface);
-  stroke: var(--color-primary);
+  stroke: var(--color-primary-ink);
   stroke-width: 2.5px;
   vector-effect: non-scaling-stroke;
 }
