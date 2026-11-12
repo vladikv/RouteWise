@@ -28,11 +28,17 @@
             <h2>
               <a [routerLink]="['/trips', trip.id]">{{ trip.title }}</a>
             </h2>
-            <p class="trip__route">
-              {{ trip.origin.name }}
-              <span class="trip__line" aria-hidden="true"></span>
-              <span class="visually-hidden">to</span>
-              {{ trip.destination.name }}
+            <p class="trip__route" [class.trip__route--multi]="trip.stops.length > 2">
+              @for (stop of trip.stops; track stop.position; let first = $first) {
+                @if (!first) {
+                  <span class="trip__line" aria-hidden="true"></span>
+                  <span class="visually-hidden">to</span>
+                }
+                {{ stop.cityName }}
+              }
+              @if (trip.stops.length > 2) {
+                <span class="badge trip__stops">{{ trip.stops.length }} stops</span>
+              }
             </p>
             <p class="trip__meta muted">
               {{ trip.departureDate | date: 'mediumDate' }} ({{ countdown(trip) }}) ·

@@ -6,7 +6,15 @@ import { apiErrorInterceptor } from '../../core/api/api-error';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { DRAFT } from './comparison/comparison.testing';
 import { TripFormPage } from './trip-form-page';
-import { CITIES, TRIP, choose, errorText, fillValidTrip, typeInto } from './trip-form.testing';
+import {
+  CITIES,
+  TRIP,
+  errorText,
+  fillValidTrip,
+  pickStop,
+  stopName,
+  typeInto,
+} from './trip-form.testing';
 
 const API = 'http://api.test/api';
 
@@ -50,13 +58,13 @@ describe('TripFormPage', () => {
     await openNew();
     expect(page.querySelector('h1')?.textContent).toContain('New trip');
 
-    fillValidTrip(page);
+    await fillValidTrip(fixture);
     submitTrip();
     TestBed.tick();
 
     const call = httpTesting.expectOne({ method: 'POST', url: `${API}/trips` });
     expect(call.request.body.title).toBe('Berlin to Vienna');
-    expect(call.request.body.originCityId).toBe(3);
+    expect(call.request.body.stops).toEqual([{ cityId: 3 }, { cityId: 23 }]);
     call.flush({ ...TRIP, id: 12 });
 
     expect(navigate).toHaveBeenCalledWith(['/trips', 12]);
@@ -87,7 +95,7 @@ describe('TripFormPage', () => {
 
   it('shows API field errors on the form and stays on the page', async () => {
     await openNew();
-    fillValidTrip(page);
+    await fillValidTrip(fixture);
     submitTrip();
     TestBed.tick();
 
@@ -111,7 +119,7 @@ describe('TripFormPage', () => {
 
   it('shows a general error when saving fails', async () => {
     await openNew();
-    fillValidTrip(page);
+    await fillValidTrip(fixture);
     submitTrip();
     TestBed.tick();
 
@@ -140,20 +148,19 @@ describe('TripFormPage', () => {
     await fixture.whenStable();
 
     expect(page.querySelector('[role="status"]')?.textContent).toContain(
-      'No destination city recognised.',
+      'Fewer than two stops recognised.',
     );
     expect(page.querySelector<HTMLInputElement>('#trip-title')?.value).toBe('Berlin to Vienna');
     expect(page.querySelector<HTMLInputElement>('#trip-travelers')?.value).toBe('3');
 
-    choose(page, '#trip-destination', 'Vienna');
+    await pickStop(fixture, 1, 'Vienna');
     submitTrip();
     TestBed.tick();
 
     const create = httpTesting.expectOne({ method: 'POST', url: `${API}/trips` });
     expect(create.request.body).toEqual({
       title: 'Berlin to Vienna',
-      originCityId: 3,
-      destinationCityId: 23,
+      stops: [{ cityId: 3 }, { cityId: 23 }],
       departureDate: '2099-05-20',
       travelers: 3,
       priority: 'CHEAPEST',
@@ -165,7 +172,7 @@ describe('TripFormPage', () => {
 
   it('shows an error and keeps the form usable when the description cannot be read', async () => {
     await openNew();
-    fillValidTrip(page);
+    await fillValidTrip(fixture);
 
     describeTrip('Berlin to Vienna');
     httpTesting
@@ -186,12 +193,7 @@ describe('TripFormPage', () => {
     await openNew();
 
     expect(page.querySelector<HTMLInputElement>('#trip-title')?.value).toBe('Berlin to Vienna');
-    expect(
-      page.querySelector<HTMLSelectElement>('#trip-origin')?.selectedOptions[0].text,
-    ).toContain('Berlin');
-    expect(
-      page.querySelector<HTMLSelectElement>('#trip-destination')?.selectedOptions[0].text,
-    ).toContain('Vienna');
+    expect([stopName(page, 0), stopName(page, 1)]).toEqual(['Berlin', 'Vienna']);
     expect(page.querySelector<HTMLInputElement>('#trip-date')?.value).toBe('2099-05-20');
     expect(page.querySelector<HTMLInputElement>('#trip-travelers')?.value).toBe('4');
     expect(
@@ -210,9 +212,7 @@ describe('TripFormPage', () => {
     await openNew();
 
     expect(page.querySelector<HTMLInputElement>('#trip-title')?.value).toBe('');
-    expect(
-      page.querySelector<HTMLSelectElement>('#trip-origin')?.selectedOptions[0].text,
-    ).toContain('Choose a city');
+    expect([stopName(page, 0), stopName(page, 1)]).toEqual(['', '']);
     expect(page.querySelector<HTMLInputElement>('#trip-date')?.value).toBe('');
     expect(page.querySelector<HTMLInputElement>('#trip-travelers')?.value).toBe('1');
   });

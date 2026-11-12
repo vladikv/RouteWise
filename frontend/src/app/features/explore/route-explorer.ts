@@ -28,6 +28,7 @@ import {
 import { PRIORITIES, travelersLabel } from '../../shared/util/labels';
 import { ComparisonChart } from '../trips/comparison/comparison-chart';
 import { ComparisonPanel } from '../trips/comparison/comparison-panel';
+import { LegComparison, legComparison } from '../trips/comparison/leg-comparison';
 
 const MIN_TRAVELERS = 1;
 const MAX_TRAVELERS = 9;
@@ -102,8 +103,7 @@ export class RouteExplorer {
       return undefined;
     }
     return {
-      originCityId,
-      destinationCityId,
+      stops: [{ cityId: originCityId }, { cityId: destinationCityId }],
       departureDate,
       travelers: this.travelers(),
       priority: this.priority(),
@@ -123,14 +123,19 @@ export class RouteExplorer {
   protected readonly refreshing = computed(
     () => this.comparison.isLoading() && this.shown() !== undefined,
   );
+  /** The explorer compares two stops, so its result is a single leg. */
+  protected readonly shownLeg = computed<LegComparison | undefined>(() => {
+    const shown = this.shown();
+    return shown ? legComparison(shown, 0) : undefined;
+  });
 
   /** Query parameters that prefill the trip form with the current selection. */
   protected readonly saveParams = computed(() => {
     const request = this.request();
     return request
       ? {
-          from: request.originCityId,
-          to: request.destinationCityId,
+          from: request.stops[0].cityId,
+          to: request.stops[1].cityId,
           date: request.departureDate,
           travelers: request.travelers,
           priority: request.priority,

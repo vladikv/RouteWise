@@ -36,7 +36,9 @@ export interface RouteSelection {
 interface CityMarker {
   city: City;
   point: MapPoint;
-  role: 'origin' | 'destination' | null;
+  role: 'origin' | 'destination' | 'stop' | null;
+  /** Text in the pin: "A"/"B", or the stop number(s) on a multi-stop route. */
+  pin: string;
   label: PlacedLabel | null;
   ariaLabel: string;
   dimmed: boolean;
@@ -72,6 +74,8 @@ const ANIMATION_MS = 380;
  * keys move between cities. Presentational: the selection lives in the parent.
  *
  * With `interactive` false it shows one route, zoomed to fit, as an image.
+ * With `stops`, it draws that ordered route leg by leg (numbered pins) instead of
+ * an origin and a destination; a picked city is then reported with `cityPick`.
  * With `wide`, a map at least 720 px wide shows the whole land outline in a
  * landscape view instead of the near-square one (same projection, more to the
  * west and east), so it can span a full-width layout without growing too tall.
@@ -88,6 +92,10 @@ export class RouteMap {
   readonly destinationId = input<number | null>(null);
   readonly interactive = input(true);
   readonly wide = input(false);
+  /** An ordered route of city ids (2+ stops); replaces origin/destination when given. */
+  readonly stops = input<number[] | null>(null);
+  /** In stops mode: a city the user picked on the map. */
+  readonly cityPick = output<number>();
   readonly selectionChange = output<RouteSelection>();
 
   private readonly svg = viewChild<ElementRef<SVGSVGElement>>('svg');
@@ -145,20 +153,47 @@ export class RouteMap {
     return new Map(this.cities().map((city) => [city.id, project(city)]));
   });
 
+  /** The cities on the route in order: the stops, or origin then destination. */
+  private readonly routeCities = computed<City[]>(() => {
+    const ids = this.stops() ?? [this.originId(), this.destinationId()];
+    return ids.map((id) => this.cityById(id)).filter((city): city is City => city !== undefined);
+  });
+
+  /** The drawn route through every stop, or null with fewer than two. */
   protected readonly route = computed(() => {
-    const origin = this.cityById(this.originId());
-    const destination = this.cityById(this.destinationId());
-    if (!origin || !destination) {
+    const cities = this.routeCities();
+    if (cities.length < 2) {
       return null;
     }
-    const from = this.points().get(origin.id) as MapPoint;
-    const to = this.points().get(destination.id) as MapPoint;
-    return {
-      from,
-      to,
-      path: routeArc(from, to),
-      distanceKm: haversineKm(origin, destination),
-    };
+    const points = cities.map((city) => this.points().get(city.id) as MapPoint);
+    let path = '';
+    let distanceKm = 0;
+    for (let i = 0; i + 1 < cities.length; i++) {
+      path += routeArc(points[i], points[i + 1]);
+      distanceKm += haversineKm(cities[i], cities[i + 1]);
+    }
+    return { points, from: points[0], to: points[points.length - 1], path, distanceKm };
+  });
+
+  /** Pin text per city: "A"/"B", or stop numbers ("1", or "1, 5" on a round trip). */
+  private readonly pins = computed(() => {
+    const pins = new Map<number, string>();
+    if (this.stops() === null) {
+      const originId = this.originId();
+      const destinationId = this.destinationId();
+      if (originId !== null) {
+        pins.set(originId, 'A');
+      }
+      if (destinationId !== null) {
+        pins.set(destinationId, 'B');
+      }
+      return pins;
+    }
+    this.routeCities().forEach((city, index) => {
+      const existing = pins.get(city.id);
+      pins.set(city.id, existing ? `${existing}, ${index + 1}` : String(index + 1));
+    });
+    return pins;
   });
 
   protected readonly markers = computed<CityMarker[]>(() => {
@@ -166,8 +201,8 @@ export class RouteMap {
     const view = this.view();
     const points = this.points();
     const route = this.route();
-    const originId = this.originId();
-    const destinationId = this.destinationId();
+    const pins = this.pins();
+    const stopsMode = this.stops() !== null;
 
     const inView = (p: MapPoint) =>
       p.x >= view.x && p.x <= view.x + view.width && p.y >= view.y && p.y <= view.y + view.height;
@@ -175,14 +210,17 @@ export class RouteMap {
       .filter((city) => inView(points.get(city.id) as MapPoint))
       .map((city) => {
         const point = points.get(city.id) as MapPoint;
-        const pinned = city.id === originId || city.id === destinationId;
+        const pinned = pins.has(city.id);
         return {
           id: city.id,
           x: point.x,
           y: point.y,
           text: city.name,
           pinned,
-          preferred: pinned && route ? routeLabelSides(point, route.from, route.to) : undefined,
+          preferred:
+            pinned && route && !stopsMode
+              ? routeLabelSides(point, route.from, route.to)
+              : undefined,
         };
       });
     const interactive = this.interactive();
@@ -207,15 +245,21 @@ export class RouteMap {
         : [],
     });
 
+    const routeCities = this.routeCities();
     return this.cities().map((city) => {
-      const role =
-        city.id === originId ? 'origin' : city.id === destinationId ? 'destination' : null;
+      const pin = pins.get(city.id) ?? '';
+      const role = this.roleOf(city.id, stopsMode, routeCities);
       return {
         city,
         point: points.get(city.id) as MapPoint,
         role,
+        pin,
         label: labels.get(city.id) ?? null,
-        ariaLabel: role ? `${city.name}, ${role}` : city.name,
+        ariaLabel: !role
+          ? city.name
+          : stopsMode
+            ? `${city.name}, stop ${pin}`
+            : `${city.name}, ${role}`,
         dimmed: route !== null && role === null,
       };
     });
@@ -233,7 +277,10 @@ export class RouteMap {
     const left = ((point.x - view.x) / view.width) * 100;
     const top = ((point.y - view.y) / view.height) * 100;
     let hint: string;
-    if (city.id === this.originId()) {
+    if (this.stops() !== null) {
+      const pin = this.pins().get(city.id);
+      hint = pin ? `Stop ${pin} · select to add again` : 'Select to add as the next stop';
+    } else if (city.id === this.originId()) {
       hint = this.destinationId() === null ? 'Origin · select again to clear' : 'Origin';
     } else if (city.id === this.destinationId()) {
       hint = 'Destination';
@@ -254,6 +301,16 @@ export class RouteMap {
 
   /** Text equivalent of what the map shows; announced when the selection changes. */
   protected readonly description = computed(() => {
+    if (this.stops() !== null) {
+      const cities = this.routeCities();
+      const route = this.route();
+      if (route) {
+        return `Route ${cities.map((city) => city.name).join(' → ')}, ${Math.round(route.distanceKm)} km straight-line.`;
+      }
+      return cities.length === 1
+        ? `Stop 1: ${cities[0].name}. Add another stop.`
+        : 'Choose the stops.';
+    }
     const origin = this.cityById(this.originId());
     const destination = this.cityById(this.destinationId());
     const route = this.route();
@@ -288,8 +345,8 @@ export class RouteMap {
         const animate = interactive && !baseChanged;
         const unitAtBase = base.width / Math.max(this.renderedWidth(), 1);
         if (route) {
-          this.moveTo(fitPoints([route.from, route.to], base, FIT_MARGIN_PX * unitAtBase), animate);
-        } else if (baseChanged || this.cityById(this.originId()) === undefined) {
+          this.moveTo(fitPoints(route.points, base, FIT_MARGIN_PX * unitAtBase), animate);
+        } else if (baseChanged || this.routeCities().length === 0) {
           this.moveTo({ ...base }, animate);
         }
       });
@@ -300,6 +357,10 @@ export class RouteMap {
 
   protected pick(city: City): void {
     if (!this.interactive() || this.consumeDrag()) {
+      return;
+    }
+    if (this.stops() !== null) {
+      this.cityPick.emit(city.id);
       return;
     }
     const originId = this.originId();
@@ -342,7 +403,7 @@ export class RouteMap {
     const base = this.base();
     const unitAtBase = base.width / Math.max(this.renderedWidth(), 1);
     this.moveTo(
-      route ? fitPoints([route.from, route.to], base, FIT_MARGIN_PX * unitAtBase) : { ...base },
+      route ? fitPoints(route.points, base, FIT_MARGIN_PX * unitAtBase) : { ...base },
       true,
     );
   }
@@ -450,6 +511,20 @@ export class RouteMap {
   }
 
   // --- Helpers --------------------------------------------------------------------
+
+  /** First stop is the origin, last the destination, the rest plain stops. */
+  private roleOf(id: number, stopsMode: boolean, routeCities: City[]): CityMarker['role'] {
+    if (!stopsMode) {
+      return id === this.originId() ? 'origin' : id === this.destinationId() ? 'destination' : null;
+    }
+    if (!routeCities.some((city) => city.id === id)) {
+      return null;
+    }
+    if (routeCities[0].id === id) {
+      return 'origin';
+    }
+    return routeCities[routeCities.length - 1].id === id ? 'destination' : 'stop';
+  }
 
   private cityById(id: number | null): City | undefined {
     return id === null ? undefined : this.cities().find((city) => city.id === id);

@@ -59,3 +59,9 @@
 .card + .card {
   margin-top: var(--space-6);
 }
+
+/* The route as a numbered list of stops. */
+.route-stops {
+  margin: 0;
+  padding-left: 1.25rem;
+}

@@ -61,7 +61,11 @@ src/
   component inputs (`withComponentInputBinding`), e.g. `id = input.required<string>()`.
 - **Forms:** reactive, typed (`NonNullableFormBuilder`), in a presentational
   form component that emits the request; the page saves it. Native controls
-  (`<select>`, `<input type="date">`). Each field has a label, shows its error
+  (`<input type="date">`, radio buttons) where they fit; cities are chosen with
+  `CityPicker` (pass `id`, `invalid` and `describedBy` so errors are announced).
+  A trip's stops are a `FormArray` of city ids (2–10, `MIN_STOPS`/`MAX_STOPS` in
+  `models.ts`) with add, remove and move up/down; API errors such as
+  `stops[1].cityId` are shown on that stop. Each field has a label, shows its error
   once touched (`aria-invalid` + `aria-describedby`), and client rules mirror
   the API's. API field errors come back through `ApiError.fieldErrors` and are
   shown on the matching field (see `TripForm` / `TripFormPage`).
@@ -75,7 +79,9 @@ src/
   (generated from Natural Earth; regenerate, do not edit). Zoom and pan change
   the `viewBox` (`viewport.ts`); marks and text are sized per CSS pixel via
   `unit()`; labels are placed by `layoutLabels` (no overlaps). It is
-  presentational and emits the selection. With `[wide]="true"` (home page) a map
+  presentational and emits the selection (origin/destination), or, with
+  `[stops]` (an ordered list of city ids), draws every leg with numbered pins
+  and emits `cityPick` instead. With `[wide]="true"` (home page) a map
   at least 720 px wide shows the whole land outline in a landscape view; below
   that, and on the small maps, it keeps the near-square view. The land data
   (`europe-land.ts`) comes from `scripts/gen-europe-land.py`; its box must match
@@ -87,6 +93,12 @@ src/
   Mode icons (`ModeIcon`) are decorative and always sit next to the name.
 - **City choice:** `CityPicker` (ARIA combobox) next to every interactive map;
   priorities with `PriorityPicker`.
+- **Comparisons are per leg:** the API returns `legs`, `recommendedItinerary`
+  and `singleModeTotals`. `ComparisonChart`, `ComparisonPanel` and
+  `comparisonInsight` work on one leg (`LegComparison`, built with
+  `legComparison(comparison, index)`). A two-stop trip and the home explorer
+  show that single leg as before; a multi-stop trip uses `ItineraryView`
+  (leg timeline, whole-trip totals, each leg's details).
 - **Explorer state** is mirrored in the URL (`from`, `to`, `date`, `travelers`,
   `priority`; defaults left out).
 - **Query parameters** also arrive as component inputs; `/trips/new` accepts

@@ -41,7 +41,15 @@
   font-weight: 600;
 }
 
-/* A small route line between the two cities: dot, dashes, dot. */
+.trip__route--multi .trip__line {
+  width: 1.5rem;
+}
+
+.trip__stops {
+  font-weight: 700;
+}
+
+/* A small route line between two stops: dot, dashes, dot. */
 .trip__line {
   position: relative;
   width: 3rem;

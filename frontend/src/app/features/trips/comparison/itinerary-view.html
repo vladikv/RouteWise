@@ -1,0 +1,104 @@
+@let data = comparison();
+
+<p class="muted summary">
+  {{ data.legs.length }} legs · {{ data.distanceKm | number: '1.0-0' }} km straight-line ·
+  {{ travelersLabel(data.travelers) }} · priority: {{ priorityLabels[data.priority] }} ·
+  {{ data.departureDate | date: 'mediumDate' }}. Each leg gets its own best mode; cost and CO₂ are
+  totals for all travelers.
+</p>
+
+<ol class="timeline" aria-label="Legs">
+  @for (item of legs(); track item.leg.index) {
+    <li class="leg" [class.leg--blocked]="!item.best">
+      <span class="leg__number" aria-hidden="true">{{ item.leg.index + 1 }}</span>
+      <div class="leg__body">
+        <p class="leg__route">
+          <span class="visually-hidden">Leg {{ item.leg.index + 1 }}:</span>
+          {{ item.leg.from.name }} <span aria-hidden="true">→</span>
+          <span class="visually-hidden">to</span> {{ item.leg.to.name }}
+          <span class="muted leg__distance">{{ item.leg.distanceKm | number: '1.0-0' }} km</span>
+        </p>
+        @if (item.best; as best) {
+          <p class="leg__mode">
+            <app-mode-icon [mode]="best.mode" />
+            <span class="leg__mode-name">{{ modeLabels[best.mode] }}</span>
+            <span class="badge badge--recommended">★ Recommended</span>
+          </p>
+          <p class="leg__numbers">
+            {{ durationLabel(best.durationMinutes ?? 0) }} ·
+            {{ best.totalCost | currency: data.currency : 'symbol' : '1.2-2' }} ·
+            {{ best.co2Kg | number: '1.1-1' }} kg CO₂
+          </p>
+          @for (note of best.notes; track note) {
+            <p class="leg__note">{{ note }}</p>
+          }
+        } @else {
+          <p class="leg__mode leg__mode--none">No transport mode is available on this leg.</p>
+          @for (reason of item.reasons; track reason) {
+            <p class="leg__note">{{ reason }}</p>
+          }
+        }
+      </div>
+    </li>
+  }
+</ol>
+
+<h3>Whole trip</h3>
+<div class="table-scroll" role="region" aria-label="Whole-trip totals" tabindex="0">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Plan</th>
+        <th scope="col" class="numeric">Time</th>
+        <th scope="col" class="numeric">Cost</th>
+        <th scope="col" class="numeric">CO₂</th>
+      </tr>
+    </thead>
+    <tbody>
+      @if (data.recommendedItinerary; as plan) {
+        <tr class="recommended">
+          <th scope="row">
+            <span class="plan">{{ planName() }}</span>
+            <span class="badge badge--recommended">★ Recommended</span>
+          </th>
+          <td class="numeric">{{ durationLabel(plan.durationMinutes) }}</td>
+          <td class="numeric">
+            {{ plan.totalCost | currency: data.currency : 'symbol' : '1.2-2' }}
+          </td>
+          <td class="numeric">{{ plan.co2Kg | number: '1.1-1' }} kg</td>
+        </tr>
+      } @else {
+        <tr>
+          <th scope="row">Recommended plan</th>
+          <td colspan="3" class="reason">Not possible: a leg has no available mode.</td>
+        </tr>
+      }
+      @for (totals of alternatives(); track totals.mode) {
+        <tr [class.unavailable]="!totals.available">
+          <th scope="row">{{ modeLabels[totals.mode] }} for every leg</th>
+          @if (totals.available) {
+            <td class="numeric">{{ durationLabel(totals.durationMinutes ?? 0) }}</td>
+            <td class="numeric">
+              {{ totals.totalCost | currency: data.currency : 'symbol' : '1.2-2' }}
+            </td>
+            <td class="numeric">{{ totals.co2Kg | number: '1.1-1' }} kg</td>
+          } @else {
+            <td colspan="3" class="reason">Not possible: {{ totals.unavailableReason }}</td>
+          }
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+
+<h3>Each leg in detail</h3>
+@for (item of legs(); track item.leg.index) {
+  <details class="leg-details">
+    <summary>
+      Leg {{ item.leg.index + 1 }}: {{ item.leg.from.name }} to {{ item.leg.to.name }}
+    </summary>
+    @let detail = legDetails(item.leg);
+    <app-comparison-chart [comparison]="detail" />
+    <app-comparison-panel [comparison]="detail" />
+  </details>
+}

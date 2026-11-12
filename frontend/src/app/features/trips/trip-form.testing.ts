@@ -1,3 +1,4 @@
+import { ComponentFixture } from '@angular/core/testing';
 import { City, Trip } from '../../core/api/models';
 
 /** Test data and DOM helpers shared by the trip form specs. */
@@ -16,13 +17,22 @@ export const VIENNA: City = {
   latitude: 48.2082,
   longitude: 16.3738,
 };
-export const CITIES: City[] = [BERLIN, VIENNA];
+export const PRAGUE: City = {
+  id: 18,
+  name: 'Prague',
+  country: 'CZ',
+  latitude: 50.0755,
+  longitude: 14.4378,
+};
+export const CITIES: City[] = [BERLIN, PRAGUE, VIENNA];
 
 export const TRIP: Trip = {
   id: 7,
   title: 'Berlin to Vienna',
-  origin: { id: 3, name: 'Berlin', country: 'DE' },
-  destination: { id: 23, name: 'Vienna', country: 'AT' },
+  stops: [
+    { cityId: 3, cityName: 'Berlin', country: 'DE', position: 0 },
+    { cityId: 23, cityName: 'Vienna', country: 'AT', position: 1 },
+  ],
   departureDate: '2099-05-20',
   travelers: 2,
   priority: 'GREENEST',
@@ -41,26 +51,48 @@ export function typeInto(root: HTMLElement, selector: string, value: string): vo
   element.dispatchEvent(new Event('blur'));
 }
 
-/** Selects the option whose text starts with `optionText`. */
-export function choose(root: HTMLElement, selector: string, optionText: string): void {
-  const select = root.querySelector<HTMLSelectElement>(selector);
-  const index = Array.from(select?.options ?? []).findIndex((option) =>
-    option.text.trim().startsWith(optionText),
-  );
-  if (!select || index < 0) {
-    throw new Error(`No option "${optionText}" in ${selector}`);
+/**
+ * Picks a city for stop `index` (0-based) the way a user does: type into the
+ * stop's city picker, then click the matching option.
+ */
+export async function pickStop(
+  fixture: ComponentFixture<unknown>,
+  index: number,
+  cityName: string,
+): Promise<void> {
+  const root = fixture.nativeElement as HTMLElement;
+  const field = root.querySelector<HTMLInputElement>(`#trip-stop-${index}`);
+  if (!field) {
+    throw new Error(`No stop ${index}`);
   }
-  select.selectedIndex = index;
-  select.dispatchEvent(new Event('change'));
-  select.dispatchEvent(new Event('blur'));
+  field.value = cityName;
+  field.dispatchEvent(new Event('input'));
+  fixture.detectChanges();
+  await fixture.whenStable();
+  const option = Array.from(root.querySelectorAll<HTMLElement>('[role="option"]')).find(
+    (candidate) => candidate.querySelector('.picker__name')?.textContent?.trim() === cityName,
+  );
+  if (!option) {
+    throw new Error(`No option "${cityName}" for stop ${index}`);
+  }
+  option.click();
+  await fixture.whenStable();
 }
 
-export function fillValidTrip(root: HTMLElement): void {
+/** The city name shown in stop `index`, or "" when none is chosen. */
+export function stopName(root: HTMLElement, index: number): string | undefined {
+  return root.querySelector<HTMLInputElement>(`#trip-stop-${index}`)?.value;
+}
+
+/** Berlin to Vienna on 2099-05-20 for 2 travelers, with a padded title. */
+export async function fillValidTrip(fixture: ComponentFixture<unknown>): Promise<void> {
+  const root = fixture.nativeElement as HTMLElement;
   typeInto(root, '#trip-title', '  Berlin to Vienna ');
-  choose(root, '#trip-origin', 'Berlin');
-  choose(root, '#trip-destination', 'Vienna');
+  await pickStop(fixture, 0, 'Berlin');
+  await pickStop(fixture, 1, 'Vienna');
   typeInto(root, '#trip-date', '2099-05-20');
   typeInto(root, '#trip-travelers', '2');
+  await fixture.whenStable();
 }
 
 export function submit(root: HTMLElement): void {

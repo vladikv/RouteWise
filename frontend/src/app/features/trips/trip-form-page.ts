@@ -116,8 +116,7 @@ export class TripFormPage {
     const priority = PRIORITIES.find((option) => option === this.priority());
     const date = this.date();
     const preset: TripPreset = {
-      ...(origin && { originCityId: origin.id }),
-      ...(destination && { destinationCityId: destination.id }),
+      ...((origin || destination) && { stops: [origin?.id ?? null, destination?.id ?? null] }),
       ...(origin && destination && { title: `${origin.name} to ${destination.name}` }),
       ...(date && /^\d{4}-\d{2}-\d{2}$/.test(date) && { departureDate: date }),
       ...(Number.isInteger(travelers) && travelers >= 1 && travelers <= 9 && { travelers }),

@@ -8,6 +8,13 @@ import { Advice } from '../../../core/api/models';
   template: `
     @let data = advice();
     <p class="summary">{{ data.summary }}</p>
+    @if (data.legs.length > 1) {
+      <ol class="legs" aria-label="Leg by leg">
+        @for (leg of data.legs; track $index) {
+          <li>{{ leg }}</li>
+        }
+      </ol>
+    }
     @if (data.tips.length > 0) {
       <ul class="tips">
         @for (tip of data.tips; track tip) {

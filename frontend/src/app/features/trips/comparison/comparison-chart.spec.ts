@@ -1,8 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Comparison, ModeOption } from '../../../core/api/models';
+import { ModeOption } from '../../../core/api/models';
+import { LegComparison } from './leg-comparison';
 import { ComparisonChart } from './comparison-chart';
 import { comparisonInsight } from './comparison-insight';
-import { COMPARISON } from './comparison.testing';
+import { LEG_COMPARISON } from './comparison.testing';
 
 function option(overrides: Partial<ModeOption> & Pick<ModeOption, 'mode'>): ModeOption {
   return {
@@ -19,13 +20,13 @@ function option(overrides: Partial<ModeOption> & Pick<ModeOption, 'mode'>): Mode
   };
 }
 
-const withOptions = (options: ModeOption[]): Comparison => ({ ...COMPARISON, options });
+const withOptions = (options: ModeOption[]): LegComparison => ({ ...LEG_COMPARISON, options });
 
 describe('comparisonInsight', () => {
   it('states what the recommended mode saves against the highest-emitting alternative', () => {
     // Fixture: train 44.0 kg / €150.80 (recommended), car 115.7 kg / €136.14.
     // CO₂: 115.7 - 44.0 = 71.7 → 72 kg. The car is cheaper, so no money is mentioned.
-    expect(comparisonInsight(COMPARISON)).toBe('Train instead of car saves 72 kg CO₂.');
+    expect(comparisonInsight(LEG_COMPARISON)).toBe('Train instead of car saves 72 kg CO₂.');
   });
 
   it('adds the money saved when the recommended mode is also cheaper', () => {
@@ -74,7 +75,7 @@ describe('ComparisonChart', () => {
 
   beforeEach(async () => {
     fixture = TestBed.createComponent(ComparisonChart);
-    fixture.componentRef.setInput('comparison', COMPARISON);
+    fixture.componentRef.setInput('comparison', LEG_COMPARISON);
     chart = fixture.nativeElement as HTMLElement;
     await fixture.whenStable();
   });
