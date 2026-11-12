@@ -47,10 +47,12 @@ const HEIGHT = 620;
 const PADDING = 64;
 const BASE: View = { x: 0, y: 0, width: WIDTH, height: HEIGHT };
 /** Longitudes covered by the land outline (see europe-land.ts); a wide map shows them all. */
-const LAND_WEST = -18;
-const LAND_EAST = 30;
+const LAND_WEST = -30;
+const LAND_EAST = 48;
 /** A `wide` map switches to the wide view from this rendered width on (CSS pixels). */
 const WIDE_MIN_PX = 720;
+/** Space above the northernmost and below the southernmost city in the wide view (drawing units). */
+const WIDE_MARGIN_Y = 36;
 
 /** Sizes in CSS pixels; they stay the same on screen at every zoom and map size. */
 const LABEL_PX = 13;
@@ -120,11 +122,15 @@ export class RouteMap {
     const project = this.projection();
     const west = project({ longitude: LAND_WEST, latitude: 50 }).x;
     const east = project({ longitude: LAND_EAST, latitude: 50 }).x;
+    // Only the band the cities occupy (plus room for their labels), so the map stays low.
+    const ys = this.cities().map((city) => project(city).y);
+    const top = Math.max(Math.min(...ys) - WIDE_MARGIN_Y, 0);
+    const bottom = Math.min(Math.max(...ys) + WIDE_MARGIN_Y, HEIGHT);
     return {
       x: Math.min(west, 0),
-      y: 0,
+      y: top,
       width: Math.max(east, WIDTH) - Math.min(west, 0),
-      height: HEIGHT,
+      height: bottom - top,
     };
   });
   protected readonly isWideView = computed(() => this.base() !== BASE);

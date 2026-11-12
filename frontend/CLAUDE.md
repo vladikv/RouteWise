@@ -77,7 +77,9 @@ src/
   `unit()`; labels are placed by `layoutLabels` (no overlaps). It is
   presentational and emits the selection. With `[wide]="true"` (home page) a map
   at least 720 px wide shows the whole land outline in a landscape view; below
-  that, and on the small maps, it keeps the near-square view. `ComparisonChart` shows one metric at a time with the
+  that, and on the small maps, it keeps the near-square view. The land data
+  (`europe-land.ts`) comes from `scripts/gen-europe-land.py`; its box must match
+  `LAND_WEST`/`LAND_EAST` in `route-map.ts`. `ComparisonChart` shows one metric at a time with the
   recommended mode as the only accent bar (`--color-highlight`, others
   `--color-bar`). Neither may be the only way to get information: keep a
   text or form equivalent (dropdowns for the map, the table for the chart)
