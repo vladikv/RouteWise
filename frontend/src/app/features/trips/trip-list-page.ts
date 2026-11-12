@@ -18,7 +18,6 @@ import { StatChip } from '../../shared/ui/stat-chip';
 import { LayoutBreakpoint } from '../../shared/util/layout-breakpoint';
 import { TripBoard } from './list/trip-board';
 import {
-  BOARD_PRIORITIES,
   FigureState,
   TripEntry,
   filterTrips,
@@ -26,6 +25,7 @@ import {
   tripFigures,
   tripKpis,
 } from './list/trip-figures';
+import { modeCounts, priorityCounts } from './list/trip-filters';
 import { TripTable } from './list/trip-table';
 import { TripToolbar, TripView } from './list/trip-toolbar';
 
@@ -83,13 +83,9 @@ export class TripListPage {
   protected readonly figuresLoading = computed(() =>
     this.entries().some((entry) => entry.state.status === 'loading'),
   );
-  protected readonly priorityCounts = computed(() => {
-    const counts = Object.fromEntries(BOARD_PRIORITIES.map((priority) => [priority, 0]));
-    for (const { trip } of this.entries()) {
-      counts[trip.priority]++;
-    }
-    return counts as Record<TripPriority, number>;
-  });
+  protected readonly priorityCounts = computed(() => priorityCounts(this.entries()));
+  protected readonly modeCounts = computed(() => modeCounts(this.entries()));
+  protected readonly total = computed(() => this.entries().length);
   protected readonly visible = computed(() =>
     filterTrips(this.entries(), {
       search: this.search(),

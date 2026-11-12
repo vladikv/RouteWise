@@ -1,44 +1,23 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  ElementRef,
-  inject,
-  input,
-  output,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Trip } from '../../../core/api/models';
 import { ConfirmAction } from '../../../shared/ui/confirm-action';
-import { IconButton } from '../../../shared/ui/icon-button';
-
-let nextId = 0;
+import { Menu, MenuContent } from '../../../shared/ui/menu';
 
 /**
  * The "⋯" menu of a trip: open, edit and delete (with its inline confirmation).
- * Disclosure pattern: Escape closes it and returns focus, a click outside closes it.
+ * Built on `Menu`, which stays open while the delete confirmation is answered.
  */
 @Component({
   selector: 'app-trip-menu',
-  imports: [RouterLink, ConfirmAction, IconButton],
+  imports: [RouterLink, ConfirmAction, Menu, MenuContent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: {
-    '(keydown.escape)': 'closeWithFocus()',
-    '(document:click)': 'closeOnOutsideClick($event)',
-  },
   template: `
-    <app-icon-button
-      [label]="'Actions for ' + trip().title"
-      [controls]="menuId"
-      [expanded]="open()"
-      (click)="open.set(!open())"
-    >
-      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <app-menu [label]="'Actions for ' + trip().title" placement="beside" [closeOnSelect]="false">
+      <svg menuIcon viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3" />
       </svg>
-    </app-icon-button>
-    @if (open()) {
-      <div class="dropdown" [id]="menuId">
+      <ng-template appMenuContent>
         <a [routerLink]="['/trips', trip().id]" [attr.aria-label]="'Open ' + trip().title">Open</a>
         <a [routerLink]="['/trips', trip().id, 'edit']" [attr.aria-label]="'Edit ' + trip().title">
           Edit
@@ -49,34 +28,15 @@ let nextId = 0;
           [busy]="busy()"
           (confirmed)="deleted.emit()"
         />
-      </div>
-    }
+      </ng-template>
+    </app-menu>
   `,
   styles: `
     :host {
-      position: relative;
       display: inline-block;
     }
 
-    .dropdown {
-      position: absolute;
-      top: 0;
-      right: calc(100% + var(--space-2));
-      z-index: 10;
-      display: grid;
-      gap: var(--space-1);
-      width: max-content;
-      max-width: 14rem;
-      padding: var(--space-2);
-      border: 1px solid var(--glass-border);
-      border-radius: var(--radius-md);
-      background: var(--glass-bg-menu);
-      -webkit-backdrop-filter: var(--glass-filter);
-      backdrop-filter: var(--glass-filter);
-      box-shadow: var(--glass-highlight), var(--shadow-raised);
-    }
-
-    .dropdown a {
+    a {
       display: block;
       padding: var(--space-2) var(--space-3);
       border-radius: var(--radius-sm);
@@ -85,11 +45,11 @@ let nextId = 0;
       text-decoration: none;
     }
 
-    .dropdown a:hover {
+    a:hover {
       background: var(--color-selected-bg);
     }
 
-    .dropdown ::ng-deep .button {
+    :host ::ng-deep .button {
       width: 100%;
     }
   `,
@@ -98,22 +58,4 @@ export class TripMenu {
   readonly trip = input.required<Trip>();
   readonly busy = input(false);
   readonly deleted = output<void>();
-
-  protected readonly open = signal(false);
-  protected readonly menuId = `trip-menu-${nextId++}`;
-  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-
-  protected closeWithFocus(): void {
-    if (!this.open()) {
-      return;
-    }
-    this.open.set(false);
-    this.host.nativeElement.querySelector('button')?.focus();
-  }
-
-  protected closeOnOutsideClick(event: Event): void {
-    if (this.open() && !this.host.nativeElement.contains(event.target as Node)) {
-      this.open.set(false);
-    }
-  }
 }

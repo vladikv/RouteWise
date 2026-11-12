@@ -80,9 +80,17 @@ describe('TripListPage', () => {
     return button;
   }
 
+  function buttonOrNull(text: string): HTMLButtonElement | null {
+    return (
+      Array.from(page.querySelectorAll('button')).find((candidate) =>
+        candidate.textContent?.includes(text),
+      ) ?? null
+    );
+  }
+
   function chip(label: string): HTMLButtonElement {
-    const button = Array.from(page.querySelectorAll('app-filter-chip button')).find((candidate) =>
-      candidate.textContent?.includes(label),
+    const button = Array.from(page.querySelectorAll('app-filter-group button')).find(
+      (candidate) => candidate.getAttribute('aria-label')?.startsWith(label) ?? false,
     );
     if (!button) {
       throw new Error(`No chip "${label}"`);
@@ -239,6 +247,38 @@ describe('TripListPage', () => {
     expect(chip('Cheapest').getAttribute('aria-pressed')).toBe('false');
   });
 
+  it('shows "N of M trips" that follows the filters, and Clear filters resets search and chips', async () => {
+    await load([TRIP, SOLO_TRIP]);
+    const summary = () =>
+      page.querySelector('app-trip-toolbar [role="status"]')?.textContent?.trim();
+    expect(summary()).toBe('2 of 2 trips');
+    expect(buttonOrNull('Clear filters')).toBeNull();
+
+    chip('Fastest').click();
+    await search('paris');
+    expect(summary()).toBe('1 of 2 trips');
+
+    buttonByText(page, 'Clear filters').click();
+    await settle();
+
+    expect(summary()).toBe('2 of 2 trips');
+    expect(page.querySelector<HTMLInputElement>('input[type="search"]')?.value).toBe('');
+    expect(chip('Fastest').getAttribute('aria-pressed')).toBe('false');
+    expect(buttonOrNull('Clear filters')).toBeNull();
+  });
+
+  it('counts trips per priority and per recommended mode from the full list', async () => {
+    await load([TRIP, SOLO_TRIP]);
+    chip('Bus').click();
+    await settle();
+
+    expect(chip('Fastest').getAttribute('aria-label')).toBe('Fastest, 1 trip');
+    expect(chip('Cheapest').getAttribute('aria-label')).toBe('Cheapest, 0 trips');
+    expect(chip('Train').getAttribute('aria-label')).toBe('Train, 2 trips');
+    expect(chip('Bus').getAttribute('aria-label')).toBe('Bus, 1 trip');
+    expect(chip('Plane').getAttribute('aria-label')).toBe('Plane, 0 trips');
+  });
+
   it('switches between the board and the list', async () => {
     await load([TRIP, SOLO_TRIP]);
     const radio = (label: string) =>
@@ -297,7 +337,7 @@ describe('TripListPage', () => {
     menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await settle();
 
-    expect(page.querySelector('.dropdown')).toBeNull();
+    expect(page.querySelector('.menu-panel')).toBeNull();
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
     expect(document.activeElement).toBe(trigger);
   });
@@ -306,12 +346,12 @@ describe('TripListPage', () => {
     await load([TRIP]);
     menuButton('Berlin to Vienna').click();
     await settle();
-    expect(page.querySelector('.dropdown')).not.toBeNull();
+    expect(page.querySelector('.menu-panel')).not.toBeNull();
 
     document.body.click();
     await settle();
 
-    expect(page.querySelector('.dropdown')).toBeNull();
+    expect(page.querySelector('.menu-panel')).toBeNull();
   });
 
   it('deletes a trip only after confirmation and removes it from the list', async () => {
@@ -319,7 +359,7 @@ describe('TripListPage', () => {
 
     menuButton('Berlin to Vienna').click();
     await settle();
-    const menu = page.querySelector('.dropdown') as HTMLElement;
+    const menu = page.querySelector('.menu-panel') as HTMLElement;
     buttonByText(menu, 'Delete').click();
     await settle();
     httpTesting.expectNone({ method: 'DELETE' });
@@ -341,7 +381,7 @@ describe('TripListPage', () => {
 
     menuButton('Berlin to Vienna').click();
     await settle();
-    const menu = page.querySelector('.dropdown') as HTMLElement;
+    const menu = page.querySelector('.menu-panel') as HTMLElement;
     buttonByText(menu, 'Delete').click();
     await settle();
     buttonByText(menu, 'Cancel').click();

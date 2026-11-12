@@ -94,6 +94,9 @@
         [view]="view()"
         (viewChange)="setView($event)"
         [priorityCounts]="priorityCounts()"
+        [modeCounts]="modeCounts()"
+        [total]="total()"
+        [shown]="visible().length"
       />
 
       @if (visible().length === 0) {

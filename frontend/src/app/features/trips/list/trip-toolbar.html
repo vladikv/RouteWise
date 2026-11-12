@@ -1,5 +1,5 @@
 <div class="toolbar">
-  <div class="toolbar__row">
+  <div class="toolbar__row toolbar__row--main">
     <label class="search">
       <span class="visually-hidden">Search trips by title or city</span>
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -23,29 +23,71 @@
     <a class="button button--primary" routerLink="/trips/new">New trip</a>
   </div>
 
-  <div class="toolbar__row">
-    <div class="chips" role="group" aria-labelledby="filter-priority">
-      <span class="chips__label muted" id="filter-priority">Priority</span>
-      @for (priority of priorityOptions; track priority) {
-        <app-filter-chip
-          [label]="priorityLabels[priority]"
-          [count]="priorityCounts()[priority]"
-          [selected]="priorities().includes(priority)"
-          (selectedChange)="setPriority(priority, $event)"
-        />
-      }
+  @if (narrow()) {
+    <div class="toolbar__row">
+      <button
+        #filtersButton
+        type="button"
+        class="button filters-button"
+        aria-haspopup="dialog"
+        (click)="openSheet()"
+      >
+        Filters
+        @if (chipCount() > 0) {
+          <span class="filters-button__count" aria-hidden="true">{{ chipCount() }}</span>
+          <span class="visually-hidden">({{ chipCount() }} active)</span>
+        }
+      </button>
     </div>
-    <div class="chips" role="group" aria-labelledby="filter-mode">
-      <span class="chips__label muted" id="filter-mode">Mode</span>
-      @for (mode of modeOptions; track mode) {
-        <app-filter-chip
-          [label]="modeLabels[mode]"
-          [selected]="modes().includes(mode)"
-          (selectedChange)="setMode(mode, $event)"
-        >
-          <app-mode-icon [mode]="mode" />
-        </app-filter-chip>
-      }
+  } @else {
+    <div class="toolbar__row toolbar__row--groups">
+      <ng-container *ngTemplateOutlet="groups" />
     </div>
+  }
+
+  <div class="toolbar__row toolbar__summary">
+    <p class="summary muted" role="status" aria-live="polite">{{ summary() }}</p>
+    @if (filtering()) {
+      <button type="button" class="button button--small" (click)="clearFilters()">
+        Clear filters
+      </button>
+    }
   </div>
 </div>
+
+@if (narrow() && sheetOpen()) {
+  <div class="scrim" aria-hidden="true" (click)="closeSheet()"></div>
+  <app-bottom-sheet label="Close filters" [state]="'expanded'" (stateChange)="onSheetState($event)">
+    <div class="sheet" role="group" aria-labelledby="filters-title">
+      <h2 class="sheet-title" id="filters-title" tabindex="-1">Filters</h2>
+      <ng-container *ngTemplateOutlet="groups" />
+      <div class="sheet__actions">
+        @if (filtering()) {
+          <button type="button" class="button" (click)="clearFilters()">Clear filters</button>
+        }
+        <button type="button" class="button button--primary" (click)="closeSheet()">
+          Show {{ shown() }} {{ shown() === 1 ? 'trip' : 'trips' }}
+        </button>
+      </div>
+    </div>
+  </app-bottom-sheet>
+}
+
+<ng-template #groups>
+  <app-filter-group
+    label="Priority"
+    [options]="priorityOptions()"
+    [unit]="unit"
+    [selected]="priorities()"
+    (selectedChange)="setPriorities($event)"
+  />
+  <app-filter-group
+    label="Mode"
+    [options]="modeOptions()"
+    [unit]="unit"
+    [selected]="modes()"
+    (selectedChange)="setModes($event)"
+  >
+    <ng-template appFilterIcon let-option><app-mode-icon [mode]="modeOf(option)" /></ng-template>
+  </app-filter-group>
+</ng-template>

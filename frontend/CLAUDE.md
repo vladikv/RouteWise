@@ -17,7 +17,7 @@ src/
     ├── layout/          app chrome: header (full width, same 24 px gutter as the Home panels; 16 px on phones;
     │                    strict 3-column grid `1fr auto 1fr`: brand, centred nav pill, actions incl. the theme menu)
     ├── shared/ui/       presentational building blocks: glass panel, pill nav, stat chip, tabs,
-    │                    segmented toggle, filter chip, icon button, bottom sheet, spinner,
+    │                    segmented toggle, filter chip, filter group, menu, toast outlet, icon button, bottom sheet, spinner,
     │                    error message, confirm action, pickers, mode icon
     ├── shared/map/      route map (SVG) and its pure projection maths
     ├── shared/util/     pure helpers (dates, labels, `LayoutBreakpoint`)
@@ -110,9 +110,19 @@ src/
   `narrow` < 768 px): wide = full-bleed map with two floating `GlassPanel`s (settings left, with the
   page `<h1>`; results right, with `WeatherCard`), both collapsible; medium = map, settings and
   results stacked; narrow = map plus a `BottomSheet` (peek/expanded, draggable) with settings and results.
-- **Trips list** (`features/trips/list/`): `TripToolbar` (search, `FilterChip`s, Board/List
-  `SegmentedToggle`, New trip), `TripBoard` (columns by priority), `TripTable`, `TripCard`, `TripMenu`;
-  `trip-figures.ts` derives cost, CO₂ and KPIs from each trip's comparison (no extra API).
+- **Trips list** (`features/trips/list/`): `TripToolbar` (row 1: search, Board/List
+  `SegmentedToggle`, New trip; row 2: `FilterGroup`s Priority and Mode with counts from the full list;
+  result count "3 of 5 trips" in a `role="status"` and "Clear filters"; below 768 px the groups move
+  into a `BottomSheet` opened by a "Filters" button), `TripBoard` (columns by priority), `TripTable`,
+  `TripCard`, `TripMenu` (built on `Menu`); `trip-figures.ts` derives cost, CO₂ and KPIs from each trip's
+  comparison (no extra API), `trip-filters.ts` the counts and the result summary.
+- **Menu, filter group, toast** (`shared/ui/`): `Menu` is a disclosure (built-in `IconButton` trigger via
+  `label` + `menuIcon`, or your own `menuTrigger` button; panel content in `<ng-template appMenuContent>`,
+  rendered only while open; Escape and outside click close, an item click closes unless
+  `closeOnSelect` is off; arrow keys move between items). `FilterGroup` is a `role="group"` of
+  `aria-pressed` chips with `options`, a `selected` model and an optional `appFilterIcon` template.
+  `ToastService.show({ message, kind, action? })` plus one `<app-toast-outlet>` in `app.ts`
+  (auto-dismiss after 5 s, paused on hover and focus; errors in `role="alert"`, info in `role="status"`).
 - **Explorer state** is mirrored in the URL (`from`, `to`, `date`, `travelers`,
   `priority`; defaults left out).
 - **Query parameters** also arrive as component inputs; `/trips/new` accepts
