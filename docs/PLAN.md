@@ -15,6 +15,7 @@ checkboxes when a milestone is completed.
   and recommends a mixed itinerary, compared with single-mode alternatives
 - Glass UI: translucent surfaces on a layered background in the existing palette; the Home map
   fills wide screens with floating panels; the Trips page has KPIs, filters and a board/list view
+  (before/after screenshots in `docs/screenshots/`)
 
 Out of scope for v1: social login, password reset, email verification,
 real-time timetables, booking.
@@ -101,7 +102,7 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
   - Demo data: the seeder's trips use stops; at least one has 3+ stops
   - Frontend: trip form with a stops list (add, remove, move up/down, city picker, inline validation); trip list and details show the stops; comparison as a leg timeline with the recommended mode per leg and totals vs single-mode alternatives; maps draw every leg; the home explorer stays A → B (2 stops)
   - Done when: tests for the migration (existing rows converted), validation cases, per-leg calculation, totals, ownership, parse with stops, rule-based fallback, UI specs; `./mvnw verify` and `npm test` green; README "Data & assumptions" updated if it exists by then; `docs/AI_WORKFLOW.md` entry
-- [ ] `feat/ui-glass-redesign`: glassmorphism redesign of the Angular UI: map-first Home on wide screens with floating panels, Trips page with KPIs, filters and board/list view, bottom sheet on phones; visual and layout only
+- [x] `feat/ui-glass-redesign`: glassmorphism redesign of the Angular UI: map-first Home on wide screens with floating panels, Trips page with KPIs, filters and board/list view, bottom sheet on phones; visual and layout only
   - Tokens first: the palette stays as defined in `frontend/src/styles.scss` `:root` (bg `#0b0d12`, surface `#141820`, text white / `#b8bfcc`, lime `#b6f23c`, amber `#f5b871`, danger `#ff8a80`, map colours); new tokens only for alpha variants of these, glass surfaces, borders, blur, radii (16–24 px, pill) and spacing; the hard-coded colours in `shared/map/route-map.scss` and `shared/ui/city-picker.scss` move to tokens; no hard-coded colours in components
   - Building blocks in `shared/ui`: glass panel, pill nav, stat chip, tabs / segmented toggle, filter chip, icon button, bottom sheet
   - Shell: fixed layered background with soft blurred lime glows; header with the logo on a lime tile, centred pill nav (Home, Trips) with a lighter active item, round icon buttons and Log in / avatar; the nav collapses into a menu below 768 px
@@ -213,3 +214,9 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
 | 2026-11-12 | Trip card tint from existing colours at low opacity: lime for TRAIN and BIKE, amber for PLANE, neutral for CAR and BUS; a mixed itinerary stays neutral; the mode is also named on the card | Five distinct mode hues would break "no new hues"; the tint is a hint, never the only signal |
 | 2026-11-12 | Manrope becomes the only font (body included, weight 400 added to the existing Google Fonts request) | "One geometric sans" without a new dependency; the font is already loaded |
 | 2026-11-12 | Bottom sheet, collapsible panels and segmented toggle are hand-written components (pointer events + keyboard), no Angular CDK | Small, testable pieces; no new dependency for three interactions |
+| 2026-11-12 | Pill nav matches Home by path only, ignoring query parameters | The explorer keeps its state in the query string, so an exact match never marked Home as the current page |
+| 2026-11-12 | In fill mode the map uses a "cover" view sized to its container, centred on the cities between the panels (`insetStart`/`insetEnd`), with land fading into the sea colour where the data ends | Letterboxing left hard edges and empty bands; cropping to the container keeps every city visible without stretching |
+| 2026-11-12 | The route uses a non-scaling stroke with no dash pattern; the draw-in animation grows a pixel dash from 0 to longer than any route | Dash lengths of a non-scaling stroke are screen pixels, so the old 1-unit pattern broke the line into dashes at the new map scales |
+| 2026-11-12 | Trips page is 84rem wide (other pages 68rem); the header spans the full width with the Home panels' 24 px gutter | Four board columns need the room; a full-width header lines up with the floating Home panels |
+| 2026-11-12 | Board view by default from 1280 px, list below; trip cards and table rows have no backdrop blur | Four columns do not fit narrower screens; blur on every card is the main cost on long lists |
+| 2026-11-12 | Known limit: when the map zooms to a route it centres on the whole map, so at 1280 px a long route can sit partly under a panel | Panning, zoom or collapsing a panel fixes it; margin-aware route fitting is left for later |
