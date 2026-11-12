@@ -9,10 +9,15 @@ checkboxes when a milestone is completed.
 - Weather-aware recommendation for the departure date
 - AI travel advisor: free-text trip request → trip draft + explanation
 - Works with zero configuration (rule-based fallback without an AI key)
+- Accounts (email + password, session login); saved trips are private to their owner
 
-Out of scope for v1: authentication, real-time timetables, booking.
+Out of scope for v1: social login, password reset, email verification,
+real-time timetables, booking.
 
 ## Domain model
+
+**AppUser**: account
+`id, email (stored lower-case, unique), passwordHash (BCrypt), displayName, createdAt`
 
 **City**: seeded reference data
 `id, name, country, latitude, longitude`
@@ -20,8 +25,8 @@ Out of scope for v1: authentication, real-time timetables, booking.
 **TransportMode**: seeded reference data
 `code (TRAIN|BUS|CAR|BIKE|PLANE), avgSpeedKmh, costPerKm, co2GramsPerKm, fixedOverheadMinutes, maxDistanceKm`
 
-**Trip**: user-owned, full CRUD
-`id, title, originCityId, destinationCityId, departureDate, travelers, priority (FASTEST|CHEAPEST|GREENEST|BALANCED), notes, createdAt, updatedAt`
+**Trip**: user-owned, full CRUD, visible only to its owner
+`id, ownerId, title, originCityId, destinationCityId, departureDate, travelers, priority (FASTEST|CHEAPEST|GREENEST|BALANCED), notes, createdAt, updatedAt`
 
 **Comparison**: computed, not stored
 Per mode: `durationMinutes, totalCost, co2Kg, score, recommended`.
@@ -29,9 +34,17 @@ Distance = haversine between cities × road/rail factor.
 
 ## API
 
+Public: cities, transport modes, `POST /api/comparisons` and the auth endpoints.
+Everything else needs a login (401 otherwise); another user's trip answers 404.
+Changing requests need the `X-XSRF-TOKEN` header echoing the `XSRF-TOKEN` cookie.
+
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/trips` | List trips |
+| POST | `/api/auth/register` | Create an account and log in (201) |
+| POST | `/api/auth/login` | Log in; starts a session |
+| POST | `/api/auth/logout` | End the session (204) |
+| GET | `/api/auth/me` | The logged-in account (401 when logged out) |
+| GET | `/api/trips` | List your trips |
 | GET | `/api/trips/{id}` | Trip details |
 | POST | `/api/trips` | Create trip (201 + Location) |
 | PUT | `/api/trips/{id}` | Update trip |
@@ -59,6 +72,7 @@ Distance = haversine between cities × road/rail factor.
 - [x] `feat/frontend-trips`: trip list, form, details, delete
 - [x] `feat/frontend-comparison`: comparison view, advice panel, free-text input
 - [x] `feat/ui-experience`: interactive route map, instant comparison, comparison chart
+- [x] `feat/auth`: accounts, session login, private trips, login/registration UI
 - [ ] `docs/readme-demo`: README, screenshots, demo recording
 
 ## Decisions log
@@ -111,3 +125,12 @@ Distance = haversine between cities × road/rail factor.
 | 2026-11-12 | The takeaway line is computed from the comparison only (CO₂ and money saved against the highest-emitting alternative, or time gained) | A concrete fact, never an invented equivalence |
 | 2026-11-12 | A new trip's title follows the chosen cities until the user types their own | Prefilled titles no longer go stale when a city is changed |
 | 2026-11-12 | On narrow screens the interactive map keeps its size and scrolls sideways | City names stay readable instead of shrinking to about 7 px |
+| 2026-11-12 | Accounts with Spring Security session login (HTTP-only `JSESSIONID`), not JWT; JSON endpoints under `/api/auth`, no form login | A same-site SPA needs no tokens in JavaScript; sessions can be ended server-side; least code |
+| 2026-11-12 | Added `spring-boot-starter-security` (+ `-security-test`) | Password hashing, session handling and CSRF protection should not be hand-written |
+| 2026-11-12 | Trips get `owner_id` (V4); another user's trip answers 404, not 403 | Ids reveal nothing about other users' trips |
+| 2026-11-12 | Public: reference data, `POST /api/comparisons`, auth endpoints. Advisor parse needs a login | Explore without an account; the optional LLM call is no longer open to anonymous callers |
+| 2026-11-12 | CSRF: SPA cookie pattern (`XSRF-TOKEN` cookie → `X-XSRF-TOKEN` header) plus `CsrfCookieFilter` | Spring Security 7 creates the token lazily, so without the filter the cookie never reaches the browser and the first POST fails |
+| 2026-11-12 | CORS allows credentials (origins stay explicit) | The UI on :4200 must send the session cookie to the API on :8087 |
+| 2026-11-12 | UI reads `XSRF-TOKEN` from `document.cookie` in its own interceptor | Works because UI and API share the host (cookies ignore ports); a deployment on different hosts needs a reverse proxy under one host |
+| 2026-11-12 | Login errors use one message for unknown email and wrong password; passwords 8–72 characters | No account enumeration; 72 is BCrypt's input limit |
+| 2026-11-12 | After login the UI returns to `returnUrl` only if it is a path inside the app | Prevents open redirects through crafted login links |

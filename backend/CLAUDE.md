@@ -10,9 +10,9 @@ Package-by-feature under `com.routewise`. Each feature owns its layers:
 ```
 com.routewise
 ├── common/
-│   ├── config/       cross-cutting config: CORS, OpenAPI, Clock
+│   ├── config/       cross-cutting config: CORS, security, OpenAPI, Clock
 │   └── exception/    RouteWiseException hierarchy, GlobalExceptionHandler
-└── <feature>/        e.g. trip, city, comparison, weather, advisor
+└── <feature>/        e.g. trip, city, comparison, weather, advisor, user
     ├── controller/   @RestController, DTOs in/out only
     ├── service/      business logic, transactions, pure rule classes
     ├── repository/   Spring Data JPA interfaces
@@ -92,14 +92,33 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
   records as input (`ComparisonInput`, `ModeParameters`), not entities, and do no I/O.
 - **CORS:** handled centrally in `CorsConfig` for `/api/**`; origins come from
   `routewise.cors.allowed-origins` (env `ROUTEWISE_CORS_ALLOWED_ORIGINS`).
+  Credentials are allowed, so origins must stay explicit (never `*`).
+- **Security:** session login (`JSESSIONID`) via the JSON endpoints in
+  `AuthController`; no form login or HTTP Basic. Access rules live only in
+  `SecurityConfig`: reference data, `POST /api/comparisons` and the auth
+  endpoints are public, the rest of `/api/**` needs a login. New public
+  endpoints must be added there explicitly. Controllers get the user with
+  `@AuthenticationPrincipal AuthUser` and pass `user.id()` to services;
+  user-owned data is always queried by id *and* owner (`...ByIdAndOwnerId`),
+  so someone else's record is a 404. CSRF uses the cookie pattern
+  (`XSRF-TOKEN` → `X-XSRF-TOKEN`); `CsrfCookieFilter` makes sure the cookie
+  is sent. 401/403 from the filter chain go through `GlobalExceptionHandler`
+  as Problem Details. Never log or return passwords or hashes (DTOs and
+  `AuthUser` override `toString`).
 - New endpoints: follow the `add-rest-endpoint` skill.
 
 ## Testing
 
 - JUnit 5, AssertJ, Mockito, MockMvc (`spring-boot-starter-*-test` modules).
 - Services: plain unit tests with Mockito, no Spring context.
-- Controllers: `@WebMvcTest(XController.class)` with `@MockitoBean` services;
-  cover success, 400 (validation) and 404.
+- Controllers: `@WebMvcTest(XController.class)` with `@MockitoBean` services
+  and `@Import(SecurityConfig.class)`, MockMvc from `TestUsers.mockMvcAsAlice`
+  (or `anonymousMockMvc`); cover success, 400 (validation) and 404, and 401
+  for endpoints that need a login.
+- `@SpringBootTest` tests send CSRF with `TestUsers.csrfCookie` /
+  `TestUsers.withCsrf`, never Spring Security's `csrf()` post-processor: it
+  swaps the token repository in the cached context for good, and later tests
+  in that context get no `XSRF-TOKEN` cookie.
 - The Claude client is tested against a local `HttpServer` faking `/v1/messages`
   (`ClaudeAdvisorClientTest`): request shape, success, refusal, server error;
   its timeout in `AdvisorClientConfigTest`.
