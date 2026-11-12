@@ -1,8 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { ApiError, FieldError } from '../../core/api/api-error';
-import { RegisterRequest } from '../../core/api/models';
+import { Observable } from 'rxjs';
+import { LoginRequest, RegisterRequest, User } from '../../core/api/models';
 import { safeReturnUrl } from '../../core/auth/auth-guard';
+import { DEMO_ACCOUNT } from '../../core/auth/demo-account';
 import { Session } from '../../core/auth/session';
 import { ErrorMessage } from '../../shared/ui/error-message';
 import { AuthForm, AuthMode } from './auth-form';
@@ -19,6 +21,26 @@ import { AuthForm, AuthMode } from './auth-form';
     <div class="page-header">
       <h1>{{ isRegister() ? 'Create your account' : 'Log in' }}</h1>
     </div>
+
+    @if (demo; as account) {
+      <section class="card demo" aria-labelledby="demo-title">
+        <h2 id="demo-title">Just looking around?</h2>
+        <p>
+          Try RouteWise with the demo account. It has a few sample trips. Email
+          <code>{{ account.email }}</code
+          >, password <code>{{ account.password }}</code
+          >.
+        </p>
+        <button
+          type="button"
+          class="button button--primary"
+          [disabled]="submitting()"
+          (click)="tryDemo(account)"
+        >
+          Try the demo
+        </button>
+      </section>
+    }
 
     <section class="card">
       <p class="muted intro">
@@ -55,6 +77,23 @@ import { AuthForm, AuthMode } from './auth-form';
       max-width: 28rem;
     }
 
+    .demo {
+      margin-bottom: var(--space-6);
+    }
+
+    .demo h2 {
+      margin: 0 0 var(--space-2);
+      font-size: 1.1rem;
+    }
+
+    .demo p {
+      margin: 0 0 var(--space-4);
+    }
+
+    .demo code {
+      overflow-wrap: anywhere;
+    }
+
     .intro {
       margin-top: 0;
     }
@@ -77,6 +116,7 @@ export class AuthPage {
   private readonly session = inject(Session);
   private readonly router = inject(Router);
 
+  protected readonly demo = inject(DEMO_ACCOUNT);
   protected readonly isRegister = computed(() => this.mode() === 'register');
   protected readonly switchParams = computed(() =>
     this.returnUrl() ? { returnUrl: this.returnUrl() } : {},
@@ -86,11 +126,20 @@ export class AuthPage {
   protected readonly fieldErrors = signal<FieldError[]>([]);
 
   protected send(request: RegisterRequest): void {
+    this.submit(
+      this.isRegister()
+        ? this.session.register(request)
+        : this.session.login({ email: request.email, password: request.password }),
+    );
+  }
+
+  protected tryDemo(account: LoginRequest): void {
+    this.submit(this.session.login(account));
+  }
+
+  private submit(sent$: Observable<User>): void {
     this.submitting.set(true);
     this.error.set(null);
-    const sent$ = this.isRegister()
-      ? this.session.register(request)
-      : this.session.login({ email: request.email, password: request.password });
     sent$.subscribe({
       next: () => void this.router.navigateByUrl(safeReturnUrl(this.returnUrl())),
       error: (error: unknown) => {

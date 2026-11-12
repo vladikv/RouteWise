@@ -30,6 +30,23 @@ describe('toApiError', () => {
     expect(error.isNotFound).toBe(false);
   });
 
+  it('treats a 409 with field errors as errors to show on the form', () => {
+    const error = toApiError(
+      new HttpErrorResponse({
+        status: 409,
+        error: {
+          title: 'Conflict',
+          detail: 'email is already registered',
+          status: 409,
+          errors: [{ field: 'email', message: 'is already registered' }],
+        },
+      }),
+    );
+
+    expect(error.isValidation).toBe(true);
+    expect(error.fieldErrors).toEqual([{ field: 'email', message: 'is already registered' }]);
+  });
+
   it('maps a 404 Problem Detail', () => {
     const error = toApiError(
       new HttpErrorResponse({

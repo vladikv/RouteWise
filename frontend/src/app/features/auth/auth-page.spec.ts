@@ -5,6 +5,7 @@ import { Router, provideRouter } from '@angular/router';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { apiErrorInterceptor } from '../../core/api/api-error';
 import { ALICE } from '../../core/auth/auth.testing';
+import { DEMO_ACCOUNT } from '../../core/auth/demo-account';
 import { Session } from '../../core/auth/session';
 import { errorText, submit, typeInto } from '../trips/trip-form.testing';
 import { AuthPage } from './auth-page';
@@ -138,12 +139,12 @@ describe('AuthPage', () => {
     });
     call.flush(
       {
-        title: 'Validation failed',
-        detail: 'Request validation failed',
-        status: 400,
+        title: 'Conflict',
+        detail: 'email is already registered',
+        status: 409,
         errors: [{ field: 'email', message: 'is already registered' }],
       },
-      { status: 400, statusText: 'Bad Request' },
+      { status: 409, statusText: 'Conflict' },
     );
     await fixture.whenStable();
 
@@ -151,10 +152,48 @@ describe('AuthPage', () => {
     expect(navigateByUrl).not.toHaveBeenCalled();
   });
 
+  it('offers the demo account and logs in with one click', async () => {
+    await open('login', '/trips/7');
+
+    const demo = page.querySelector('section[aria-labelledby="demo-title"]');
+    expect(demo?.textContent).toContain('demo@routewise.app');
+    expect(demo?.textContent).toContain('demo1234');
+
+    demo?.querySelector('button')?.click();
+    TestBed.tick();
+    const call = httpTesting.expectOne({ method: 'POST', url: `${API}/login` });
+    expect(call.request.body).toEqual({ email: 'demo@routewise.app', password: 'demo1234' });
+    call.flush({ id: 1, email: 'demo@routewise.app', displayName: 'Demo traveller' });
+    await fixture.whenStable();
+
+    expect(navigateByUrl).toHaveBeenCalledWith('/trips/7');
+  });
+
   it('keeps the return address when switching between login and registration', async () => {
     await open('login', '/trips/new');
 
     const link = page.querySelector<HTMLAnchorElement>('a[href^="/register"]');
     expect(link?.getAttribute('href')).toBe('/register?returnUrl=%2Ftrips%2Fnew');
+  });
+});
+
+describe('AuthPage without a demo account', () => {
+  it('hides the demo offer', async () => {
+    await TestBed.configureTestingModule({
+      imports: [AuthPage],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: DEMO_ACCOUNT, useValue: null },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(AuthPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.querySelector('#demo-title')).toBeNull();
+    expect(page.querySelector('#auth-email')).not.toBeNull();
   });
 });
