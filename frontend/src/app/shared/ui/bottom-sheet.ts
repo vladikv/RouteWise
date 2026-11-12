@@ -82,9 +82,9 @@ let nextId = 0;
       border-bottom: 0;
       border-radius: var(--radius-lg) var(--radius-lg) 0 0;
       background: var(--glass-bg-strong);
-      -webkit-backdrop-filter: blur(var(--glass-blur));
-      backdrop-filter: blur(var(--glass-blur));
-      box-shadow: var(--shadow-raised);
+      -webkit-backdrop-filter: var(--glass-filter);
+      backdrop-filter: var(--glass-filter);
+      box-shadow: var(--glass-highlight), var(--shadow-raised);
       transition: transform 0.25s ease;
     }
 

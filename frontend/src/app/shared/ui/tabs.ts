@@ -54,6 +54,7 @@ let nextId = 0;
       border: 1px solid var(--glass-border);
       border-radius: var(--radius-pill);
       background: var(--glass-bg);
+      box-shadow: var(--glass-highlight);
     }
 
     button {

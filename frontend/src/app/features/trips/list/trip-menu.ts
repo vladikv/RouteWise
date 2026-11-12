@@ -70,8 +70,10 @@ let nextId = 0;
       padding: var(--space-2);
       border: 1px solid var(--glass-border);
       border-radius: var(--radius-md);
-      background: var(--color-surface-muted);
-      box-shadow: var(--shadow-raised);
+      background: var(--glass-bg-menu);
+      -webkit-backdrop-filter: var(--glass-filter);
+      backdrop-filter: var(--glass-filter);
+      box-shadow: var(--glass-highlight), var(--shadow-raised);
     }
 
     .dropdown a {

@@ -131,15 +131,28 @@ src/
   (`--color-danger`) and amber (`--color-accent`, weather) are semantic only.
   `--color-border-strong` for control borders. Every text pair meets 4.5:1 and
   every meaningful mark 3:1; check a new or changed pair before using it.
-  Glass look: translucent surfaces use the `--glass-bg`, `--glass-bg-strong`,
-  `--glass-border` and `--glass-blur` tokens, built from alpha variants of the
-  palette (`--color-surface-a60`, `--color-primary-a12`, … NN = percent; same
-  hues, add a variant only when used). Keep surface alpha at 60% or more for
-  contrast and use few stacked `backdrop-filter` layers. Under
-  `prefers-reduced-transparency` the glass tokens become solid surfaces with no
-  blur, so never hard-code a blur or a translucent fill. Radii: `--radius-lg`
-  (cards), `--radius-md`, `--radius-pill` (buttons, inputs, badges). A fixed
-  `body::before` draws the lime glows. Type: 17 px body, Manrope (loaded in
+  Glass look: a fixed `.glow-layer` element in `app.ts` (`aria-hidden`, three
+  large lime radial glows at 16/12/12% centre alpha, `--glow-1..3`, drifting
+  over 26-38 s with `transform` only, static under reduced motion) sits behind
+  all content, so no ancestor of a glass surface may have an opaque background.
+  Glass = `background: var(--glass-bg)` (white 6%) or `--glass-bg-strong` (white
+  10%, controls and active items) or `--glass-bg-menu` (surface 85%, dropdowns and
+  listboxes over arbitrary content), plus `backdrop-filter: var(--glass-filter)`
+  (+ `-webkit-`; blur 20 px and saturate 160%), `border: 1px solid var(--glass-border)`
+  and `box-shadow: var(--glass-highlight)` (inner top highlight; combine it with
+  any other shadow). Alpha variants are written as `--color-*-aNN` (NN = percent;
+  same hues, add one only when used). `backdrop-filter` goes on the few top-level
+  surfaces (header bar via `:host::before` so dropdowns are not inside its
+  backdrop root, panels, sheet, menus, toolbar search, chips); never on list
+  cards or table rows (fill, border and highlight only), and not on elements
+  nested in a glass panel (a backdrop-filter ancestor limits what they can blur).
+  Contrast rule: white, muted and lime text must stay 4.5:1 and control borders
+  3:1 on the fill over the brightest glow (peak 16% lime over `--color-bg`);
+  re-run the check when raising a glow, a fill or a tint (card tints are 8%).
+  Under `prefers-reduced-transparency` the glass tokens become solid surfaces
+  with `--glass-filter: none`, so never hard-code a blur or a translucent fill.
+  A second theme overrides the tokens under `:root[data-theme='light']`. Radii: `--radius-lg`
+  (cards), `--radius-md`, `--radius-pill` (buttons, inputs, badges). Type: 17 px body, Manrope (loaded in
   `index.html`, weights 400-800) is the only font (`--font-sans`; `--font-display`
   is an alias). Shared classes: `.card`, `.button` (`--primary`,
   `--danger`), `.page-header`, `.actions`, `.badge` (`--recommended`),

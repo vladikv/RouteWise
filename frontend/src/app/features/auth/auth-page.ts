@@ -166,6 +166,9 @@ import { AuthForm, AuthMode } from './auth-form';
       border: 1px solid var(--glass-border);
       border-radius: var(--radius-lg);
       background: var(--glass-bg);
+      -webkit-backdrop-filter: var(--glass-filter);
+      backdrop-filter: var(--glass-filter);
+      box-shadow: var(--glass-highlight);
     }
 
     .demo h3 {

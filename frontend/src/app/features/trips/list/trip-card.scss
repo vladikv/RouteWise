@@ -1,4 +1,5 @@
-/* No backdrop-filter here: a long list of blurred cards is slow to paint. */
+/* No backdrop-filter here: a long list of blurred cards is slow to paint. The translucent
+   fill, border and highlight still read as glass over the glow layer. */
 .trip {
   position: relative;
   min-height: 9.5rem;
@@ -6,20 +7,20 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   background-color: var(--glass-bg);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--glass-highlight), var(--shadow-card);
 }
 
 .trip:hover {
   border-color: var(--color-border-strong);
 }
 
-/* Tints stay at 12% alpha so white and muted text keep their contrast. */
+/* Tints stay at 8% alpha so white and muted text keep their contrast. */
 .trip--lime {
-  background-image: linear-gradient(var(--color-primary-a12), var(--color-primary-a12));
+  background-image: linear-gradient(var(--color-primary-a08), var(--color-primary-a08));
 }
 
 .trip--amber {
-  background-image: linear-gradient(var(--color-accent-a12), var(--color-accent-a12));
+  background-image: linear-gradient(var(--color-accent-a08), var(--color-accent-a08));
 }
 
 p {

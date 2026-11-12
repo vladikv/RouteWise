@@ -8,6 +8,7 @@ import { Header } from './layout/header/header';
   imports: [RouterOutlet, Header],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <div class="glow-layer" aria-hidden="true"><span></span><span></span><span></span></div>
     <a class="skip-link" href="#main">Skip to content</a>
     <app-header />
     <main id="main" tabindex="-1">

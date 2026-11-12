@@ -50,6 +50,9 @@ export interface ToggleOption<T extends string = string> {
       border: 1px solid var(--glass-border);
       border-radius: var(--radius-pill);
       background: var(--glass-bg);
+      -webkit-backdrop-filter: var(--glass-filter);
+      backdrop-filter: var(--glass-filter);
+      box-shadow: var(--glass-highlight);
     }
 
     button {

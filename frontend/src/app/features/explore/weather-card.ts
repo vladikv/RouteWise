@@ -63,6 +63,7 @@ let nextId = 0;
       border-left: 4px solid var(--color-accent);
       border-radius: var(--radius-md);
       background: var(--glass-bg-strong);
+      box-shadow: var(--glass-highlight);
     }
 
     .weather__title {

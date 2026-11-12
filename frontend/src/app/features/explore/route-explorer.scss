@@ -14,13 +14,14 @@
   border: 1px solid var(--glass-border);
   border-radius: 50%;
   background: var(--glass-bg-strong);
+  box-shadow: var(--glass-highlight);
   color: var(--color-text);
   font-size: 1.15rem;
   cursor: pointer;
   transition: transform 0.2s ease;
 
   &:hover:not(:disabled) {
-    background: var(--color-surface-muted);
+    background: var(--color-text-a14);
     transform: rotate(180deg);
   }
 
@@ -98,6 +99,7 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-pill);
   background: var(--glass-bg-strong);
+  box-shadow: var(--glass-highlight);
   color: var(--color-text);
   font: inherit;
   font-size: 0.875rem;
@@ -105,7 +107,7 @@
   cursor: pointer;
 
   &:hover {
-    background: var(--color-surface-muted);
+    background: var(--color-text-a14);
   }
 
   &[aria-pressed='true'] {

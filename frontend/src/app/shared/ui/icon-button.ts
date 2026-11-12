@@ -35,6 +35,9 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       border: 1px solid var(--glass-border);
       border-radius: var(--radius-pill);
       background: var(--glass-bg-strong);
+      -webkit-backdrop-filter: var(--glass-filter);
+      backdrop-filter: var(--glass-filter);
+      box-shadow: var(--glass-highlight);
       color: var(--color-text);
       cursor: pointer;
       transition: background-color 0.15s ease;
@@ -42,7 +45,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
     button:hover:not(:disabled) {
       border-color: var(--color-border-strong);
-      background: var(--color-surface-muted);
+      background: var(--color-text-a14);
     }
 
     button[aria-pressed='true'],

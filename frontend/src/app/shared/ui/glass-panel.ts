@@ -71,9 +71,9 @@ let nextId = 0;
       border: 1px solid var(--glass-border);
       border-radius: var(--radius-lg);
       background: var(--glass-bg);
-      -webkit-backdrop-filter: blur(var(--glass-blur));
-      backdrop-filter: blur(var(--glass-blur));
-      box-shadow: var(--shadow-card);
+      -webkit-backdrop-filter: var(--glass-filter);
+      backdrop-filter: var(--glass-filter);
+      box-shadow: var(--glass-highlight), var(--shadow-card);
     }
 
     .panel--strong {

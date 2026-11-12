@@ -8,9 +8,11 @@
  * semantic only (errors, weather warnings). Every text pair meets WCAG AA
  * (4.5:1) and every meaningful mark 3:1; re-check when changing a value.
  *
- * Glass: translucent surfaces are alpha variants (--color-*-aNN, NN = percent)
- * of the palette over the layered background, with a blur and a light border.
- * Keep the surface alpha at 60% or more so text keeps its contrast.
+ * Glass: translucent surfaces are white at 6-10% (--color-text-aNN, NN = percent)
+ * over a fixed layer of lime glows (.glow-layer), with a blur + saturation
+ * filter, a 1 px light border and an inner top highlight. Text contrast is
+ * checked against the brightest glow (peak alpha 16%) under the fill.
+ * A second theme overrides the tokens under :root[data-theme='light'].
  */
 :root {
   color-scheme: dark;
@@ -20,7 +22,7 @@
   --color-surface-muted: #1c212b;
   --color-border: #2a303c;
   /* Borders that identify a control (inputs): 3:1 against the surface. */
-  --color-border-strong: #6b7385;
+  --color-border-strong: var(--color-text-a50);
   --color-text: #ffffff;
   --color-text-muted: #b8bfcc;
   --color-primary: #b6f23c;
@@ -39,18 +41,32 @@
   --color-danger-bg: #3a1b1e;
   --color-focus: var(--color-primary);
   /* Alpha variants of the palette above (same hues, written from the hex values). */
-  --color-surface-a60: rgb(20 24 32 / 60%);
   --color-surface-a85: rgb(20 24 32 / 85%);
-  --color-surface-muted-a80: rgb(28 33 43 / 80%);
+  --color-text-a06: rgb(255 255 255 / 6%);
+  --color-text-a10: rgb(255 255 255 / 10%);
+  --color-text-a12: rgb(255 255 255 / 12%);
   --color-text-a14: rgb(255 255 255 / 14%);
+  --color-text-a50: rgb(255 255 255 / 50%);
+  --color-primary-a08: rgb(182 242 60 / 8%);
   --color-primary-a12: rgb(182 242 60 / 12%);
+  --color-primary-a16: rgb(182 242 60 / 16%);
   --color-primary-a20: rgb(182 242 60 / 20%);
+  --color-danger-bg-a70: rgb(58 27 30 / 70%);
+  --color-accent-a08: rgb(245 184 113 / 8%);
   --color-accent-a12: rgb(245 184 113 / 12%);
-  /* Glass surfaces; --glass-bg-strong is the lighter fill for active items. */
-  --glass-bg: var(--color-surface-a60);
-  --glass-bg-strong: var(--color-surface-muted-a80);
-  --glass-border: var(--color-text-a14);
-  --glass-blur: 18px;
+  /* Glass surfaces; --glass-bg-strong is the lighter fill for controls and active items. */
+  --glass-bg: var(--color-text-a06);
+  --glass-bg-strong: var(--color-text-a10);
+  /* Menus and listboxes float over arbitrary content: a denser fill keeps their text readable. */
+  --glass-bg-menu: var(--color-surface-a85);
+  --glass-border: var(--color-text-a12);
+  --glass-blur: 20px;
+  --glass-filter: blur(var(--glass-blur)) saturate(160%);
+  --glass-highlight: inset 0 1px 0 var(--color-text-a10);
+  /* Glow layer: three lime glows (centre alpha), kept at or below 16% for text contrast. */
+  --glow-1: var(--color-primary-a16);
+  --glow-2: var(--color-primary-a12);
+  --glow-3: var(--color-primary-a12);
   /* Very light shadows: depth comes from the border and blur. */
   --shadow-card: 0 1px 2px rgb(0 0 0 / 20%);
   --shadow-raised: 0 8px 20px rgb(0 0 0 / 25%);
@@ -87,7 +103,10 @@
   :root {
     --glass-bg: var(--color-surface);
     --glass-bg-strong: var(--color-surface-muted);
+    --glass-bg-menu: var(--color-surface-muted);
     --glass-blur: 0px;
+    --glass-filter: none;
+    --glass-highlight: inset 0 0 0 0 transparent;
   }
 }
 
@@ -109,18 +128,74 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Layered background: soft lime glows on the dark base. A fixed pseudo-element
-   stays put while the page scrolls and is never repainted with the content. */
-body::before {
-  content: '';
+/* Glow layer (a fixed element in app.ts): three large lime glows that drift slowly.
+   Radial gradients give the softness, so no blur filter is needed; only transform is
+   animated. It sits below all content so glass surfaces have something to blur. */
+.glow-layer {
   position: fixed;
   inset: 0;
   z-index: -1;
+  overflow: hidden;
   pointer-events: none;
-  background:
-    radial-gradient(48rem 34rem at 12% -8%, var(--color-primary-a20), transparent 70%),
-    radial-gradient(40rem 30rem at 95% 30%, var(--color-primary-a12), transparent 70%),
-    radial-gradient(52rem 36rem at 40% 115%, var(--color-surface-muted-a80), transparent 70%);
+
+  span {
+    position: absolute;
+    border-radius: 50%;
+    will-change: transform;
+    animation: glow-drift 30s ease-in-out infinite alternate;
+  }
+
+  span:nth-child(1) {
+    top: calc(28% - 40vmax);
+    left: calc(22% - 40vmax);
+    width: 80vmax;
+    height: 80vmax;
+    background: radial-gradient(
+      closest-side,
+      var(--glow-1),
+      var(--color-primary-a08) 55%,
+      transparent
+    );
+  }
+
+  span:nth-child(2) {
+    top: calc(62% - 36vmax);
+    right: calc(14% - 36vmax);
+    width: 72vmax;
+    height: 72vmax;
+    background: radial-gradient(
+      closest-side,
+      var(--glow-2),
+      var(--color-primary-a08) 55%,
+      transparent
+    );
+    animation-duration: 38s;
+    animation-direction: alternate-reverse;
+  }
+
+  span:nth-child(3) {
+    top: calc(100% - 34vmax);
+    left: calc(50% - 38vmax);
+    width: 76vmax;
+    height: 76vmax;
+    background: radial-gradient(
+      closest-side,
+      var(--glow-3),
+      var(--color-primary-a08) 55%,
+      transparent
+    );
+    animation-duration: 26s;
+  }
+}
+
+@keyframes glow-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  to {
+    transform: translate3d(6vmax, -4vmax, 0) scale(1.15);
+  }
 }
 
 h1,
@@ -170,11 +245,11 @@ a {
 
 .card {
   background: var(--glass-bg);
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--glass-highlight), var(--shadow-card);
   padding: clamp(var(--space-4), 3vw, var(--space-8));
 }
 
@@ -188,6 +263,7 @@ a {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-pill);
   background: var(--glass-bg-strong);
+  box-shadow: var(--glass-highlight);
   color: var(--color-text);
   font: inherit;
   font-family: var(--font-display);
@@ -201,7 +277,7 @@ a {
 
   &:hover {
     border-color: var(--color-border-strong);
-    background: var(--color-surface-muted);
+    background: var(--color-text-a14);
     color: var(--color-text);
   }
 
@@ -215,6 +291,7 @@ a {
   background: var(--color-primary);
   color: var(--color-on-primary);
   box-shadow:
+    var(--glass-highlight),
     0 0 0 1px var(--color-primary),
     0 4px 18px var(--color-primary-a20);
 
@@ -250,6 +327,9 @@ a {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-highlight);
   text-align: center;
 
   h1,
@@ -297,6 +377,7 @@ a {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-pill);
   background: var(--glass-bg-strong);
+  box-shadow: var(--glass-highlight);
   font-family: var(--font-display);
   font-size: 0.8125rem;
   font-weight: 700;
@@ -321,6 +402,7 @@ a {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-pill);
   background: var(--glass-bg);
+  box-shadow: var(--glass-highlight);
 
   label {
     position: relative;
@@ -402,6 +484,7 @@ textarea {
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-pill);
   background: var(--glass-bg-strong);
+  box-shadow: var(--glass-highlight);
   color: var(--color-text);
   font: inherit;
   transition: border-color 0.15s ease;
@@ -441,6 +524,10 @@ textarea[aria-invalid='true'] {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .glow-layer span {
+    animation: none;
+  }
+
   *,
   *::before,
   *::after {

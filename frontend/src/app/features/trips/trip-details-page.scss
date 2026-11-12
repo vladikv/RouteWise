@@ -11,6 +11,9 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-pill);
   background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-highlight);
   color: var(--color-text);
   font-weight: 600;
   text-decoration: none;
@@ -76,6 +79,7 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   background: var(--glass-bg-strong);
+  box-shadow: var(--glass-highlight);
 }
 
 .details dt {

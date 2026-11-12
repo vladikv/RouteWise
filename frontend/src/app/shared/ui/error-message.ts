@@ -26,7 +26,10 @@ import { ApiError } from '../../core/api/api-error';
       padding: var(--space-4);
       border: 1px solid var(--color-danger);
       border-radius: var(--radius-lg);
-      background: var(--color-danger-bg);
+      background: var(--color-danger-bg-a70);
+      -webkit-backdrop-filter: var(--glass-filter);
+      backdrop-filter: var(--glass-filter);
+      box-shadow: var(--glass-highlight);
     }
 
     .error__icon {

@@ -77,6 +77,7 @@ import { TripCard } from './trip-card';
       border: 1px solid var(--glass-border);
       border-radius: var(--radius-pill);
       background: var(--glass-bg-strong);
+      box-shadow: var(--glass-highlight);
       font-size: 0.875rem;
     }
 

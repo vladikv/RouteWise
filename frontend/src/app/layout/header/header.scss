@@ -1,7 +1,23 @@
 :host {
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 5;
   display: block;
+}
+
+/* The bar's glass is a sibling layer, not an ancestor: the dropdown and nav pill stay
+   outside its backdrop root, so they blur the page rather than the bar. */
+:host::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-highlight);
+  pointer-events: none;
 }
 
 .header__inner {
@@ -67,6 +83,7 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-pill);
   background: var(--glass-bg-strong);
+  box-shadow: var(--glass-highlight);
   color: var(--color-text);
   font: inherit;
   font-size: 0.9rem;
@@ -103,10 +120,10 @@
   padding: var(--space-4);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
-  background: var(--glass-bg-strong);
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  backdrop-filter: blur(var(--glass-blur));
-  box-shadow: var(--shadow-raised);
+  background: var(--glass-bg-menu);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-highlight), var(--shadow-raised);
   animation: dropdown-in 0.15s ease;
 }
 

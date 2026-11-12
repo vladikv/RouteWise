@@ -41,8 +41,7 @@ export interface PillNavItem {
       border: 1px solid var(--glass-border);
       border-radius: var(--radius-pill);
       background: var(--glass-bg);
-      -webkit-backdrop-filter: blur(var(--glass-blur));
-      backdrop-filter: blur(var(--glass-blur));
+      box-shadow: var(--glass-highlight);
     }
 
     a {
@@ -63,7 +62,9 @@ export interface PillNavItem {
 
     a.active {
       background: var(--glass-bg-strong);
-      box-shadow: inset 0 0 0 1px var(--color-border-strong);
+      box-shadow:
+        var(--glass-highlight),
+        inset 0 0 0 1px var(--color-border-strong);
       color: var(--color-text);
       font-weight: 700;
     }
