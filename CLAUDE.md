@@ -79,3 +79,6 @@ UI: http://localhost:4200
 - Keep this file and module `CLAUDE.md` files up to date when conventions change.
 - After completing a milestone, append a short entry to `docs/AI_WORKFLOW.md`:
   milestone, what was delegated to AI, what was corrected manually, and why.
+- Any feature not already in docs/PLAN.md is added as a new milestone
+  first (use the `add-milestone` skill) and approved before any code is
+  written. Never implement unplanned features "on the way".
