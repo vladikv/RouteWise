@@ -12,7 +12,7 @@ let nextId = 0;
   template: `
     <section class="panel" [class.panel--strong]="strong()">
       @if (collapsible()) {
-        <h2 class="heading">
+        <h2 class="heading" [attr.aria-level]="headingLevel()">
           <button
             type="button"
             class="toggle"
@@ -33,7 +33,7 @@ let nextId = 0;
           </button>
         </h2>
       } @else if (heading()) {
-        <h2 class="heading heading--static">{{ heading() }}</h2>
+        <h2 class="heading heading--static" [attr.aria-level]="headingLevel()">{{ heading() }}</h2>
       }
       <div class="body" [id]="bodyId" [hidden]="collapsible() && collapsed()">
         <ng-content />
@@ -106,6 +106,8 @@ let nextId = 0;
 })
 export class GlassPanel {
   readonly heading = input<string>();
+  /** Outline level announced for the heading (it is an h2 element); the page's main panel can pass 1. */
+  readonly headingLevel = input<1 | 2 | 3 | null>(null);
   readonly collapsible = input(false);
   readonly collapsed = model(false);
   /** Lighter fill, for a panel that sits on top of other glass. */

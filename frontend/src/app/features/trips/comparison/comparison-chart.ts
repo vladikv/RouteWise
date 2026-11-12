@@ -2,6 +2,7 @@ import { CurrencyPipe, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
 import { ModeOption } from '../../../core/api/models';
 import { ModeIcon } from '../../../shared/ui/mode-icon';
+import { TabOption, Tabs } from '../../../shared/ui/tabs';
 import { MODE_LABELS, durationLabel } from '../../../shared/util/labels';
 import { comparisonInsight } from './comparison-insight';
 import { LegComparison } from './leg-comparison';
@@ -33,13 +34,13 @@ const METRICS: MetricOption[] = [
 let nextId = 0;
 
 /**
- * Bar chart of one comparison metric at a time, best mode first. The recommended
+ * Bar chart of one comparison metric at a time (chosen with tabs), best mode first. The recommended
  * mode is the single accent bar; its badge says so in words. Exact numbers for
  * every metric stay available in the comparison table.
  */
 @Component({
   selector: 'app-comparison-chart',
-  imports: [CurrencyPipe, DecimalPipe, ModeIcon],
+  imports: [CurrencyPipe, DecimalPipe, ModeIcon, Tabs],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './comparison-chart.html',
   styleUrl: './comparison-chart.scss',
@@ -47,13 +48,16 @@ let nextId = 0;
 export class ComparisonChart {
   readonly comparison = input.required<LegComparison>();
 
-  protected readonly metrics = METRICS;
+  protected readonly metrics: TabOption<Metric>[] = METRICS.map(({ id, label }) => ({
+    value: id,
+    label,
+  }));
   protected readonly metric = signal<Metric>('score');
   protected readonly metricHint = computed(
     () => METRICS.find((option) => option.id === this.metric())?.hint ?? '',
   );
-  /** Radio group name, unique per chart so two charts on a page stay independent. */
-  protected readonly groupName = `comparison-metric-${nextId++}`;
+  /** Tab and panel id prefix, unique per chart so two charts on a page stay independent. */
+  protected readonly tabsId = `comparison-metric-${nextId++}`;
   protected readonly modeLabels = MODE_LABELS;
   protected readonly durationLabel = durationLabel;
 

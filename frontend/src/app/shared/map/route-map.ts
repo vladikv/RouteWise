@@ -51,10 +51,16 @@ const BASE: View = { x: 0, y: 0, width: WIDTH, height: HEIGHT };
 /** Longitudes covered by the land outline (see europe-land.ts); a wide map shows them all. */
 const LAND_WEST = -30;
 const LAND_EAST = 48;
+const LAND_SOUTH = 33;
+const LAND_NORTH = 63;
+/** Width (CSS pixels) over which the land fades into the sea at the edge of its data. */
+const FADE_PX = 90;
 /** A `wide` map switches to the wide view from this rendered width on (CSS pixels). */
 const WIDE_MIN_PX = 720;
 /** Space above the northernmost and below the southernmost city in the wide view (drawing units). */
 const WIDE_MARGIN_Y = 36;
+/** Space around the cities' bounding box in the fill view (drawing units). */
+const COVER_MARGIN = 48;
 
 /** Sizes in CSS pixels; they stay the same on screen at every zoom and map size. */
 const LABEL_PX = 13;
@@ -83,8 +89,9 @@ const ANIMATION_MS = 380;
 @Component({
   selector: 'app-route-map',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.fill]': 'fill()' },
   templateUrl: './route-map.html',
-  styleUrl: './route-map.scss',
+  styleUrls: ['./route-map.scss', './route-map-card.scss'],
 })
 export class RouteMap {
   readonly cities = input.required<City[]>();
@@ -92,6 +99,16 @@ export class RouteMap {
   readonly destinationId = input<number | null>(null);
   readonly interactive = input(true);
   readonly wide = input(false);
+  /**
+   * Layout hook: fill the height of the host instead of following the drawing's
+   * aspect ratio (the drawing stays whole and centred, no stretching).
+   */
+  readonly fill = input(false);
+  /** Layout hook: where the zoom buttons and the hint sit; `bottom` keeps them clear of side panels. */
+  readonly controls = input<'corner' | 'bottom'>('corner');
+  /** In fill mode: pixels at the left and right covered by floating panels; the cities are centred between them. */
+  readonly insetStart = input(0);
+  readonly insetEnd = input(0);
   /** An ordered route of city ids (2+ stops); replaces origin/destination when given. */
   readonly stops = input<number[] | null>(null);
   /** In stops mode: a city the user picked on the map. */
@@ -105,6 +122,7 @@ export class RouteMap {
   protected readonly view = signal<View>({ ...BASE });
   /** Rendered width of the drawing in CSS pixels; updated by a ResizeObserver. */
   private readonly renderedWidth = signal(WIDTH);
+  private readonly renderedHeight = signal(0);
   protected readonly hoveredId = signal<number | null>(null);
   protected readonly reducedMotion = prefersReducedMotion();
 
@@ -124,6 +142,9 @@ export class RouteMap {
 
   /** The whole-map view (zoom 1): near-square, or landscape for a wide map. */
   protected readonly base = computed<View>(() => {
+    if (this.fill() && this.renderedHeight() > 0) {
+      return this.coverView();
+    }
     if (!this.wide() || this.renderedWidth() < WIDE_MIN_PX) {
       return BASE;
     }
@@ -139,6 +160,48 @@ export class RouteMap {
       y: top,
       width: Math.max(east, WIDTH) - Math.min(west, 0),
       height: bottom - top,
+    };
+  });
+  /**
+   * Fill mode: a view with the container's aspect ratio (no letterbox) that
+   * shows all cities, centred in the area between the side insets.
+   */
+  private readonly coverView = computed<View>(() => {
+    const project = this.projection();
+    const points = this.cities().map((city) => project(city));
+    const xs = points.map((point) => point.x);
+    const ys = points.map((point) => point.y);
+    const width = this.renderedWidth();
+    const height = this.renderedHeight();
+    const free = Math.max(width - this.insetStart() - this.insetEnd(), Math.min(width, 240));
+    const unit = Math.max(
+      (Math.max(...xs) - Math.min(...xs) + 2 * COVER_MARGIN) / free,
+      (Math.max(...ys) - Math.min(...ys) + 2 * COVER_MARGIN) / height,
+    );
+    const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+    const freeCenter = this.insetStart() + free / 2;
+    return {
+      x: centerX - unit * freeCenter,
+      y: centerY - (unit * height) / 2,
+      width: unit * width,
+      height: unit * height,
+    };
+  });
+  /** Edges of the land data, where the fill view fades the land into the sea instead of cutting it off. */
+  protected readonly fades = computed(() => {
+    const project = this.projection();
+    const northWest = project({ longitude: LAND_WEST, latitude: LAND_NORTH });
+    const southEast = project({ longitude: LAND_EAST, latitude: LAND_SOUTH });
+    const size = (FADE_PX * this.base().width) / Math.max(this.renderedWidth(), 1);
+    return {
+      west: northWest.x,
+      east: southEast.x,
+      north: northWest.y,
+      south: southEast.y,
+      size,
+      width: southEast.x - northWest.x,
+      height: southEast.y - northWest.y,
     };
   });
   protected readonly isWideView = computed(() => this.base() !== BASE);
@@ -616,9 +679,10 @@ export class RouteMap {
       return;
     }
     const update = () => {
-      const width = element.getBoundingClientRect().width;
+      const { width, height } = element.getBoundingClientRect();
       if (width > 0) {
         this.renderedWidth.set(width);
+        this.renderedHeight.set(this.fill() ? height : 0);
       }
     };
     update();

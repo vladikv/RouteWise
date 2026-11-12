@@ -1,4 +1,4 @@
-/* Route bar: From ⇄ To */
+/* Settings: route bar, priority, date and travelers */
 
 .route-bar {
   display: grid;
@@ -11,9 +11,9 @@
 .swap {
   width: 2.75rem;
   height: 2.75rem;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--glass-border);
   border-radius: 50%;
-  background: var(--color-surface);
+  background: var(--glass-bg-strong);
   color: var(--color-text);
   font-size: 1.15rem;
   cursor: pointer;
@@ -30,13 +30,11 @@
   }
 }
 
-@media (max-width: 34rem) {
-  .route-bar {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end;
-  }
+/* Narrow containers: From above To, the swap button beside them. */
+.route-bar--stacked {
+  grid-template-columns: minmax(0, 1fr) auto;
 
-  .route-bar app-city-picker:last-child {
+  app-city-picker:last-child {
     grid-column: 1;
   }
 
@@ -52,33 +50,6 @@
   }
 }
 
-/* Full-width map on top; settings (left) and results (right) below it. */
-
-.explorer__map {
-  margin-bottom: var(--space-6);
-}
-
-.explorer {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-  gap: var(--space-6) var(--space-8);
-  align-items: start;
-}
-
-@media (max-width: 56rem) {
-  .explorer {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-/* The results stay in view while the settings beside them change. */
-@media (min-width: 56.01rem) {
-  .explorer__results {
-    position: sticky;
-    top: var(--space-4);
-  }
-}
-
 .settings {
   margin: 0 0 var(--space-4);
   padding: 0;
@@ -86,7 +57,6 @@
   min-width: 0;
 }
 
-.settings legend,
 .settings__label {
   display: block;
   margin-bottom: var(--space-2);
@@ -100,10 +70,8 @@
   gap: var(--space-4) var(--space-6);
 }
 
-/* When */
-
 .when {
-  flex: 1 1 18rem;
+  flex: 1 1 14rem;
   min-width: 0;
 }
 
@@ -127,9 +95,9 @@
 .chip {
   min-height: 2.25rem;
   padding: 0 var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg-strong);
   color: var(--color-text);
   font: inherit;
   font-size: 0.875rem;
@@ -142,12 +110,12 @@
 
   &[aria-pressed='true'] {
     border-color: var(--color-primary);
-    background: var(--color-surface-muted);
-    color: var(--color-primary);
+    background: var(--color-primary-a12);
   }
 
   &[aria-pressed='true']::before {
     content: '✓ ';
+    color: var(--color-primary);
   }
 }
 
@@ -160,8 +128,6 @@
 .forecast--on {
   color: var(--color-text);
 }
-
-/* Travelers */
 
 .stepper {
   display: inline-flex;
@@ -183,21 +149,20 @@
   text-align: center;
 }
 
+.links {
+  margin-top: var(--space-2);
+}
+
 /* Results */
 
 .results {
   position: relative;
-  padding-top: var(--space-2);
-}
-
-/* Stacked under the settings (narrow screens): a divider separates the two. */
-@media (max-width: 56rem) {
-  .results {
-    border-top: 1px solid var(--color-border);
-  }
 }
 
 .results__content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
   transition: opacity 0.2s ease;
 }
 
@@ -234,10 +199,9 @@
 }
 
 .placeholder {
-  margin-top: var(--space-2);
   padding: var(--space-6);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius);
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--radius-md);
   color: var(--color-text-muted);
   text-align: center;
 
@@ -253,13 +217,21 @@
   font-weight: 700;
 }
 
-.exact {
-  margin: var(--space-4) 0;
-}
-
 .exact summary {
   padding: var(--space-2) 0;
   color: var(--color-primary);
   font-weight: 600;
   cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swap,
+  .results__content {
+    transition: none;
+  }
+
+  .results__progress::after {
+    animation: none;
+    width: 100%;
+  }
 }

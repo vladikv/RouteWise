@@ -1,0 +1,105 @@
+/* Layouts of the explorer: the stage holds the map, and the panels or sheet beside it. */
+
+:host {
+  display: block;
+}
+
+.hero {
+  margin-bottom: var(--space-6);
+}
+
+.hero__lead {
+  max-width: 70ch;
+  color: var(--color-text-muted);
+}
+
+.sheet__heading {
+  margin: var(--space-6) 0 var(--space-3);
+  font-size: 1.1rem;
+}
+
+/* 768–1279 px: map, settings and results stacked. */
+.stage--medium {
+  display: grid;
+  gap: var(--space-6);
+}
+
+/* From 1280 px: the map is the background of the stage; two glass panels float over it. */
+.stage--wide {
+  position: relative;
+  height: calc(100dvh - var(--header-height));
+  min-height: 34rem;
+  overflow: hidden;
+
+  .stage__map {
+    position: absolute;
+    inset: 0;
+  }
+
+  .hero {
+    margin-bottom: var(--space-4);
+  }
+
+  h1 {
+    font-size: 1.75rem;
+  }
+
+  .hero__lead {
+    font-size: 0.9375rem;
+  }
+}
+
+.dock {
+  position: absolute;
+  top: var(--space-6);
+  width: 24rem;
+}
+
+.dock--left {
+  left: var(--space-6);
+}
+
+.dock--right {
+  right: var(--space-6);
+}
+
+/* A collapsed panel shrinks to a small tab that reopens it. */
+.dock--collapsed {
+  width: 14rem;
+}
+
+.dock__scroll {
+  /* Room left for the panel's padding and heading; scrolls inside, never past the viewport. */
+  max-height: calc(100dvh - var(--header-height) - 11.5rem);
+  margin: calc(-1 * var(--space-1));
+  padding: var(--space-1);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  &:focus-visible {
+    outline-offset: -2px;
+  }
+}
+
+/* Phones: the map fills the space above the sheet's peek. */
+.stage--narrow {
+  .stage__map {
+    height: calc(100dvh - var(--header-height) - 4.5rem);
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  .hero {
+    margin-bottom: var(--space-4);
+  }
+
+  .hero__lead {
+    font-size: 0.9375rem;
+  }
+}
+
+.stage--wide app-priority-picker {
+  --priority-columns: 1;
+}

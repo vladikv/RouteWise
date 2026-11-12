@@ -87,15 +87,18 @@ describe('ComparisonChart', () => {
   const widths = (): string[] =>
     Array.from(chart.querySelectorAll<HTMLElement>('.bar__fill')).map((fill) => fill.style.width);
 
+  const tabs = (): HTMLElement[] => Array.from(chart.querySelectorAll<HTMLElement>('[role="tab"]'));
+  const selectedTab = (): string | undefined =>
+    tabs()
+      .find((tab) => tab.getAttribute('aria-selected') === 'true')
+      ?.textContent?.trim();
+
   async function chooseMetric(label: string): Promise<void> {
-    const radio = Array.from(chart.querySelectorAll('.segmented label'))
-      .find((item) => item.textContent?.trim() === label)
-      ?.querySelector('input');
-    if (!radio) {
+    const tab = tabs().find((item) => item.textContent?.trim() === label);
+    if (!tab) {
       throw new Error(`No metric ${label}`);
     }
-    radio.checked = true;
-    radio.dispatchEvent(new Event('change'));
+    tab.click();
     await fixture.whenStable();
   }
 
@@ -136,5 +139,40 @@ describe('ComparisonChart', () => {
     expect(chart.querySelector('.bar')?.getAttribute('title')).toBe(
       'Train: 6 h 13 min · €150.80 · 44.0 kg CO₂ · score 87',
     );
+  });
+
+  it('is a tab list whose selected tab owns the bars panel', () => {
+    expect(tabs().map((tab) => tab.textContent?.trim())).toEqual(['Score', 'Time', 'Cost', 'CO₂']);
+    expect(chart.querySelector('[role="tablist"]')?.getAttribute('aria-label')).toBe('Compare by');
+    expect(selectedTab()).toBe('Score');
+    const selected = tabs().find((tab) => tab.getAttribute('aria-selected') === 'true');
+    const panel = chart.querySelector('[role="tabpanel"]');
+    expect(panel?.id).toBe(selected?.getAttribute('aria-controls'));
+    expect(panel?.getAttribute('aria-labelledby')).toBe(selected?.id);
+    expect(panel?.querySelectorAll('.bar')).toHaveLength(2);
+  });
+
+  it('switches the metric with the arrow keys, Home and End', async () => {
+    const press = async (key: string) => {
+      const current = tabs().find((tab) => tab.getAttribute('aria-selected') === 'true');
+      current?.dispatchEvent(
+        new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }),
+      );
+      await fixture.whenStable();
+    };
+
+    await press('ArrowRight');
+    expect(selectedTab()).toBe('Time');
+    expect(rows()[0]).toBe('Train ★ Recommended 6 h 13 min');
+    expect(chart.querySelector('.hint')?.textContent).toBe('Shorter is better');
+
+    await press('End');
+    expect(selectedTab()).toBe('CO₂');
+
+    await press('ArrowRight');
+    expect(selectedTab()).toBe('Score');
+
+    await press('ArrowLeft');
+    expect(selectedTab()).toBe('CO₂');
   });
 });

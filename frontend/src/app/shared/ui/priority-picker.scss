@@ -18,7 +18,8 @@
 
 .priority__options {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* --priority-columns lets a narrow container ask for one column. */
+  grid-template-columns: repeat(var(--priority-columns, 2), minmax(0, 1fr));
   gap: var(--space-2);
 }
 

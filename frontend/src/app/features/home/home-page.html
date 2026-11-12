@@ -1,58 +1,45 @@
-<section class="hero">
-  <h1>Find the best way to get there</h1>
-  <p class="hero__lead">
-    Pick two cities on the map. RouteWise compares train, bus, car, bike and plane by travel time,
-    cost and CO₂, and takes the weather forecast into account.
-  </p>
-</section>
+<app-route-explorer class="home-stage" />
 
-<section class="card explore" aria-labelledby="explore-heading">
-  <div class="explore__header">
-    <h2 id="explore-heading">Explore a route</h2>
-    <div class="actions">
-      <a class="button" routerLink="/trips/new">Describe a trip instead</a>
-      <a class="button" routerLink="/trips">View trips</a>
-    </div>
-  </div>
-  <app-route-explorer />
-</section>
+<div class="below">
+  <section class="card" aria-labelledby="modes-heading">
+    <h2 id="modes-heading">How the modes compare</h2>
+    <p class="muted">Typical European averages used for every comparison.</p>
 
-<section class="card" aria-labelledby="modes-heading">
-  <h2 id="modes-heading">How the modes compare</h2>
-  <p class="muted">Typical European averages used for every comparison.</p>
-
-  @if (modes.isLoading()) {
-    <app-spinner label="Loading transport modes…" />
-  } @else if (modes.error(); as error) {
-    <app-error-message [error]="error" (retry)="modes.reload()" />
-  } @else if (modes.value(); as list) {
-    @if (list.length === 0) {
-      <p class="muted">No transport modes are configured.</p>
-    } @else {
-      <div class="table-scroll" role="region" aria-labelledby="modes-heading" tabindex="0">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Mode</th>
-              <th scope="col" class="numeric">Avg. speed</th>
-              <th scope="col" class="numeric">Cost per km</th>
-              <th scope="col" class="numeric">CO₂ per km</th>
-              <th scope="col" class="numeric">Max. distance</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (mode of list; track mode.code) {
+    @if (modes.isLoading()) {
+      <app-spinner label="Loading transport modes…" />
+    } @else if (modes.error(); as error) {
+      <app-error-message [error]="error" (retry)="modes.reload()" />
+    } @else if (modes.value(); as list) {
+      @if (list.length === 0) {
+        <p class="muted">No transport modes are configured.</p>
+      } @else {
+        <div class="table-scroll" role="region" aria-labelledby="modes-heading" tabindex="0">
+          <table>
+            <thead>
               <tr>
-                <th scope="row">{{ mode.code | titlecase }}</th>
-                <td class="numeric">{{ mode.avgSpeedKmh | number }} km/h</td>
-                <td class="numeric">{{ mode.costPerKm | currency: 'EUR' : 'symbol' : '1.2-2' }}</td>
-                <td class="numeric">{{ mode.co2GramsPerKm | number }} g</td>
-                <td class="numeric">{{ mode.maxDistanceKm | number }} km</td>
+                <th scope="col">Mode</th>
+                <th scope="col" class="numeric">Avg. speed</th>
+                <th scope="col" class="numeric">Cost per km</th>
+                <th scope="col" class="numeric">CO₂ per km</th>
+                <th scope="col" class="numeric">Max. distance</th>
               </tr>
-            }
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              @for (mode of list; track mode.code) {
+                <tr>
+                  <th scope="row">{{ mode.code | titlecase }}</th>
+                  <td class="numeric">{{ mode.avgSpeedKmh | number }} km/h</td>
+                  <td class="numeric">
+                    {{ mode.costPerKm | currency: 'EUR' : 'symbol' : '1.2-2' }}
+                  </td>
+                  <td class="numeric">{{ mode.co2GramsPerKm | number }} g</td>
+                  <td class="numeric">{{ mode.maxDistanceKm | number }} km</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
     }
-  }
-</section>
+  </section>
+</div>

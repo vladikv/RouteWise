@@ -21,7 +21,7 @@ const CLICK_SLOP = 4;
 let nextId = 0;
 
 /**
- * Phone sheet fixed to the bottom of the screen. In `peek` only the handle shows;
+ * Phone sheet fixed to the bottom of the screen. In `peek` only the handle (and an optional `sheetSummary` line) shows;
  * `expanded` shows the content. The handle is a real button (click, Enter, Space)
  * and can also be dragged: on release the sheet snaps to the nearer state.
  */
@@ -32,6 +32,7 @@ let nextId = 0;
     <div
       #sheet
       class="sheet"
+      [class.sheet--summary]="summary()"
       [class.sheet--dragging]="dragOffset() !== null"
       [style.transform]="transform()"
     >
@@ -53,6 +54,7 @@ let nextId = 0;
         >
           <span class="grip" aria-hidden="true"></span>
         </button>
+        <div class="summary"><ng-content select="[sheetSummary]" /></div>
       </div>
       <div
         #body
@@ -69,6 +71,7 @@ let nextId = 0;
   `,
   styles: `
     .sheet {
+      --peek: 2.75rem;
       position: fixed;
       inset: auto 0 0;
       z-index: 20;
@@ -83,6 +86,10 @@ let nextId = 0;
       backdrop-filter: blur(var(--glass-blur));
       box-shadow: var(--shadow-raised);
       transition: transform 0.25s ease;
+    }
+
+    .sheet--summary {
+      --peek: 4.5rem;
     }
 
     .sheet--dragging {
@@ -109,6 +116,19 @@ let nextId = 0;
 
     .handle:focus-visible {
       outline-offset: -4px;
+    }
+
+    .summary {
+      padding: 0 var(--space-4) var(--space-2);
+      overflow: hidden;
+      font-weight: 600;
+      text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .summary:empty {
+      display: none;
     }
 
     .grip {
@@ -140,6 +160,8 @@ export class BottomSheet {
   readonly state = model<SheetState>('peek');
   /** Accessible name of the handle button. */
   readonly label = input('Show/Hide trip settings and results');
+  /** Set when an element with the `sheetSummary` attribute is projected: `peek` then shows it too. */
+  readonly summary = input(false);
 
   protected readonly bodyId = `bottom-sheet-body-${nextId++}`;
   /** Pixels the sheet is pushed down while dragging; null when not dragging. */
@@ -177,7 +199,7 @@ export class BottomSheet {
     if (offset !== null) {
       return `translateY(${offset}px)`;
     }
-    return this.state() === 'expanded' ? 'translateY(0)' : 'translateY(calc(100% - 2.75rem))';
+    return this.state() === 'expanded' ? 'translateY(0)' : 'translateY(calc(100% - var(--peek)))';
   }
 
   protected toggle(): void {

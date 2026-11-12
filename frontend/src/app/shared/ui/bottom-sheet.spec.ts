@@ -10,6 +10,17 @@ class Host {
   readonly state = signal<SheetState>('peek');
 }
 
+@Component({
+  imports: [BottomSheet],
+  template: `
+    <app-bottom-sheet [summary]="true">
+      <span sheetSummary>Berlin to Vienna · Train recommended</span>
+      <p>Results</p>
+    </app-bottom-sheet>
+  `,
+})
+class SummaryHost {}
+
 describe('BottomSheet', () => {
   async function setup() {
     const fixture = TestBed.createComponent(Host);
@@ -82,5 +93,16 @@ describe('BottomSheet', () => {
     await drag(100, 220);
 
     expect(fixture.componentInstance.state()).toBe('peek');
+  });
+
+  it('shows a projected summary in peek and makes room for it', async () => {
+    const fixture = TestBed.createComponent(SummaryHost);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('.summary')?.textContent).toContain('Train recommended');
+    expect(element.querySelector('.sheet')?.classList).toContain('sheet--summary');
+    expect(element.querySelector('.body')?.textContent).toContain('Results');
+    expect(element.querySelector('.body')?.textContent).not.toContain('Berlin');
   });
 });

@@ -5,57 +5,56 @@
 }
 
 <div class="toolbar">
-  <fieldset class="segmented">
-    <legend class="visually-hidden">Compare by</legend>
-    @for (option of metrics; track option.id) {
-      <label>
-        <input
-          type="radio"
-          [name]="groupName"
-          [value]="option.id"
-          [checked]="metric() === option.id"
-          (change)="metric.set(option.id)"
-        />
-        <span>{{ option.label }}</span>
-      </label>
-    }
-  </fieldset>
+  <app-tabs
+    #tabs
+    ariaLabel="Compare by"
+    [idPrefix]="tabsId"
+    [options]="metrics"
+    [(value)]="metric"
+  />
   <span class="muted hint">{{ metricHint() }}</span>
 </div>
 
-<ol class="bars">
-  @for (row of rows(); track row.option.mode) {
-    <li class="bar" [class.bar--recommended]="row.option.recommended" [attr.title]="row.tooltip">
-      <span class="bar__label">
-        <app-mode-icon [mode]="row.option.mode" />
-        {{ modeLabels[row.option.mode] }}
-        @if (row.option.recommended) {
-          <span class="badge badge--recommended">★ Recommended</span>
-        }
-      </span>
-      <span class="bar__track" aria-hidden="true">
-        <span class="bar__fill" [style.width.%]="row.percent"></span>
-      </span>
-      <span class="bar__value">
-        @switch (metric()) {
-          @case ('time') {
-            {{ durationLabel(row.option.durationMinutes ?? 0) }}
+<div
+  role="tabpanel"
+  tabindex="0"
+  [id]="tabs.panelId(metric())"
+  [attr.aria-labelledby]="tabs.tabId(metric())"
+>
+  <ol class="bars">
+    @for (row of rows(); track row.option.mode) {
+      <li class="bar" [class.bar--recommended]="row.option.recommended" [attr.title]="row.tooltip">
+        <span class="bar__label">
+          <app-mode-icon [mode]="row.option.mode" />
+          {{ modeLabels[row.option.mode] }}
+          @if (row.option.recommended) {
+            <span class="badge badge--recommended">★ Recommended</span>
           }
-          @case ('cost') {
-            {{ row.option.totalCost | currency: data.currency : 'symbol' : '1.2-2' }}
+        </span>
+        <span class="bar__track" aria-hidden="true">
+          <span class="bar__fill" [style.width.%]="row.percent"></span>
+        </span>
+        <span class="bar__value">
+          @switch (metric()) {
+            @case ('time') {
+              {{ durationLabel(row.option.durationMinutes ?? 0) }}
+            }
+            @case ('cost') {
+              {{ row.option.totalCost | currency: data.currency : 'symbol' : '1.2-2' }}
+            }
+            @case ('co2') {
+              {{ row.option.co2Kg | number: '1.1-1' }} kg
+            }
+            @default {
+              {{ row.option.score }}
+              <span class="visually-hidden">out of 100</span>
+            }
           }
-          @case ('co2') {
-            {{ row.option.co2Kg | number: '1.1-1' }} kg
-          }
-          @default {
-            {{ row.option.score }}
-            <span class="visually-hidden">out of 100</span>
-          }
-        }
-      </span>
-    </li>
-  }
-</ol>
+        </span>
+      </li>
+    }
+  </ol>
+</div>
 
 @for (option of unavailable(); track option.mode) {
   <p class="unavailable muted">

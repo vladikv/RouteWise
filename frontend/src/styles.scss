@@ -77,6 +77,8 @@
   --space-6: 1.5rem;
   --space-8: 2rem;
   --content-width: 68rem;
+  /* Header bar: its padding plus one 2.75rem control; the Home map stage fills the rest of the viewport. */
+  --header-height: 4.25rem;
 }
 
 /* Glass becomes solid: no see-through surfaces, no blur. */
@@ -418,5 +420,13 @@ textarea[aria-invalid='true'] {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* The Home map spans the whole viewport width on phones and wide screens. */
+@media (max-width: 767.98px), (min-width: 1280px) {
+  #main:has(.home-stage) {
+    max-width: none;
+    padding: 0;
   }
 }

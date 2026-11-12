@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -13,7 +14,9 @@ import { CityApi } from '../../core/api/city-api';
 import { ComparisonApi } from '../../core/api/comparison-api';
 import { City, Comparison, ComparisonRequest, TripPriority } from '../../core/api/models';
 import { RouteMap, RouteSelection } from '../../shared/map/route-map';
+import { BottomSheet, SheetState } from '../../shared/ui/bottom-sheet';
 import { CityPicker } from '../../shared/ui/city-picker';
+import { GlassPanel } from '../../shared/ui/glass-panel';
 import { PriorityPicker } from '../../shared/ui/priority-picker';
 import { ErrorMessage } from '../../shared/ui/error-message';
 import { Spinner } from '../../shared/ui/spinner';
@@ -25,10 +28,12 @@ import {
   todayIso,
   weekendIso,
 } from '../../shared/util/date';
-import { PRIORITIES, travelersLabel } from '../../shared/util/labels';
+import { LayoutBreakpoint } from '../../shared/util/layout-breakpoint';
+import { MODE_LABELS, PRIORITIES, travelersLabel } from '../../shared/util/labels';
 import { ComparisonChart } from '../trips/comparison/comparison-chart';
 import { ComparisonPanel } from '../trips/comparison/comparison-panel';
 import { LegComparison, legComparison } from '../trips/comparison/leg-comparison';
+import { WeatherCard } from './weather-card';
 
 const MIN_TRAVELERS = 1;
 const MAX_TRAVELERS = 9;
@@ -48,11 +53,21 @@ interface ExplorerState {
  * the pickers and the comparison appears; priority, travelers and date re-run
  * it. The selection lives in the URL, so it can be shared and Back restores the
  * previous route. "Save as trip" carries it to the trip form.
+ *
+ * One template, three layouts (see `LayoutBreakpoint`): from 1280 px the map
+ * fills the stage with two collapsible glass panels floating over it; from
+ * 768 px the map, the settings and the results are stacked; below that the
+ * settings and results live in a bottom sheet under the map. The settings and
+ * results exist once (templates rendered in one place), so ids never repeat.
  */
 @Component({
   selector: 'app-route-explorer',
   imports: [
+    NgTemplateOutlet,
     RouterLink,
+    BottomSheet,
+    GlassPanel,
+    WeatherCard,
     RouteMap,
     CityPicker,
     PriorityPicker,
@@ -63,13 +78,22 @@ interface ExplorerState {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './route-explorer.html',
-  styleUrl: './route-explorer.scss',
+  styleUrls: ['./route-explorer.scss', './explorer-stage.scss'],
 })
 export class RouteExplorer {
   private readonly cityApi = inject(CityApi);
   private readonly comparisonApi = inject(ComparisonApi);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+
+  protected readonly layout = inject(LayoutBreakpoint).layout;
+  protected readonly formCollapsed = signal(false);
+  protected readonly resultsCollapsed = signal(false);
+  protected readonly sheetState = signal<SheetState>('peek');
+
+  /** Pixels a floating panel covers at its side of the map (see  in explorer-stage.scss: 24rem + 1.5rem inset + 1rem air). */
+  protected readonly insetStart = computed(() => this.dockInset(this.formCollapsed()));
+  protected readonly insetEnd = computed(() => this.dockInset(this.resultsCollapsed()));
 
   protected readonly travelersLabel = travelersLabel;
   protected readonly today = todayIso();
@@ -127,6 +151,23 @@ export class RouteExplorer {
   protected readonly shownLeg = computed<LegComparison | undefined>(() => {
     const shown = this.shown();
     return shown ? legComparison(shown, 0) : undefined;
+  });
+
+  /** One line for the collapsed bottom sheet: the route and the recommended mode, or what to do next. */
+  protected readonly summary = computed(() => {
+    const leg = this.shownLeg();
+    if (leg) {
+      const recommended = leg.options.find((option) => option.recommended);
+      const route = `${leg.from.name} to ${leg.to.name}`;
+      return recommended ? `${route} · ${MODE_LABELS[recommended.mode]} recommended` : route;
+    }
+    const name = (id: number | null) => this.cities.value()?.find((city) => city.id === id)?.name;
+    const origin = name(this.originId());
+    const destination = name(this.destinationId());
+    if (origin && destination) {
+      return `${origin} to ${destination} · comparing…`;
+    }
+    return origin ? `From ${origin}: choose a destination` : 'Where are you going?';
   });
 
   /** Query parameters that prefill the trip form with the current selection. */
@@ -187,6 +228,13 @@ export class RouteExplorer {
         });
       });
     });
+  }
+
+  private dockInset(collapsed: boolean): number {
+    if (this.layout() !== 'wide') {
+      return 0;
+    }
+    return (collapsed ? 14 + 2.5 : 24 + 2.5) * 16;
   }
 
   protected select(selection: RouteSelection): void {

@@ -20,9 +20,24 @@
   user-select: none;
 }
 
-/* Landscape view: its height follows the width, so no cap (a cap would letterbox it). */
+/* Landscape view: no height cap (it would letterbox). */
 .map--wide {
   max-height: none;
+}
+
+:host(.fill) {
+  height: 100%;
+}
+
+.frame--fill {
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+
+  .map {
+    height: 100%;
+    max-height: none;
+  }
 }
 
 .frame--interactive .map {
@@ -41,6 +56,14 @@
 
 .sea {
   fill: var(--map-sea);
+}
+
+.fade-stop {
+  stop-color: var(--map-sea);
+}
+
+.fades {
+  pointer-events: none;
 }
 
 .land {
@@ -132,7 +155,6 @@
   stroke-width: 3px;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
-  stroke-dasharray: 1;
   animation: draw-route 0.7s ease-out both;
 }
 
@@ -144,13 +166,15 @@
   opacity: 0.8;
 }
 
+/* The stroke is non-scaling, so dashes are in screen pixels: grow one dash past any route length
+   and end with no gap, which is a solid line at every zoom and size. */
 @keyframes draw-route {
   from {
-    stroke-dashoffset: 1;
+    stroke-dasharray: 0 4000;
   }
 
   to {
-    stroke-dashoffset: 0;
+    stroke-dasharray: 4000 0;
   }
 }
 
@@ -202,6 +226,25 @@
   }
 }
 
+.frame--controls-bottom {
+  .zoom {
+    inset: auto auto var(--space-8) 50%;
+    flex-direction: row;
+    translate: -50%;
+  }
+
+  .zoom button + button {
+    border-top: 0;
+    border-left: 1px solid var(--color-border);
+  }
+
+  .hint {
+    left: 50%;
+    translate: -50%;
+    white-space: nowrap;
+  }
+}
+
 .hint {
   position: absolute;
   left: var(--space-3);
@@ -213,53 +256,4 @@
   color: var(--color-text-muted);
   font-size: 0.75rem;
   pointer-events: none;
-}
-
-/* Hover / focus card */
-
-.card-tip {
-  position: absolute;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  min-width: 9rem;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-raised);
-  font-size: 0.8125rem;
-  line-height: 1.35;
-  transform: translate(-50%, calc(-100% - 16px));
-  pointer-events: none;
-}
-
-.card-tip--below {
-  transform: translate(-50%, 16px);
-}
-
-.card-tip strong {
-  font-size: 0.9375rem;
-}
-
-.card-tip__country,
-.card-tip__hint {
-  color: var(--color-text-muted);
-}
-
-.card-tip__distance {
-  font-weight: 600;
-}
-
-.status {
-  margin: var(--space-2) 0 0;
-  color: var(--color-text-muted);
-  font-size: 0.9375rem;
-}
-
-@media (max-width: 30rem) {
-  .hint {
-    display: none;
-  }
 }
