@@ -13,6 +13,8 @@ checkboxes when a milestone is completed.
 - Demo account with sample trips (`demo@routewise.app` / `demo1234`), one click on the login page
 - Multi-stop trips: an ordered list of 2–10 stops; the comparison is computed per leg
   and recommends a mixed itinerary, compared with single-mode alternatives
+- Glass UI: translucent surfaces on a layered background in the existing palette; the Home map
+  fills wide screens with floating panels; the Trips page has KPIs, filters and a board/list view
 
 Out of scope for v1: social login, password reset, email verification,
 real-time timetables, booking.
@@ -70,6 +72,9 @@ Changing requests need the `X-XSRF-TOKEN` header echoing the `XSRF-TOKEN` cookie
 Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads replace
 `origin`/`destination` (`originCityId`/`destinationCityId`) with `stops`; the UI changes in the same milestone.
 
+`feat/ui-glass-redesign` changes no endpoint or DTO; the Trips page reads its figures from the existing
+`GET /api/trips/{id}/comparison`.
+
 ## External services
 - **Open-Meteo**: weather forecast, no API key required
 - **LLM provider**: optional Claude (Anthropic) via `ANTHROPIC_API_KEY`; behind an
@@ -96,6 +101,17 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
   - Demo data: the seeder's trips use stops; at least one has 3+ stops
   - Frontend: trip form with a stops list (add, remove, move up/down, city picker, inline validation); trip list and details show the stops; comparison as a leg timeline with the recommended mode per leg and totals vs single-mode alternatives; maps draw every leg; the home explorer stays A → B (2 stops)
   - Done when: tests for the migration (existing rows converted), validation cases, per-leg calculation, totals, ownership, parse with stops, rule-based fallback, UI specs; `./mvnw verify` and `npm test` green; README "Data & assumptions" updated if it exists by then; `docs/AI_WORKFLOW.md` entry
+- [ ] `feat/ui-glass-redesign`: glassmorphism redesign of the Angular UI: map-first Home on wide screens with floating panels, Trips page with KPIs, filters and board/list view, bottom sheet on phones; visual and layout only
+  - Tokens first: the palette stays as defined in `frontend/src/styles.scss` `:root` (bg `#0b0d12`, surface `#141820`, text white / `#b8bfcc`, lime `#b6f23c`, amber `#f5b871`, danger `#ff8a80`, map colours); new tokens only for alpha variants of these, glass surfaces, borders, blur, radii (16–24 px, pill) and spacing; the hard-coded colours in `shared/map/route-map.scss` and `shared/ui/city-picker.scss` move to tokens; no hard-coded colours in components
+  - Building blocks in `shared/ui`: glass panel, pill nav, stat chip, tabs / segmented toggle, filter chip, icon button, bottom sheet
+  - Shell: fixed layered background with soft blurred lime glows; header with the logo on a lime tile, centred pill nav (Home, Trips) with a lighter active item, round icon buttons and Log in / avatar; the nav collapses into a menu below 768 px
+  - Home ≥ 1280 px: the map fills the viewport below the header (route, pins and labels unchanged); left glass panel: hero, From/To with swap, priority, "Describe a trip instead"; right glass panel: savings banner, Score/Time/Cost/CO₂ tabs, mode bars with the Recommended badge, weather card for origin and destination from `ComparisonResponse.weather`; both panels collapse (keyboard operable); map zoom controls are never covered; panel text ≤ ~70 characters per line
+  - Home 768–1279 px: stacked map → form → results; < 768 px: map on top, form and results in a bottom sheet that can be dragged up or toggled by keyboard
+  - Trips: large title + KPI stat chips (trips planned, CO₂ saved vs car, average cost per trip); toolbar with search, filter chips (priority, recommended mode), Board/List toggle and a lime "New trip" button; glass cards with date, route title, stops line, cost or CO₂ and a "⋯" menu with the existing actions; Board groups by priority (column header: count and total cost), List is a compact table-like list
+  - Trip figures come from `GET /api/trips/{id}/comparison`, one request per trip; cards and KPIs show a loading state, a failed comparison leaves that trip out of the KPIs with a visible note; KPI maths in pure, unit-tested functions
+  - Accessibility and performance: AA contrast on glass (the contrast check composites translucent surfaces over the background), visible focus rings, `prefers-reduced-transparency` → solid surfaces, `prefers-reduced-motion` respected; few stacked `backdrop-filter` layers, no blur per list card, map panning stays smooth; loading, empty and error states restyled
+  - Unchanged: routes, API calls, behaviour, URL state, the hand-drawn SVG map, no new dependency
+  - Done when: `npm run lint` and `npm test` green, with specs for the new building blocks, panel collapse, bottom sheet, trips KPIs, filters and grouping; before/after screenshots at 1920, 1280 and 375 px in `docs/screenshots/`; `docs/AI_WORKFLOW.md` entry
 - [ ] `docs/readme-demo`: README, screenshots, demo recording
 
 ## Decisions log
@@ -191,3 +207,9 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
 | 2026-11-12 | Trip form: a stop list of `CityPicker`s (search, keyboard, add/remove/move) replaces the two native `<select>`s; a city clicked on the map fills the next empty stop | Requested autocomplete; the 2026-11-11 "native selects" decision no longer fits a variable-length list |
 | 2026-11-12 | Two-stop trips and the home explorer keep the single-leg chart and table (via `legComparison`); multi-stop trips get a leg timeline, a whole-trip table (mixed plan vs each mode throughout, duplicates of the plan hidden) and each leg's details | Nothing changes for simple trips; the extra view only appears when it carries information |
 | 2026-11-12 | The demo's multi-stop sample is a FASTEST loop Berlin → Prague → Vienna → Munich → Berlin (train, train, plane, plane) | With BALANCED or GREENEST the scoring picks the bus on nearly every leg, so a BALANCED demo never showed a mixed plan |
+| 2026-11-12 | Glass redesign keeps the midnight/white/lime palette: glass surfaces are alpha variants of the existing tokens over a layered background with lime glows; no new hues | The requested look without giving up the 60/30/10 identity or the AA contrast checks |
+| 2026-11-12 | On screens ≥ 1280 px the Home map becomes the page background with two collapsible floating panels; 768–1279 px stacks map, form and results; phones use a bottom sheet | Supersedes the "map on top, settings left, results right" Home layout: the map is the main way in and now uses the whole screen |
+| 2026-11-12 | Trips page figures (KPIs, card value, tint, mode filter) come from one `GET /api/trips/{id}/comparison` per trip, not from new fields on `GET /api/trips` | Keeps the milestone visual only with no API change; fine for a handful of trips, revisit with a list summary if trip counts grow |
+| 2026-11-12 | Trip card tint from existing colours at low opacity: lime for TRAIN and BIKE, amber for PLANE, neutral for CAR and BUS; a mixed itinerary stays neutral; the mode is also named on the card | Five distinct mode hues would break "no new hues"; the tint is a hint, never the only signal |
+| 2026-11-12 | Manrope becomes the only font (body included, weight 400 added to the existing Google Fonts request) | "One geometric sans" without a new dependency; the font is already loaded |
+| 2026-11-12 | Bottom sheet, collapsible panels and segmented toggle are hand-written components (pointer events + keyboard), no Angular CDK | Small, testable pieces; no new dependency for three interactions |
