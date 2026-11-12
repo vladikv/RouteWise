@@ -37,26 +37,27 @@ public class TripService {
     }
 
     /**
-     * Returns all trips, soonest departure first.
+     * Returns the owner's trips, soonest departure first.
      */
     @Transactional(readOnly = true)
-    public List<TripResponse> findAll() {
-        return tripRepository.findAllByOrderByDepartureDateAscIdAsc().stream()
+    public List<TripResponse> findAll(Long ownerId) {
+        return tripRepository.findAllByOwnerIdOrderByDepartureDateAscIdAsc(ownerId).stream()
                 .map(tripMapper::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public TripResponse findById(Long id) {
-        return tripMapper.toResponse(getTrip(id));
+    public TripResponse findById(Long id, Long ownerId) {
+        return tripMapper.toResponse(getTrip(id, ownerId));
     }
 
     /**
      * Creates a trip; the departure date must be today or later.
      */
-    public TripResponse create(TripRequest request) {
+    public TripResponse create(TripRequest request, Long ownerId) {
         requireNotInPast(request.departureDate());
         Trip trip = new Trip();
+        trip.setOwnerId(ownerId);
         apply(request, trip);
         return tripMapper.toResponse(tripRepository.saveAndFlush(trip));
     }
@@ -65,8 +66,8 @@ public class TripService {
      * Replaces all editable fields of an existing trip. A past departure date may
      * be kept (so past trips stay editable), but a changed date must be today or later.
      */
-    public TripResponse update(Long id, TripRequest request) {
-        Trip trip = getTrip(id);
+    public TripResponse update(Long id, TripRequest request, Long ownerId) {
+        Trip trip = getTrip(id, ownerId);
         if (!request.departureDate().equals(trip.getDepartureDate())) {
             requireNotInPast(request.departureDate());
         }
@@ -75,14 +76,13 @@ public class TripService {
         return tripMapper.toResponse(tripRepository.saveAndFlush(trip));
     }
 
-    public void delete(Long id) {
-        Trip trip = tripRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(RESOURCE, id));
-        tripRepository.delete(trip);
+    public void delete(Long id, Long ownerId) {
+        tripRepository.delete(getTrip(id, ownerId));
     }
 
-    private Trip getTrip(Long id) {
-        return tripRepository.findWithCitiesById(id)
+    /** Someone else's trip is "not found", like a missing one. */
+    private Trip getTrip(Long id, Long ownerId) {
+        return tripRepository.findWithCitiesByIdAndOwnerId(id, ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException(RESOURCE, id));
     }
 

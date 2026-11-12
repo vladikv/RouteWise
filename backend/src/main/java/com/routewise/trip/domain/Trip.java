@@ -58,6 +58,10 @@ public class Trip {
     @Column(length = 1000)
     private String notes;
 
+    /** The account the trip belongs to; trips are private to their owner. */
+    @Column(name = "owner_id", nullable = false, updatable = false)
+    private Long ownerId;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

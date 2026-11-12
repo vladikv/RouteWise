@@ -1,8 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { Session } from '../../core/auth/session';
 import { ThemeService } from '../../core/theme/theme.service';
 
-/** App header: brand, main navigation and the theme toggle. */
+/** App header: brand, main navigation, the account (log in / log out) and the theme toggle. */
 @Component({
   selector: 'app-header',
   imports: [RouterLink, RouterLinkActive],
@@ -39,6 +40,16 @@ import { ThemeService } from '../../core/theme/theme.service';
             </li>
           </ul>
         </nav>
+        <div class="account">
+          @if (session.user(); as user) {
+            <span class="account__name">
+              <span class="visually-hidden">Logged in as </span>{{ user.displayName }}
+            </span>
+            <button type="button" class="button" (click)="logout()">Log out</button>
+          } @else {
+            <a class="button" routerLink="/login">Log in</a>
+          }
+        </div>
         <button
           type="button"
           class="button theme-toggle"
@@ -117,6 +128,22 @@ import { ThemeService } from '../../core/theme/theme.service';
       border-bottom-color: var(--color-primary);
     }
 
+    .account {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .account__name {
+      max-width: 12rem;
+      overflow: hidden;
+      color: var(--color-text-muted);
+      font-weight: 600;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .account .button,
     .theme-toggle {
       min-height: 2.5rem;
       font-weight: 500;
@@ -137,5 +164,12 @@ import { ThemeService } from '../../core/theme/theme.service';
 })
 export class Header {
   protected readonly theme = inject(ThemeService);
+  protected readonly session = inject(Session);
   protected readonly isDark = computed(() => this.theme.theme() === 'dark');
+
+  private readonly router = inject(Router);
+
+  protected logout(): void {
+    this.session.logout().subscribe(() => void this.router.navigateByUrl('/'));
+  }
 }

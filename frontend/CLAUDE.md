@@ -12,15 +12,16 @@ src/
 └── app/
     ├── core/
     │   ├── api/         typed API layer: models, one service per resource, ApiError
+    │   ├── auth/        Session (who is logged in), authGuard, credentialsInterceptor
     │   └── theme/       ThemeService (light/dark)
-    ├── layout/          app chrome: header (nav, theme toggle)
+    ├── layout/          app chrome: header (nav, account, theme toggle)
     ├── shared/ui/       presentational building blocks (spinner, error message, confirm action)
     ├── shared/map/      route map (SVG) and its pure projection maths
     ├── shared/util/     pure helpers (dates, labels)
     ├── features/<name>/ routed pages and their child components
     ├── app.ts           shell: skip link, header, <router-outlet>, footer
     ├── app.routes.ts    lazy routes (`loadComponent`)
-    └── app.config.ts    providers: router, HttpClient + apiErrorInterceptor
+    └── app.config.ts    providers: router, HttpClient + interceptors, session load at start-up
 ```
 
 ## Commands
@@ -42,12 +43,21 @@ src/
 - **Smart/presentational split:** pages in `features/` load data through API
   services; components in `shared/ui/` only take inputs and emit outputs.
 - **HTTP:** only through the services in `core/api/` (`TripApi`, `CityApi`,
-  `TransportModeApi`, `ComparisonApi`, `AdvisorApi`); components never use `HttpClient`.
+  `TransportModeApi`, `ComparisonApi`, `AdvisorApi`, `AuthApi`); components never use `HttpClient`.
   URLs are built from the `API_BASE_URL` token. `models.ts` mirrors the
   backend DTO records: change both sides together.
 - **Errors:** `apiErrorInterceptor` turns every failed call into an `ApiError`
   (from the backend's Problem Details; `status` 0 = API unreachable, with
   `fieldErrors` for validation failures). Show it with `<app-error-message>`.
+- **Auth:** the API keeps a session cookie. `credentialsInterceptor` sends
+  cookies to the API and echoes the `XSRF-TOKEN` cookie as `X-XSRF-TOKEN` on
+  changing requests (Angular's built-in XSRF support skips absolute URLs).
+  It sits inside `apiErrorInterceptor` so it sees the raw 401, which ends the
+  UI session and opens `/login?returnUrl=…`. Pages and the header read the
+  user from `Session`; log in/out only through `Session`, never `AuthApi`
+  directly. Routes that need a login get `canActivate: [authGuard]`; the
+  session is loaded once by an app initializer before the first navigation.
+  After login, go to `safeReturnUrl(returnUrl)` (paths inside the app only).
 - **Routing:** lazy `loadComponent` routes; route parameters arrive as
   component inputs (`withComponentInputBinding`), e.g. `id = input.required<string>()`.
 - **Forms:** reactive, typed (`NonNullableFormBuilder`), in a presentational

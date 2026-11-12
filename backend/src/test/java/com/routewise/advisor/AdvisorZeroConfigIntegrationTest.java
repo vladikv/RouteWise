@@ -1,11 +1,15 @@
 package com.routewise.advisor;
 
+import static com.routewise.user.TestUsers.csrfCookie;
+import static com.routewise.user.TestUsers.withCsrf;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.routewise.advisor.client.AdvisorClient;
+import com.routewise.user.TestUsers;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,7 +40,8 @@ class AdvisorZeroConfigIntegrationTest {
     void parse_withoutApiKey_usesRulesAgainstSeededCities() throws Exception {
         assertThat(context.getBeanNamesForType(AdvisorClient.class)).isEmpty();
 
-        mockMvc.perform(post("/api/advisor/parse")
+        mockMvc.perform(withCsrf(post("/api/advisor/parse"), csrfCookie(mockMvc))
+                        .with(user(TestUsers.ALICE))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"text": "From Wien to Berlin with 2 friends, as green as possible"}

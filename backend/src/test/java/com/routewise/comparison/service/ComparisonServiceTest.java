@@ -31,6 +31,7 @@ import com.routewise.transportmode.repository.TransportModeRepository;
 import com.routewise.trip.domain.Trip;
 import com.routewise.trip.domain.TripPriority;
 import com.routewise.trip.repository.TripRepository;
+import com.routewise.user.TestUsers;
 import com.routewise.weather.domain.Location;
 import com.routewise.weather.domain.LocationForecast;
 import com.routewise.weather.domain.WeatherForecast;
@@ -74,13 +75,13 @@ class ComparisonServiceTest {
 
     @Test
     void compare_berlinToVienna_returnsAllModesWithWeatherAndOneRecommendation() {
-        when(tripRepository.findWithCitiesById(1L)).thenReturn(Optional.of(trip()));
+        when(tripRepository.findWithCitiesByIdAndOwnerId(1L, TestUsers.ALICE_ID)).thenReturn(Optional.of(trip()));
         when(transportModeRepository.findAll()).thenReturn(seededModes());
         LocationForecast viennaRain = new LocationForecast(new Location("Vienna", 48.2082, 16.3738),
                 new WeatherForecast(DEPARTURE, 63, 4.0, 9.0, 90, 20.0));
         when(weatherService.forecasts(anyList(), eq(DEPARTURE))).thenReturn(List.of(viennaRain));
 
-        ComparisonResponse response = comparisonService.compare(1L);
+        ComparisonResponse response = comparisonService.compare(1L, TestUsers.ALICE_ID);
 
         assertThat(response.tripId()).isEqualTo(1L);
         assertThat(response.distanceKm()).isBetween(new BigDecimal("522"), new BigDecimal("526"));
@@ -98,11 +99,11 @@ class ComparisonServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void compare_requestsWeatherForOriginAndDestinationOnDepartureDate() {
-        when(tripRepository.findWithCitiesById(1L)).thenReturn(Optional.of(trip()));
+        when(tripRepository.findWithCitiesByIdAndOwnerId(1L, TestUsers.ALICE_ID)).thenReturn(Optional.of(trip()));
         when(transportModeRepository.findAll()).thenReturn(seededModes());
         when(weatherService.forecasts(anyList(), any())).thenReturn(List.of());
 
-        comparisonService.compare(1L);
+        comparisonService.compare(1L, TestUsers.ALICE_ID);
 
         ArgumentCaptor<List<Location>> locations = ArgumentCaptor.forClass(List.class);
         verify(weatherService).forecasts(locations.capture(), eq(DEPARTURE));
@@ -111,9 +112,9 @@ class ComparisonServiceTest {
 
     @Test
     void compare_whenTripMissing_throwsNotFoundWithoutCallingWeather() {
-        when(tripRepository.findWithCitiesById(42L)).thenReturn(Optional.empty());
+        when(tripRepository.findWithCitiesByIdAndOwnerId(42L, TestUsers.ALICE_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> comparisonService.compare(42L))
+        assertThatThrownBy(() -> comparisonService.compare(42L, TestUsers.ALICE_ID))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Trip with id 42 not found");
         verifyNoInteractions(weatherService);

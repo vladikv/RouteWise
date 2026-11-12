@@ -21,20 +21,26 @@ import java.time.LocalDate;
 import java.util.List;
 
 import com.routewise.city.dto.CitySummary;
+import com.routewise.common.config.SecurityConfig;
 import com.routewise.common.exception.FieldValidationException;
 import com.routewise.common.exception.ResourceNotFoundException;
 import com.routewise.trip.domain.TripPriority;
 import com.routewise.trip.dto.TripRequest;
 import com.routewise.trip.dto.TripResponse;
 import com.routewise.trip.service.TripService;
+import com.routewise.user.TestUsers;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.context.WebApplicationContext;
 
+@Import(SecurityConfig.class)
 @WebMvcTest(TripController.class)
 class TripControllerTest {
 
@@ -42,14 +48,21 @@ class TripControllerTest {
     private static final Instant NOW = Instant.parse("2026-11-11T10:00:00Z");
 
     @Autowired
+    private WebApplicationContext context;
+
     private MockMvc mockMvc;
+
+    @BeforeEach
+    void setUpMockMvc() {
+        mockMvc = TestUsers.mockMvcAsAlice(context);
+    }
 
     @MockitoBean
     private TripService tripService;
 
     @Test
     void findAll_returnsTrips() throws Exception {
-        when(tripService.findAll()).thenReturn(List.of(response(1L)));
+        when(tripService.findAll(TestUsers.ALICE_ID)).thenReturn(List.of(response(1L)));
 
         mockMvc.perform(get("/api/trips"))
                 .andExpect(status().isOk())
@@ -60,7 +73,7 @@ class TripControllerTest {
 
     @Test
     void findById_returnsTrip() throws Exception {
-        when(tripService.findById(1L)).thenReturn(response(1L));
+        when(tripService.findById(1L, TestUsers.ALICE_ID)).thenReturn(response(1L));
 
         mockMvc.perform(get("/api/trips/1"))
                 .andExpect(status().isOk())
@@ -73,7 +86,7 @@ class TripControllerTest {
 
     @Test
     void findById_whenMissing_returns404() throws Exception {
-        when(tripService.findById(42L)).thenThrow(new ResourceNotFoundException("Trip", 42L));
+        when(tripService.findById(42L, TestUsers.ALICE_ID)).thenThrow(new ResourceNotFoundException("Trip", 42L));
 
         mockMvc.perform(get("/api/trips/42"))
                 .andExpect(status().isNotFound())
@@ -83,7 +96,7 @@ class TripControllerTest {
 
     @Test
     void create_returns201WithLocation() throws Exception {
-        when(tripService.create(any(TripRequest.class))).thenReturn(response(7L));
+        when(tripService.create(any(TripRequest.class), eq(TestUsers.ALICE_ID))).thenReturn(response(7L));
 
         mockMvc.perform(post("/api/trips").contentType(MediaType.APPLICATION_JSON).content(validBody()))
                 .andExpect(status().isCreated())
@@ -91,7 +104,7 @@ class TripControllerTest {
                 .andExpect(jsonPath("$.id").value(7));
 
         verify(tripService).create(new TripRequest("Weekend in Vienna", 1L, 2L, DEPARTURE, 2,
-                TripPriority.GREENEST, null));
+                TripPriority.GREENEST, null), TestUsers.ALICE_ID);
     }
 
     @Test
@@ -120,7 +133,7 @@ class TripControllerTest {
 
     @Test
     void create_withUnknownCity_returns400WithFieldError() throws Exception {
-        when(tripService.create(any(TripRequest.class)))
+        when(tripService.create(any(TripRequest.class), eq(TestUsers.ALICE_ID)))
                 .thenThrow(new FieldValidationException("originCityId", "unknown city id 1"));
 
         mockMvc.perform(post("/api/trips").contentType(MediaType.APPLICATION_JSON).content(validBody()))
@@ -132,7 +145,7 @@ class TripControllerTest {
 
     @Test
     void update_returnsUpdatedTrip() throws Exception {
-        when(tripService.update(eq(1L), any(TripRequest.class))).thenReturn(response(1L));
+        when(tripService.update(eq(1L), any(TripRequest.class), eq(TestUsers.ALICE_ID))).thenReturn(response(1L));
 
         mockMvc.perform(put("/api/trips/1").contentType(MediaType.APPLICATION_JSON).content(validBody()))
                 .andExpect(status().isOk())
@@ -149,7 +162,7 @@ class TripControllerTest {
 
     @Test
     void update_whenMissing_returns404() throws Exception {
-        when(tripService.update(eq(42L), any(TripRequest.class)))
+        when(tripService.update(eq(42L), any(TripRequest.class), eq(TestUsers.ALICE_ID)))
                 .thenThrow(new ResourceNotFoundException("Trip", 42L));
 
         mockMvc.perform(put("/api/trips/42").contentType(MediaType.APPLICATION_JSON).content(validBody()))
@@ -161,12 +174,12 @@ class TripControllerTest {
         mockMvc.perform(delete("/api/trips/1"))
                 .andExpect(status().isNoContent())
                 .andExpect(content().string(""));
-        verify(tripService).delete(1L);
+        verify(tripService).delete(1L, TestUsers.ALICE_ID);
     }
 
     @Test
     void delete_whenMissing_returns404() throws Exception {
-        doThrow(new ResourceNotFoundException("Trip", 42L)).when(tripService).delete(42L);
+        doThrow(new ResourceNotFoundException("Trip", 42L)).when(tripService).delete(42L, TestUsers.ALICE_ID);
 
         mockMvc.perform(delete("/api/trips/42"))
                 .andExpect(status().isNotFound());

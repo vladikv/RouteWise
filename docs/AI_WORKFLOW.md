@@ -281,3 +281,60 @@ corrected manually, and why.
 **Why**
 - Interactive UI has to be judged while it runs: every correction above came
   from using the page, and none would have failed a unit test first.
+
+## `feat/auth` (2026-11-12)
+
+**Delegated to AI**
+- Backend: accounts (`app_user`, V4 migration with `trip.owner_id`), BCrypt,
+  JSON session login (register, login, logout, me), owner-scoped trip,
+  comparison and advice queries, 401/403 as Problem Details, CSRF cookie
+  pattern. Updated all existing web-layer tests to run with the real
+  security rules.
+- Frontend: `AuthApi`, `Session`, `authGuard`, a credentials interceptor
+  (session cookie + `X-XSRF-TOKEN`), one login/registration page, and the
+  account area in the header.
+- 18 new backend tests (213 in total) and 24 new frontend tests (131).
+- Drove the real app in headless Chrome: redirect to login, register,
+  create a trip, reload, logout, wrong password, login back to the wanted
+  trip, a second user sees nothing of the first, taken email; screenshots
+  in dark theme and at 375 px.
+
+**Corrected manually / human decisions**
+- The human chose to include the UI in this milestone, after the AI
+  pointed out that a backend-only change leaves the trip pages broken.
+- The work spanned two sessions. The second found the first one's test
+  updates half done: a scripted edit had put the new owner argument in
+  the wrong call in `TripServiceTest`, and imports were unsorted.
+- Found by the new end-to-end tests, not by the existing ones:
+  - Spring Security 7's `csrf().spa()` creates the token lazily, so the
+    `XSRF-TOKEN` cookie never reached a fresh browser and its first POST
+    would fail with 403; fixed with `CsrfCookieFilter`
+  - CORS did not allow credentials, so the browser would have dropped
+    the session cookie between the UI and the API
+- The CSRF test passed alone and failed in the full suite: another test
+  used the `csrf()` test helper, which changes the shared Spring context
+  for good. Both full-context tests now send the real cookie and header,
+  and the backend `CLAUDE.md` warns against the helper.
+- One confusing red run was caused by the AI editing a source file while
+  Maven was compiling (the stale class looked newer than the source), and
+  a slow one by a leftover second Maven run; both were process mistakes,
+  not code bugs.
+
+**Why**
+- Security code has to be checked through the real filter chain and a
+  real browser: the slice tests used test helpers that hide exactly the
+  cookie and CORS behaviour that broke.
+
+**Follow-up: review checklist (same day)**
+- The human reviewed the milestone against a checklist. The AI checked
+  each item against the code and reported which were already met.
+- Gaps closed: demo account with sample trips plus a "Try the demo"
+  button and README credentials (the item the human marked as most
+  important); 409 instead of 400 for a taken email; an explicit,
+  configurable session timeout; tests for PUT on another user's trip and
+  for CORS allowing `Authorization`.
+- Items written for token auth (token secret, token expiry, interceptor
+  adding a token) were mapped to the session design instead of switching
+  to JWT: there is no signing secret, expiry is the session timeout, and
+  the interceptor sends the cookie and CSRF header. Recorded in the
+  decisions log.

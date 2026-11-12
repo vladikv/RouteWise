@@ -6,12 +6,14 @@ import java.util.List;
 import com.routewise.trip.dto.TripRequest;
 import com.routewise.trip.dto.TripResponse;
 import com.routewise.trip.service.TripService;
+import com.routewise.user.domain.AuthUser;
 
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,21 +36,22 @@ public class TripController {
     }
 
     @GetMapping
-    @Operation(summary = "List trips, soonest departure first")
-    public List<TripResponse> findAll() {
-        return tripService.findAll();
+    @Operation(summary = "List your trips, soonest departure first")
+    public List<TripResponse> findAll(@AuthenticationPrincipal AuthUser user) {
+        return tripService.findAll(user.id());
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get trip details")
-    public TripResponse findById(@PathVariable Long id) {
-        return tripService.findById(id);
+    public TripResponse findById(@PathVariable Long id, @AuthenticationPrincipal AuthUser user) {
+        return tripService.findById(id, user.id());
     }
 
     @PostMapping
     @Operation(summary = "Create a trip")
-    public ResponseEntity<TripResponse> create(@Valid @RequestBody TripRequest request) {
-        TripResponse created = tripService.create(request);
+    public ResponseEntity<TripResponse> create(@Valid @RequestBody TripRequest request,
+                                               @AuthenticationPrincipal AuthUser user) {
+        TripResponse created = tripService.create(request, user.id());
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(created.id())
@@ -58,14 +61,15 @@ public class TripController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Replace all editable fields of a trip")
-    public TripResponse update(@PathVariable Long id, @Valid @RequestBody TripRequest request) {
-        return tripService.update(id, request);
+    public TripResponse update(@PathVariable Long id, @Valid @RequestBody TripRequest request,
+                               @AuthenticationPrincipal AuthUser user) {
+        return tripService.update(id, request, user.id());
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Delete a trip")
-    public void delete(@PathVariable Long id) {
-        tripService.delete(id);
+    public void delete(@PathVariable Long id, @AuthenticationPrincipal AuthUser user) {
+        tripService.delete(id, user.id());
     }
 }
