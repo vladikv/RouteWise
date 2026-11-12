@@ -16,22 +16,35 @@ import com.routewise.advisor.dto.AdviceResponse;
 import com.routewise.advisor.dto.TripDraftResponse;
 import com.routewise.advisor.service.AdvisorService;
 import com.routewise.city.dto.CitySummary;
+import com.routewise.common.config.SecurityConfig;
 import com.routewise.common.exception.ResourceNotFoundException;
 import com.routewise.transportmode.domain.TransportModeCode;
 import com.routewise.trip.domain.TripPriority;
+import com.routewise.user.TestUsers;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.context.WebApplicationContext;
 
+@Import(SecurityConfig.class)
 @WebMvcTest(AdvisorController.class)
 class AdvisorControllerTest {
 
     @Autowired
+    private WebApplicationContext context;
+
     private MockMvc mockMvc;
+
+    @BeforeEach
+    void setUpMockMvc() {
+        mockMvc = TestUsers.mockMvcAsAlice(context);
+    }
 
     @MockitoBean
     private AdvisorService advisorService;
@@ -90,7 +103,7 @@ class AdvisorControllerTest {
 
     @Test
     void advise_returnsAdvice() throws Exception {
-        when(advisorService.advise(1L)).thenReturn(new AdviceResponse(1L, TransportModeCode.TRAIN,
+        when(advisorService.advise(1L, TestUsers.ALICE_ID)).thenReturn(new AdviceResponse(1L, TransportModeCode.TRAIN,
                 "Take the train.", List.of("Pack an umbrella."), AdvisorSource.AI));
 
         mockMvc.perform(get("/api/trips/1/advice"))
@@ -111,7 +124,7 @@ class AdvisorControllerTest {
 
     @Test
     void advise_whenTripMissing_returns404() throws Exception {
-        when(advisorService.advise(42L)).thenThrow(new ResourceNotFoundException("Trip", 42L));
+        when(advisorService.advise(42L, TestUsers.ALICE_ID)).thenThrow(new ResourceNotFoundException("Trip", 42L));
 
         mockMvc.perform(get("/api/trips/42/advice"))
                 .andExpect(status().isNotFound())

@@ -4,10 +4,12 @@ import com.routewise.advisor.dto.AdviceResponse;
 import com.routewise.advisor.dto.TripDraftResponse;
 import com.routewise.advisor.dto.TripParseRequest;
 import com.routewise.advisor.service.AdvisorService;
+import com.routewise.user.domain.AuthUser;
 
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,7 +35,7 @@ public class AdvisorController {
     @GetMapping("/api/trips/{tripId}/advice")
     @Operation(summary = "Explain the weather-aware recommendation for a trip; "
             + "uses the AI advisor if configured, otherwise rules")
-    public AdviceResponse advise(@PathVariable Long tripId) {
-        return advisorService.advise(tripId);
+    public AdviceResponse advise(@PathVariable Long tripId, @AuthenticationPrincipal AuthUser user) {
+        return advisorService.advise(tripId, user.id());
     }
 }

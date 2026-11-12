@@ -11,8 +11,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface TripRepository extends JpaRepository<Trip, Long> {
 
     @EntityGraph(attributePaths = {"origin", "destination"})
-    List<Trip> findAllByOrderByDepartureDateAscIdAsc();
+    List<Trip> findAllByOwnerIdOrderByDepartureDateAscIdAsc(Long ownerId);
 
+    /** Empty for someone else's trip, so callers answer 404 and reveal nothing. */
     @EntityGraph(attributePaths = {"origin", "destination"})
-    Optional<Trip> findWithCitiesById(Long id);
+    Optional<Trip> findWithCitiesByIdAndOwnerId(Long id, Long ownerId);
 }

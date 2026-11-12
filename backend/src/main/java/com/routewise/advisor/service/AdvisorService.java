@@ -84,9 +84,9 @@ public class AdvisorService {
      *
      * @throws com.routewise.common.exception.ResourceNotFoundException if the trip does not exist
      */
-    public AdviceResponse advise(Long tripId) {
-        TripResponse trip = tripService.findById(tripId);
-        ComparisonResponse comparison = comparisonService.compare(tripId);
+    public AdviceResponse advise(Long tripId, Long ownerId) {
+        TripResponse trip = tripService.findById(tripId, ownerId);
+        ComparisonResponse comparison = comparisonService.compare(tripId, ownerId);
         AdviceContext context = new AdviceContext(trip.origin().name(), trip.destination().name(), comparison);
 
         Optional<AdviceText> aiAdvice = tryAdvisorClient(client -> client.writeAdvice(context), "advice");

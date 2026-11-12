@@ -53,8 +53,9 @@ public class ComparisonService {
         this.clock = clock;
     }
 
-    public ComparisonResponse compare(Long tripId) {
-        Trip trip = tripRepository.findWithCitiesById(tripId)
+    /** Someone else's trip is "not found", like a missing one. */
+    public ComparisonResponse compare(Long tripId, Long ownerId) {
+        Trip trip = tripRepository.findWithCitiesByIdAndOwnerId(tripId, ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Trip", tripId));
         return compare(trip.getId(), trip.getOrigin(), trip.getDestination(), trip.getDepartureDate(),
                 trip.getTravelers(), trip.getPriority());
