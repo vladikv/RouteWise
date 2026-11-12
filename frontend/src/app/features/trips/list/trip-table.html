@@ -4,19 +4,31 @@
   </caption>
   <thead>
     <tr>
-      <th scope="col" class="wide-only">Date</th>
+      <th scope="col" class="wide-only" [attr.aria-sort]="ariaSort('date')">
+        <button type="button" class="sort" (click)="sortBy('date')">
+          Date <span aria-hidden="true">{{ arrow('date') }}</span>
+        </button>
+      </th>
       <th scope="col">Trip</th>
       <th scope="col" class="wide-only">Mode</th>
-      <th scope="col" class="num">Cost</th>
-      <th scope="col" class="num wide-only">CO₂</th>
+      <th scope="col" class="num" [attr.aria-sort]="ariaSort('cost')">
+        <button type="button" class="sort" (click)="sortBy('cost')">
+          Cost <span aria-hidden="true">{{ arrow('cost') }}</span>
+        </button>
+      </th>
+      <th scope="col" class="num wide-only" [attr.aria-sort]="ariaSort('co2')">
+        <button type="button" class="sort" (click)="sortBy('co2')">
+          CO₂ <span aria-hidden="true">{{ arrow('co2') }}</span>
+        </button>
+      </th>
       <th scope="col"><span class="visually-hidden">Actions</span></th>
     </tr>
   </thead>
   <tbody>
-    @for (entry of entries(); track entry.trip.id) {
+    @for (entry of rows(); track entry.trip.id) {
       @let trip = entry.trip;
       @let plan = figuresOf(entry);
-      <tr>
+      <tr class="row">
         <td class="wide-only trip__date">{{ trip.departureDate | date: 'mediumDate' }}</td>
         <th scope="row" class="trip__name">
           <a [routerLink]="['/trips', trip.id]">{{ trip.title }}</a>
@@ -78,11 +90,20 @@
           }
         </td>
         <td class="trip__actions">
-          <app-trip-menu
-            [trip]="trip"
-            [busy]="deletingId() === trip.id"
-            (deleted)="deleted.emit(trip)"
-          />
+          <div class="trip__tools">
+            <app-trip-actions
+              class="trip__quick"
+              [trip]="trip"
+              [busy]="deletingId() === trip.id"
+              (deleted)="deleted.emit(trip)"
+            />
+            <app-trip-menu
+              class="trip__menu"
+              [trip]="trip"
+              [busy]="deletingId() === trip.id"
+              (deleted)="deleted.emit(trip)"
+            />
+          </div>
         </td>
       </tr>
     }

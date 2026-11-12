@@ -4,8 +4,8 @@ import {
   ElementRef,
   effect,
   input,
+  model,
   output,
-  signal,
   viewChild,
 } from '@angular/core';
 
@@ -33,7 +33,7 @@ import {
           Cancel
         </button>
       </span>
-    } @else {
+    } @else if (showTrigger()) {
       <button
         type="button"
         class="button button--danger"
@@ -67,7 +67,10 @@ export class ConfirmAction {
   readonly busy = input(false);
   readonly confirmed = output<void>();
 
-  protected readonly asking = signal(false);
+  /** Whether the question is showing; set it to open the confirmation from outside. */
+  readonly asking = model(false);
+  /** Hide the first button when something else opens the question (`asking`). */
+  readonly showTrigger = input(true);
   private readonly confirmButton = viewChild<ElementRef<HTMLButtonElement>>('confirmButton');
 
   constructor() {

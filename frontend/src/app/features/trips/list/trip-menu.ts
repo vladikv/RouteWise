@@ -3,9 +3,10 @@ import { RouterLink } from '@angular/router';
 import { Trip } from '../../../core/api/models';
 import { ConfirmAction } from '../../../shared/ui/confirm-action';
 import { Menu, MenuContent } from '../../../shared/ui/menu';
+import { duplicateState } from '../trip-duplicate';
 
 /**
- * The "⋯" menu of a trip: open, edit and delete (with its inline confirmation).
+ * The "⋯" menu of a trip: open, edit, duplicate and delete (with its inline confirmation).
  * Built on `Menu`, which stays open while the delete confirmation is answered.
  */
 @Component({
@@ -21,6 +22,13 @@ import { Menu, MenuContent } from '../../../shared/ui/menu';
         <a [routerLink]="['/trips', trip().id]" [attr.aria-label]="'Open ' + trip().title">Open</a>
         <a [routerLink]="['/trips', trip().id, 'edit']" [attr.aria-label]="'Edit ' + trip().title">
           Edit
+        </a>
+        <a
+          [routerLink]="['/trips', 'new']"
+          [state]="duplicateState(trip())"
+          [attr.aria-label]="'Duplicate ' + trip().title"
+        >
+          Duplicate
         </a>
         <app-confirm-action
           [ariaLabel]="'Delete ' + trip().title"
@@ -58,4 +66,6 @@ export class TripMenu {
   readonly trip = input.required<Trip>();
   readonly busy = input(false);
   readonly deleted = output<void>();
+
+  protected readonly duplicateState = duplicateState;
 }

@@ -1,6 +1,16 @@
 import { TransportModeCode, TripPriority } from '../../../core/api/models';
 import { BOARD_PRIORITIES, TripEntry, TripFilter, figuresOf } from './trip-figures';
 
+export type SortKey = 'date' | 'cost' | 'co2';
+export type SortDirection = 'asc' | 'desc';
+
+export interface TripSort {
+  key: SortKey;
+  direction: SortDirection;
+}
+
+export const DEFAULT_SORT: TripSort = { key: 'date', direction: 'asc' };
+
 export const FILTER_MODES: readonly TransportModeCode[] = ['TRAIN', 'BUS', 'CAR', 'BIKE', 'PLANE'];
 
 /** Trips per priority. */
@@ -36,4 +46,34 @@ export function activeChipCount(filter: Pick<TripFilter, 'priorities' | 'modes'>
 /** Whether the list is narrowed by a search or any chip. */
 export function hasActiveFilters(filter: TripFilter): boolean {
   return filter.search.trim() !== '' || activeChipCount(filter) > 0;
+}
+
+/** The sort after a click on a column: the same column flips its direction, another starts ascending. */
+export function toggleSort(current: TripSort, key: SortKey): TripSort {
+  if (current.key === key) {
+    return { key, direction: current.direction === 'asc' ? 'desc' : 'asc' };
+  }
+  return { key, direction: 'asc' };
+}
+
+/**
+ * The entries ordered by date, recommended cost or recommended CO₂. Ties and equal dates keep
+ * the incoming order; entries without a figure (loading, failed, no route) sort last either way.
+ */
+export function sortTrips(entries: readonly TripEntry[], sort: TripSort): TripEntry[] {
+  const sign = sort.direction === 'asc' ? 1 : -1;
+  const value = (entry: TripEntry): string | number | null => {
+    if (sort.key === 'date') {
+      return entry.trip.departureDate;
+    }
+    const figures = figuresOf(entry);
+    return figures ? (sort.key === 'cost' ? figures.cost : figures.co2Kg) : null;
+  };
+  return [...entries].sort((a, b) => {
+    const [first, second] = [value(a), value(b)];
+    if (first === null || second === null) {
+      return first === second ? 0 : first === null ? 1 : -1;
+    }
+    return first === second ? 0 : first < second ? -sign : sign;
+  });
 }

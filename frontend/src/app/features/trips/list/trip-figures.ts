@@ -15,6 +15,8 @@ export interface TripFigures {
   mode: TripMode;
   /** Distinct modes used, in leg order. */
   modes: TransportModeCode[];
+  /** The mode of every leg, in leg order. */
+  legModes: TransportModeCode[];
 }
 
 /** The comparison of one trip: still loading, failed, or loaded (null when no mode is available). */
@@ -81,6 +83,7 @@ export function tripFigures(comparison: Comparison): TripFigures | null {
     carCo2Kg: car?.available && car.co2Kg !== null ? car.co2Kg : null,
     mode: modes.length === 1 ? modes[0] : 'MIXED',
     modes,
+    legModes: itinerary.modes,
   };
 }
 
@@ -163,4 +166,16 @@ export function modeSummary(figures: TripFigures): string {
     return MODE_LABELS[figures.mode];
   }
   return `Mixed: ${figures.modes.map((mode) => MODE_LABELS[mode].toLowerCase()).join(', ')}`;
+}
+
+/** The plan's CO₂ as a share (0–1) of going by car; null without a car figure. */
+export function co2ShareOfCar(figures: TripFigures): number | null {
+  const car = figures.carCo2Kg;
+  return car && car > 0 ? Math.min(figures.co2Kg / car, 1) : null;
+}
+
+/** Signed change against going by car, e.g. -81 for 61 kg against 323 kg; null without a car figure. */
+export function co2VsCarPercent(figures: TripFigures): number | null {
+  const car = figures.carCo2Kg;
+  return car && car > 0 ? Math.round((figures.co2Kg / car - 1) * 100) : null;
 }

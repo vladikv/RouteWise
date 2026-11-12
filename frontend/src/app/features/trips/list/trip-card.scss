@@ -1,6 +1,8 @@
 /* No backdrop-filter here: a long list of blurred cards is slow to paint. The translucent
    fill, border and highlight still read as glass over the glow layer. */
 .trip {
+  --edge: var(--color-border-strong);
+  --glow: transparent;
   position: relative;
   min-height: 9.5rem;
   padding: var(--space-4);
@@ -8,19 +10,58 @@
   border-radius: var(--radius-lg);
   background-color: var(--glass-bg);
   box-shadow: var(--glass-highlight), var(--shadow-card);
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
-.trip:hover {
-  border-color: var(--color-border-strong);
-}
-
-/* Tints stay at 8% alpha so white and muted text keep their contrast. */
+/* Tints stay at 8% alpha so white and muted text keep their contrast. The hover edge is
+   the tint's own edge token: lime in dark, ink in light, so it stays visible on white glass. */
 .trip--lime {
+  --edge: var(--color-highlight-edge);
+  --glow: var(--color-primary-a20);
   background-image: linear-gradient(var(--color-primary-a08), var(--color-primary-a08));
 }
 
 .trip--amber {
+  --edge: var(--color-accent-edge);
+  --glow: var(--color-accent-a20);
   background-image: linear-gradient(var(--color-accent-a08), var(--color-accent-a08));
+}
+
+.trip:hover,
+.trip:focus-within {
+  /* Above its neighbours, so an open menu is not painted over by the next card. */
+  z-index: 1;
+  transform: translateY(-2px);
+  border-color: var(--edge);
+  box-shadow:
+    var(--glass-highlight),
+    0 8px 24px var(--glow),
+    var(--shadow-raised);
+}
+
+/* One tab stop per card: the title link. Its ring is drawn around the whole card. */
+.trip:has(.trip__title a:focus-visible) {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.trip__title a:focus-visible {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trip {
+    transition: none;
+  }
+
+  .trip:hover,
+  .trip:focus-within {
+    transform: none;
+  }
 }
 
 p {
@@ -30,7 +71,24 @@ p {
 .trip__date {
   padding-right: 3.5rem;
   font-size: 0.875rem;
-  line-height: 1.4;
+  line-height: 1.6;
+}
+
+.trip__countdown {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg-strong);
+  color: var(--color-text);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.trip__countdown--past {
+  color: var(--color-text-muted);
+  font-weight: 600;
 }
 
 .trip__title {
@@ -46,14 +104,84 @@ p {
   text-decoration: none;
 }
 
-.trip__title a:hover {
+/* Stretched link: the pseudo-element covers the card, so a click anywhere opens the trip. */
+.trip__title a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-lg);
+}
+
+.trip:hover .trip__title a {
   text-decoration: underline;
 }
 
 .trip__stops {
-  margin-bottom: var(--space-3);
   font-size: 0.9375rem;
   font-weight: 600;
+}
+
+.trip__route {
+  margin: var(--space-2) 0 var(--space-3);
+}
+
+.trip__headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* Quick actions: only where hover exists; revealed by hover or by focus anywhere in the card. */
+.trip__actions {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.trip:hover .trip__actions,
+.trip:focus-within .trip__actions,
+.trip__actions.is-confirming {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .trip__actions {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trip__actions {
+    transition: none;
+  }
+}
+
+.trip__bar {
+  display: block;
+  height: 0.375rem;
+  margin-top: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--color-text-a14);
+  overflow: hidden;
+}
+
+.trip__bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--color-highlight);
+  box-shadow: inset 0 0 0 1px var(--color-highlight-edge);
+}
+
+.trip__bar-fill--no-saving {
+  background: var(--color-bar);
+  box-shadow: none;
+}
+
+.trip__bar-note {
+  margin-top: var(--space-1);
+  font-size: 0.8125rem;
 }
 
 .trip__value {
@@ -85,6 +213,7 @@ p {
 
 .trip__menu {
   position: absolute;
+  z-index: 2;
   top: var(--space-3);
   right: var(--space-3);
 }

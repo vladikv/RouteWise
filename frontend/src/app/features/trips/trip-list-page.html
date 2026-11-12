@@ -114,6 +114,7 @@
       } @else {
         <app-trip-table
           [entries]="visible()"
+          [(sort)]="sort"
           [deletingId]="deletingId()"
           (deleted)="delete($event)"
         />

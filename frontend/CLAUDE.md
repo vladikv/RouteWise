@@ -115,7 +115,19 @@ src/
   result count "3 of 5 trips" in a `role="status"` and "Clear filters"; below 768 px the groups move
   into a `BottomSheet` opened by a "Filters" button), `TripBoard` (columns by priority), `TripTable`,
   `TripCard`, `TripMenu` (built on `Menu`); `trip-figures.ts` derives cost, CO₂ and KPIs from each trip's
-  comparison (no extra API), `trip-filters.ts` the counts and the result summary.
+  comparison (no extra API), `trip-filters.ts` the counts, the result summary and `sortTrips`/`toggleSort`.
+  Cards and rows open the trip as a whole: the title link carries an `::after` stretched over the card/row
+  (one tab stop; the focus ring is drawn on the card via `:has(a:focus-visible)`), the "⋯" menu and
+  `TripActions` (quick icon buttons Open, Edit, Duplicate, Delete) sit above it with a higher z-index. Quick
+  actions show on hover and on focus within, never under `(hover: none)`; Delete swaps them for the inline
+  `ConfirmAction` (`asking`, `showTrigger`). Hover/focus lifts the card 2 px with an edge in its tint
+  (`--color-highlight-edge`, `--color-accent-edge`) and no motion under reduced motion. `TripRoute` is the
+  decorative (`aria-hidden`) mini route line: a dot per stop, the leg's mode icon between them (`legModes`).
+  The CO₂ bar shows the plan against the car (car = 100 %) with text. `TripTable` sorts by Date, Cost and CO₂
+  (header buttons, `aria-sort` on the `<th>`, trips without figures last); the sort lives in the page.
+  **Duplicate** is a link to `/trips/new` with router navigation state `{ draft }` (`duplicateState`);
+  `TripFormPage` reads it once (`presetFromState`: invalid fields dropped, ignored when editing) and the
+  user still saves.
 - **Menu, filter group, toast** (`shared/ui/`): `Menu` is a disclosure (built-in `IconButton` trigger via
   `label` + `menuIcon`, or your own `menuTrigger` button; panel content in `<ng-template appMenuContent>`,
   rendered only while open; Escape and outside click close, an item click closes unless

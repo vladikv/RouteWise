@@ -5,6 +5,8 @@ import {
   FigureState,
   TripEntry,
   TripFigures,
+  co2ShareOfCar,
+  co2VsCarPercent,
   figuresOf,
   filterTrips,
   groupByPriority,
@@ -22,6 +24,7 @@ function figures(overrides: Partial<TripFigures> = {}): TripFigures {
     carCo2Kg: 50,
     mode: 'TRAIN',
     modes: ['TRAIN'],
+    legModes: ['TRAIN'],
     ...overrides,
   };
 }
@@ -46,6 +49,7 @@ describe('tripFigures', () => {
       carCo2Kg: 115.7,
       mode: 'TRAIN',
       modes: ['TRAIN'],
+      legModes: ['TRAIN'],
     });
   });
 
@@ -296,5 +300,20 @@ describe('modeSummary', () => {
     expect(modeSummary(figures({ mode: 'MIXED', modes: ['TRAIN', 'PLANE'] }))).toBe(
       'Mixed: train, plane',
     );
+  });
+});
+
+describe('CO2 against the car', () => {
+  it('gives the share of the car figure, capped at 1, and the signed percentage', () => {
+    expect(co2ShareOfCar(figures({ co2Kg: 61, carCo2Kg: 323 }))).toBeCloseTo(0.189, 3);
+    expect(co2VsCarPercent(figures({ co2Kg: 61, carCo2Kg: 323 }))).toBe(-81);
+    expect(co2ShareOfCar(figures({ co2Kg: 400, carCo2Kg: 323 }))).toBe(1);
+    expect(co2VsCarPercent(figures({ co2Kg: 400, carCo2Kg: 323 }))).toBe(24);
+  });
+
+  it('gives nothing without a usable car figure', () => {
+    expect(co2ShareOfCar(figures({ carCo2Kg: null }))).toBeNull();
+    expect(co2VsCarPercent(figures({ carCo2Kg: null }))).toBeNull();
+    expect(co2ShareOfCar(figures({ carCo2Kg: 0 }))).toBeNull();
   });
 });

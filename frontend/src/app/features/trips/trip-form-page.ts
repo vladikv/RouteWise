@@ -4,12 +4,13 @@ import { Router } from '@angular/router';
 import { ApiError, FieldError } from '../../core/api/api-error';
 import { CityApi } from '../../core/api/city-api';
 import { AdvisorApi } from '../../core/api/advisor-api';
-import { TripDraft, TripRequest } from '../../core/api/models';
+import { City, TripDraft, TripRequest } from '../../core/api/models';
 import { TripApi } from '../../core/api/trip-api';
 import { ErrorMessage } from '../../shared/ui/error-message';
 import { Spinner } from '../../shared/ui/spinner';
 import { PRIORITIES } from '../../shared/util/labels';
 import { TripDraftInput } from './trip-draft-input';
+import { presetFromState } from './trip-duplicate';
 import { TripForm, TripPreset } from './trip-form';
 
 /**
@@ -128,6 +129,9 @@ export class TripFormPage {
     if (this.id() || !cities) {
       return null;
     }
+    if (this.duplicated) {
+      return this.knownStops(this.duplicated, cities);
+    }
     const origin = cities.find((city) => city.id === Number(this.from()));
     const destination = cities.find((city) => city.id === Number(this.to()));
     const travelers = Number(this.travelers());
@@ -142,7 +146,21 @@ export class TripFormPage {
     };
     return Object.keys(preset).length > 0 ? preset : null;
   });
+  /** A trip handed over by "Duplicate" in the navigation state (history state after a reload). */
+  private readonly duplicated = presetFromState(
+    this.router.currentNavigation()?.extras.state ?? history.state,
+  );
   protected readonly cancelLink = computed(() => (this.id() ? `/trips/${this.id()}` : '/trips'));
+
+  /** The preset with stops that are not known cities left to choose. */
+  private knownStops(preset: TripPreset, cities: City[]): TripPreset {
+    return preset.stops
+      ? {
+          ...preset,
+          stops: preset.stops.map((id) => cities.find((city) => city.id === id)?.id ?? null),
+        }
+      : preset;
+  }
 
   protected reload(): void {
     this.cities.reload();

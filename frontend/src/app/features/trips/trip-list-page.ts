@@ -25,7 +25,7 @@ import {
   tripFigures,
   tripKpis,
 } from './list/trip-figures';
-import { modeCounts, priorityCounts } from './list/trip-filters';
+import { DEFAULT_SORT, TripSort, modeCounts, priorityCounts } from './list/trip-filters';
 import { TripTable } from './list/trip-table';
 import { TripToolbar, TripView } from './list/trip-toolbar';
 
@@ -66,6 +66,7 @@ export class TripListPage {
   protected readonly search = signal('');
   protected readonly priorities = signal<TripPriority[]>([]);
   protected readonly modes = signal<TransportModeCode[]>([]);
+  protected readonly sort = signal<TripSort>(DEFAULT_SORT);
   private readonly chosenView = signal<TripView | null>(null);
   /** The user's choice, else the board on wide screens and the list elsewhere. */
   protected readonly view = computed<TripView>(

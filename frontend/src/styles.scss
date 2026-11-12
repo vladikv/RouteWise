@@ -50,6 +50,8 @@
   --color-on-highlight: var(--color-primary);
   /* Edge of recommended marks (stripe, bar outline, primary button border). */
   --color-highlight-edge: var(--color-highlight);
+  /* Edge of amber-tinted marks; ink in the light theme where amber fails 3:1 on white. */
+  --color-accent-edge: var(--color-accent);
   --color-success: var(--color-primary);
   /* Weather warnings. */
   --color-accent: #f5b871;
@@ -73,6 +75,7 @@
   --color-danger-bg-a70: rgb(58 27 30 / 70%);
   --color-accent-a08: rgb(245 184 113 / 8%);
   --color-accent-a12: rgb(245 184 113 / 12%);
+  --color-accent-a20: rgb(245 184 113 / 20%);
   /* Glass surfaces; --glass-bg-strong is the lighter fill for controls and active items. */
   --glass-bg: var(--color-text-a06);
   --glass-bg-strong: var(--color-text-a10);
@@ -139,6 +142,7 @@
   --color-on-highlight: #0b0d12;
   --color-highlight-bg: rgb(182 242 60 / 40%);
   --color-highlight-edge: rgb(11 13 18 / 80%);
+  --color-accent-edge: rgb(11 13 18 / 80%);
   --color-focus: #0b0d12;
   --color-danger-bg: rgb(255 138 128 / 22%);
   --color-danger-text: #0b0d12;
@@ -376,7 +380,7 @@ a {
 .button--danger {
   border-color: var(--color-danger);
   background: var(--glass-bg-strong);
-  color: var(--color-danger);
+  color: var(--color-danger-text);
 
   &:hover {
     background: var(--color-danger-bg);

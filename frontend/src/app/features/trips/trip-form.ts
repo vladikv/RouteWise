@@ -45,6 +45,7 @@ export interface TripPreset {
   departureDate?: string;
   travelers?: number;
   priority?: TripPriority;
+  notes?: string;
 }
 
 const MESSAGES: Record<string, string> = {

@@ -5,6 +5,7 @@ import { Router, provideRouter } from '@angular/router';
 import { apiErrorInterceptor } from '../../core/api/api-error';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { DRAFT } from './comparison/comparison.testing';
+import { duplicateState } from './trip-duplicate';
 import { TripFormPage } from './trip-form-page';
 import {
   CITIES,
@@ -215,6 +216,75 @@ describe('TripFormPage', () => {
     expect([stopName(page, 0), stopName(page, 1)]).toEqual(['', '']);
     expect(page.querySelector<HTMLInputElement>('#trip-date')?.value).toBe('');
     expect(page.querySelector<HTMLInputElement>('#trip-travelers')?.value).toBe('1');
+  });
+
+  describe('duplicating a trip', () => {
+    afterEach(() => history.replaceState(null, ''));
+
+    /** The page reads the state when it is created, so it is created after the state is set. */
+    async function openWithState(state: unknown): Promise<void> {
+      history.replaceState(state, '');
+      fixture.destroy();
+      fixture = TestBed.createComponent(TripFormPage);
+      page = fixture.nativeElement as HTMLElement;
+      await openNew();
+    }
+
+    it('prefills the form with all stops from the navigation state and creates nothing', async () => {
+      const trip = {
+        ...TRIP,
+        stops: [...TRIP.stops, { cityId: 18, cityName: 'Prague', country: 'CZ', position: 2 }],
+      };
+      await openWithState(duplicateState(trip));
+
+      expect(page.querySelector<HTMLInputElement>('#trip-title')?.value).toBe(
+        'Berlin to Vienna (copy)',
+      );
+      expect([stopName(page, 0), stopName(page, 1), stopName(page, 2)]).toEqual([
+        'Berlin',
+        'Vienna',
+        'Prague',
+      ]);
+      expect(page.querySelector<HTMLInputElement>('#trip-date')?.value).toBe('2099-05-20');
+      expect(page.querySelector<HTMLInputElement>('#trip-travelers')?.value).toBe('2');
+      expect(page.querySelector<HTMLTextAreaElement>('#trip-notes')?.value).toBe('Window seat');
+      expect(
+        page
+          .querySelector('input[type="radio"][formcontrolname="priority"]:checked')
+          ?.closest('label')?.textContent,
+      ).toContain('Greenest');
+      httpTesting.expectNone({ method: 'POST' });
+    });
+
+    it('leaves the date empty when the original is in the past', async () => {
+      await openWithState(duplicateState({ ...TRIP, departureDate: '2020-01-01' }));
+
+      expect(page.querySelector<HTMLInputElement>('#trip-date')?.value).toBe('');
+      expect(page.querySelector<HTMLInputElement>('#trip-title')?.value).toBe(
+        'Berlin to Vienna (copy)',
+      );
+    });
+
+    it('ignores a malformed state', async () => {
+      await openWithState({ draft: 'nonsense' });
+
+      expect(page.querySelector<HTMLInputElement>('#trip-title')?.value).toBe('');
+      expect([stopName(page, 0), stopName(page, 1)]).toEqual(['', '']);
+    });
+
+    it('is not applied when editing a trip', async () => {
+      history.replaceState(duplicateState({ ...TRIP, title: 'Other' }), '');
+      fixture.destroy();
+      fixture = TestBed.createComponent(TripFormPage);
+      page = fixture.nativeElement as HTMLElement;
+      fixture.componentRef.setInput('id', '7');
+      fixture.detectChanges();
+      httpTesting.expectOne(`${API}/cities`).flush(CITIES);
+      httpTesting.expectOne(`${API}/trips/7`).flush(TRIP);
+      await fixture.whenStable();
+
+      expect(page.querySelector<HTMLInputElement>('#trip-title')?.value).toBe('Berlin to Vienna');
+    });
   });
 
   it('offers the description input only for new trips', async () => {

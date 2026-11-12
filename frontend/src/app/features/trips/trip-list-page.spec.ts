@@ -1,7 +1,7 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { apiErrorInterceptor } from '../../core/api/api-error';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { Comparison, Trip } from '../../core/api/models';
@@ -352,6 +352,126 @@ describe('TripListPage', () => {
     await settle();
 
     expect(page.querySelector('.menu-panel')).toBeNull();
+  });
+
+  function sortButton(label: string): HTMLButtonElement {
+    const button = Array.from(page.querySelectorAll<HTMLButtonElement>('thead th button')).find(
+      (candidate) => candidate.textContent?.trim().startsWith(label),
+    );
+    if (!button) {
+      throw new Error(`No sort button "${label}"`);
+    }
+    return button;
+  }
+
+  function ariaSort(label: string): string | null {
+    return sortButton(label).closest('th')!.getAttribute('aria-sort');
+  }
+
+  function rowTitles(): (string | null | undefined)[] {
+    return rows().map((row) => row.querySelector('th a')?.textContent);
+  }
+
+  it('sorts the list by date at first and marks the sorted column', async () => {
+    const later: Trip = { ...TRIP, id: 9, title: 'Later', departureDate: '2099-07-01' };
+    await load([later, TRIP, SOLO_TRIP], { ...FIGURES, 9: COMPARISON });
+
+    expect(rowTitles()).toEqual(['Berlin to Vienna', 'Solo to Paris', 'Later']);
+    expect(ariaSort('Date')).toBe('ascending');
+    expect(ariaSort('Cost')).toBe('none');
+    expect(ariaSort('CO₂')).toBe('none');
+  });
+
+  it('toggles the sort of a column on click and reorders the rows', async () => {
+    await load([TRIP, SOLO_TRIP]);
+
+    sortButton('Cost').click();
+    await settle();
+    expect(ariaSort('Cost')).toBe('ascending');
+    expect(ariaSort('Date')).toBe('none');
+    expect(rowTitles()).toEqual(['Solo to Paris', 'Berlin to Vienna']);
+
+    sortButton('Cost').click();
+    await settle();
+    expect(ariaSort('Cost')).toBe('descending');
+    expect(rowTitles()).toEqual(['Berlin to Vienna', 'Solo to Paris']);
+
+    sortButton('CO₂').click();
+    await settle();
+    expect(ariaSort('CO₂')).toBe('ascending');
+    expect(rowTitles()).toEqual(['Solo to Paris', 'Berlin to Vienna']);
+  });
+
+  it('sorts trips whose figures failed last', async () => {
+    await load([TRIP, SOLO_TRIP], { 7: null, 8: MULTI_COMPARISON });
+
+    sortButton('Cost').click();
+    await settle();
+    expect(rowTitles()).toEqual(['Solo to Paris', 'Berlin to Vienna']);
+    sortButton('Cost').click();
+    await settle();
+    expect(rowTitles()).toEqual(['Solo to Paris', 'Berlin to Vienna']);
+  });
+
+  it('opens the trip from the whole row: the title link covers it', async () => {
+    await load([TRIP]);
+
+    expect(rows()[0].classList.contains('row')).toBe(true);
+    expect(rows()[0].querySelectorAll('th a')).toHaveLength(1);
+  });
+
+  it('hands the trip to the New trip form through navigation state when duplicating', async () => {
+    await load([TRIP]);
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+
+    rows()[0]
+      .querySelector<HTMLAnchorElement>('app-trip-actions a[aria-label^="Duplicate"]')!
+      .click();
+
+    const [url, extras] = navigate.mock.calls[0];
+    expect(String(url)).toBe('/trips/new');
+    expect(extras?.state).toEqual({
+      draft: {
+        title: 'Berlin to Vienna (copy)',
+        stops: [3, 23],
+        departureDate: '2099-05-20',
+        travelers: 2,
+        priority: 'GREENEST',
+        notes: 'Window seat',
+      },
+    });
+  });
+
+  it('offers Duplicate in the menu next to Open and Edit', async () => {
+    await load([TRIP]);
+
+    menuButton('Berlin to Vienna').click();
+    await settle();
+    const menu = page.querySelector('.menu-panel') as HTMLElement;
+
+    expect(
+      Array.from(menu.querySelectorAll('a, button')).map((item) => item.textContent?.trim()),
+    ).toEqual(['Open', 'Edit', 'Duplicate', 'Delete']);
+  });
+
+  it('deletes from the quick action only after confirmation', async () => {
+    await load([TRIP, SOLO_TRIP]);
+    const quick = rows()[0].querySelector('app-trip-actions') as HTMLElement;
+
+    quick.querySelector<HTMLButtonElement>('button[aria-label^="Delete"]')!.click();
+    await settle();
+    httpTesting.expectNone({ method: 'DELETE' });
+    expect(quick.textContent).toContain('Delete this trip?');
+
+    buttonByText(quick, 'Yes, delete').click();
+    TestBed.tick();
+    httpTesting.expectOne({ method: 'DELETE', url: `${TRIPS_URL}/7` }).flush(null, {
+      status: 204,
+      statusText: 'No Content',
+    });
+    await settle();
+
+    expect(rowTitles()).toEqual(['Solo to Paris']);
   });
 
   it('deletes a trip only after confirmation and removes it from the list', async () => {

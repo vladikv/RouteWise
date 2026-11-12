@@ -42,8 +42,56 @@ thead th {
   text-decoration: none;
 }
 
-.trip__name a:hover {
+/* Stretched link: covers the whole row (tr is the containing block), so a click anywhere opens the trip. */
+.row {
+  position: relative;
+  cursor: pointer;
+}
+
+.trip__name a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.row:hover .trip__name a {
   text-decoration: underline;
+}
+
+.row:hover > *,
+.row:focus-within > * {
+  background: var(--glass-bg-strong);
+}
+
+/* The focus ring goes around the row, not just the link text. */
+.row:has(.trip__name a:focus-visible) {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.trip__name a:focus-visible {
+  outline: none;
+}
+
+.sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.sort:hover {
+  color: var(--color-text);
+}
+
+th[aria-sort='ascending'] .sort,
+th[aria-sort='descending'] .sort {
+  color: var(--color-text);
 }
 
 .trip__line {
@@ -74,8 +122,37 @@ thead th {
 
 .trip__actions {
   width: 1%;
+  white-space: nowrap;
   padding-left: 0;
   text-align: right;
+}
+
+.trip__tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.trip__menu {
+  position: relative;
+  z-index: 2;
+}
+
+.trip__quick {
+  opacity: 0;
+}
+
+.row:hover .trip__quick,
+.row:focus-within .trip__quick,
+.trip__quick.is-confirming {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .trip__quick {
+    display: none;
+  }
 }
 
 .narrow-only {
@@ -89,6 +166,10 @@ thead th {
 
   .narrow-only {
     display: inline;
+  }
+
+  .trip__quick {
+    display: none;
   }
 
   th,
