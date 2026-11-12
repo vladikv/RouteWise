@@ -1,77 +1,149 @@
-<div class="map-scroll">
+@let u = unit();
+
+<div class="frame" [class.frame--interactive]="interactive()">
   <svg
+    #svg
     class="map"
-    [class.map--interactive]="interactive()"
+    [class.map--wide]="isWideView()"
+    [style.aspect-ratio]="aspectRatio()"
+    tabindex="-1"
     [attr.viewBox]="viewBox()"
     [attr.role]="interactive() ? 'group' : 'img'"
     [attr.aria-label]="
-      interactive() ? 'Map of cities. Choose an origin, then a destination.' : description()
+      interactive()
+        ? 'Map of cities. Choose an origin, then a destination. Plus and minus keys zoom.'
+        : description()
     "
+    (wheel)="onWheel($event)"
+    (pointerdown)="onPointerDown($event)"
+    (pointermove)="onPointerMove($event)"
+    (pointerup)="onPointerUp($event)"
+    (pointercancel)="onPointerUp($event)"
+    (keydown)="onMapKey($event)"
   >
+    @let whole = base();
+    <rect
+      class="sea"
+      [attr.x]="whole.x"
+      [attr.y]="whole.y"
+      [attr.width]="whole.width"
+      [attr.height]="whole.height"
+    />
+    <path class="land" [attr.d]="land()" />
+
     @if (route(); as route) {
+      <path class="route route--halo" [attr.d]="route.path" />
       <path class="route" [attr.d]="route.path" pathLength="1" />
+      @if (!reducedMotion) {
+        <circle class="traveller" [attr.r]="4 * u">
+          <animateMotion dur="3.2s" repeatCount="indefinite" [attr.path]="route.path" />
+        </circle>
+      }
     }
 
     @for (marker of markers(); track marker.city.id) {
       @if (interactive()) {
         <g
           class="city"
+          [attr.data-id]="marker.city.id"
           [class.city--origin]="marker.role === 'origin'"
           [class.city--destination]="marker.role === 'destination'"
+          [class.city--dimmed]="marker.dimmed"
+          [class.city--hovered]="hoveredId() === marker.city.id"
           role="button"
           tabindex="0"
           [attr.aria-label]="marker.ariaLabel"
           [attr.aria-pressed]="marker.role !== null"
           (click)="pick(marker.city)"
-          (keydown.enter)="pick(marker.city)"
-          (keydown.space)="pickWithSpace($event, marker.city)"
+          (keydown.enter)="pickWithKey($event, marker.city)"
+          (keydown.space)="pickWithKey($event, marker.city)"
+          (keydown)="onCityArrow($event, marker.city)"
+          (pointerenter)="hoveredId.set(marker.city.id)"
+          (pointerleave)="hoveredId.set(null)"
+          (focus)="hoveredId.set(marker.city.id)"
+          (blur)="hoveredId.set(null)"
         >
-          <circle class="city__hit" [attr.cx]="marker.point.x" [attr.cy]="marker.point.y" r="18" />
-          <circle class="city__dot" [attr.cx]="marker.point.x" [attr.cy]="marker.point.y" r="5" />
+          <circle
+            class="city__hit"
+            [attr.cx]="marker.point.x"
+            [attr.cy]="marker.point.y"
+            [attr.r]="17 * u"
+          />
           @if (marker.role) {
             <circle
               class="city__ring"
               [attr.cx]="marker.point.x"
               [attr.cy]="marker.point.y"
-              r="11"
+              [attr.r]="10 * u"
             />
-            <text class="city__letter" [attr.x]="marker.point.x" [attr.y]="marker.point.y + 4">
+            <text
+              class="city__letter"
+              [attr.x]="marker.point.x"
+              [attr.y]="marker.point.y + 3.8 * u"
+              [attr.font-size]="11 * u"
+            >
               {{ marker.role === 'origin' ? 'A' : 'B' }}
             </text>
+          } @else {
+            <circle
+              class="city__dot"
+              [attr.cx]="marker.point.x"
+              [attr.cy]="marker.point.y"
+              [attr.r]="(hoveredId() === marker.city.id ? 6.5 : 4.5) * u"
+            />
           }
-          <text
-            class="city__name"
-            [attr.x]="marker.label.x"
-            [attr.y]="marker.label.y"
-            [attr.text-anchor]="marker.label.anchor"
-          >
-            {{ marker.city.name }}
-          </text>
+          @if (marker.label; as label) {
+            <text
+              class="city__name"
+              [attr.x]="label.x"
+              [attr.y]="label.y"
+              [attr.text-anchor]="label.anchor"
+              [attr.font-size]="13 * u"
+              [attr.stroke-width]="3.5 * u"
+            >
+              {{ marker.city.name }}
+            </text>
+          }
         </g>
       } @else {
         <g
           class="city city--static"
           [class.city--origin]="marker.role === 'origin'"
           [class.city--destination]="marker.role === 'destination'"
-          [class.city--faded]="marker.role === null"
+          [class.city--dimmed]="marker.dimmed"
           aria-hidden="true"
         >
-          <circle class="city__dot" [attr.cx]="marker.point.x" [attr.cy]="marker.point.y" r="5" />
           @if (marker.role) {
             <circle
               class="city__ring"
               [attr.cx]="marker.point.x"
               [attr.cy]="marker.point.y"
-              r="11"
+              [attr.r]="10 * u"
             />
-            <text class="city__letter" [attr.x]="marker.point.x" [attr.y]="marker.point.y + 4">
+            <text
+              class="city__letter"
+              [attr.x]="marker.point.x"
+              [attr.y]="marker.point.y + 3.8 * u"
+              [attr.font-size]="11 * u"
+            >
               {{ marker.role === 'origin' ? 'A' : 'B' }}
             </text>
+          } @else {
+            <circle
+              class="city__dot"
+              [attr.cx]="marker.point.x"
+              [attr.cy]="marker.point.y"
+              [attr.r]="3.5 * u"
+            />
+          }
+          @if (marker.label; as label) {
             <text
               class="city__name"
-              [attr.x]="marker.label.x"
-              [attr.y]="marker.label.y"
-              [attr.text-anchor]="marker.label.anchor"
+              [attr.x]="label.x"
+              [attr.y]="label.y"
+              [attr.text-anchor]="label.anchor"
+              [attr.font-size]="(marker.role ? 13 : 11) * u"
+              [attr.stroke-width]="3.5 * u"
             >
               {{ marker.city.name }}
             </text>
@@ -80,6 +152,43 @@
       }
     }
   </svg>
+
+  @if (interactive()) {
+    <div class="zoom" role="group" aria-label="Zoom">
+      <button type="button" aria-label="Zoom in" [disabled]="!canZoomIn()" (click)="zoomIn()">
+        +
+      </button>
+      <button type="button" aria-label="Zoom out" [disabled]="!canZoomOut()" (click)="zoomOut()">
+        −
+      </button>
+      <button
+        type="button"
+        [attr.aria-label]="route() ? 'Fit the route' : 'Show the whole map'"
+        [attr.title]="route() ? 'Fit the route' : 'Show the whole map'"
+        (click)="fit()"
+      >
+        ⤢
+      </button>
+    </div>
+    <p class="hint" aria-hidden="true">Scroll or pinch to zoom · drag to move</p>
+
+    @if (card(); as card) {
+      <div
+        class="card-tip"
+        [class.card-tip--below]="card.below"
+        [style.left.%]="card.left"
+        [style.top.%]="card.top"
+        aria-hidden="true"
+      >
+        <strong>{{ card.city.name }}</strong>
+        <span class="card-tip__country">{{ card.city.country }}</span>
+        @if (card.distanceKm !== null) {
+          <span class="card-tip__distance">{{ card.distanceKm.toFixed(0) }} km from origin</span>
+        }
+        <span class="card-tip__hint">{{ card.hint }}</span>
+      </div>
+    }
+  }
 </div>
 
 @if (interactive()) {

@@ -1,9 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { IsActiveMatchOptions, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { Session } from '../../core/auth/session';
-import { ThemeService } from '../../core/theme/theme.service';
 
-/** App header: brand, main navigation, the account (log in / log out) and the theme toggle. */
+/** App header: brand, main navigation and the account (log in / log out). */
 @Component({
   selector: 'app-header',
   imports: [RouterLink, RouterLinkActive],
@@ -21,7 +20,7 @@ import { ThemeService } from '../../core/theme/theme.service';
               <a
                 routerLink="/"
                 routerLinkActive="nav__link--active"
-                [routerLinkActiveOptions]="{ exact: true }"
+                [routerLinkActiveOptions]="homeActiveOptions"
                 ariaCurrentWhenActive="page"
                 class="nav__link"
               >
@@ -50,15 +49,6 @@ import { ThemeService } from '../../core/theme/theme.service';
             <a class="button" routerLink="/login">Log in</a>
           }
         </div>
-        <button
-          type="button"
-          class="button theme-toggle"
-          [attr.aria-pressed]="isDark()"
-          (click)="theme.toggle()"
-        >
-          <span aria-hidden="true">{{ isDark() ? '☾' : '☀' }}</span>
-          <span class="theme-toggle__label">Dark theme</span>
-        </button>
       </div>
     </header>
   `,
@@ -115,7 +105,8 @@ import { ThemeService } from '../../core/theme/theme.service';
       padding: var(--space-2) var(--space-3);
       border-bottom: 2px solid transparent;
       color: var(--color-text-muted);
-      font-weight: 600;
+      font-family: var(--font-display);
+      font-weight: 700;
       text-decoration: none;
     }
 
@@ -143,29 +134,27 @@ import { ThemeService } from '../../core/theme/theme.service';
       white-space: nowrap;
     }
 
-    .account .button,
-    .theme-toggle {
+    .account .button {
       min-height: 2.5rem;
-      font-weight: 500;
     }
 
-    /* Phones: icon only, so the header stays on one row; the label remains for screen readers. */
+    /* Phones: the name gives way so brand, navigation and the account button share one row. */
     @media (max-width: 30rem) {
-      .theme-toggle__label {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip-path: inset(50%);
-        white-space: nowrap;
+      .account__name {
+        display: none;
       }
     }
   `,
 })
 export class Header {
-  protected readonly theme = inject(ThemeService);
   protected readonly session = inject(Session);
-  protected readonly isDark = computed(() => this.theme.theme() === 'dark');
+  /** Home stays highlighted while the route explorer keeps its state in the query string. */
+  protected readonly homeActiveOptions: IsActiveMatchOptions = {
+    paths: 'exact',
+    queryParams: 'ignored',
+    matrixParams: 'ignored',
+    fragment: 'ignored',
+  };
 
   private readonly router = inject(Router);
 

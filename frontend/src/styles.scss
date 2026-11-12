@@ -1,51 +1,53 @@
 /*
  * Global design tokens and base styles. Components use the tokens (var(--…)),
- * never raw colors, so both themes stay consistent.
- * Dark values apply when the OS prefers dark, unless the user chose a theme
- * (ThemeService sets data-theme on <html>).
+ * never raw colors.
+ *
+ * One dark theme, 60/30/10: midnight black (backgrounds, 60%), pure white
+ * (text and lines, 30%), lime (the only accent, 10%: primary actions, links,
+ * selection, focus, the recommended mode, the map route). Red and amber are
+ * semantic only (errors, weather warnings). Every text pair meets WCAG AA
+ * (4.5:1) and every meaningful mark 3:1; re-check when changing a value.
  */
-
-@mixin dark-tokens {
-  --color-bg: #10151c;
-  --color-surface: #1a212b;
-  --color-surface-muted: #232c38;
-  --color-border: #344050;
-  --color-text: #e8edf3;
-  --color-text-muted: #a3b0c0;
-  --color-primary: #5eb1a2;
-  --color-primary-hover: #7cc4b6;
-  --color-on-primary: #0b1f1b;
-  --color-accent: #f0b35a;
-  --color-danger: #f28b82;
-  --color-danger-bg: #3a1f1f;
-  --color-focus: #9ad0ff;
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 40%);
-  --color-bar: #6b7888;
-}
-
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
 
-  --color-bg: #f5f7f9;
-  --color-surface: #ffffff;
-  --color-surface-muted: #eef2f5;
-  --color-border: #d3dbe3;
-  --color-text: #17202a;
-  --color-text-muted: #556270;
-  --color-primary: #0f6b5c;
-  --color-primary-hover: #0b5448;
-  --color-on-primary: #ffffff;
-  --color-accent: #a85d00;
-  --color-danger: #b3261e;
-  --color-danger-bg: #fdecea;
-  --color-focus: #1a73e8;
-  --shadow-card: 0 1px 2px rgb(16 24 40 / 8%);
-  /* De-emphasised chart bars; the accent bar uses --color-primary. */
-  --color-bar: #8a96a3;
+  --color-bg: #0b0d12;
+  --color-surface: #141820;
+  --color-surface-muted: #1c212b;
+  --color-border: #2a303c;
+  /* Borders that identify a control (inputs): 3:1 against the surface. */
+  --color-border-strong: #6b7385;
+  --color-text: #ffffff;
+  --color-text-muted: #b8bfcc;
+  --color-primary: #b6f23c;
+  --color-primary-hover: #c9f76a;
+  /* Tinted backgrounds for selected states. */
+  --color-primary-soft: #1e2814;
+  --color-on-primary: #0b0d12;
+  /* The recommended mode uses the same single accent. */
+  --color-highlight: var(--color-primary);
+  --color-highlight-bg: var(--color-primary-soft);
+  --color-on-highlight: var(--color-primary);
+  --color-success: var(--color-primary);
+  /* Weather warnings. */
+  --color-accent: #f5b871;
+  --color-danger: #ff8a80;
+  --color-danger-bg: #3a1b1e;
+  --color-focus: var(--color-primary);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 30%);
+  --shadow-raised: 0 12px 32px rgb(0 0 0 / 55%);
+  /* De-emphasised chart bars; the recommended bar uses --color-highlight. */
+  --color-bar: #6b7385;
+  /* Route map */
+  --map-sea: #0e1118;
+  --map-land: #191e28;
+  --map-border: #343b4a;
+  --map-city: #b8bfcc;
 
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --radius: 10px;
-  --radius-sm: 6px;
+  --font-display: 'Manrope', var(--font-sans);
+  --radius: 14px;
+  --radius-sm: 8px;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -53,21 +55,6 @@
   --space-6: 1.5rem;
   --space-8: 2rem;
   --content-width: 68rem;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    @include dark-tokens;
-  }
-}
-
-:root[data-theme='light'] {
-  color-scheme: light;
-}
-
-:root[data-theme='dark'] {
-  color-scheme: dark;
-  @include dark-tokens;
 }
 
 *,
@@ -82,23 +69,35 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans);
-  font-size: 1rem;
-  line-height: 1.5;
+  /* 17 px body text with generous leading for easier reading. */
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
 }
 
 h1,
 h2,
 h3 {
-  line-height: 1.2;
   margin: 0 0 var(--space-3);
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
 }
 
 h1 {
-  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  font-size: clamp(1.9rem, 4.5vw, 2.6rem);
 }
 
 h2 {
-  font-size: 1.25rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
 }
 
 p {
@@ -107,6 +106,11 @@ p {
 
 a {
   color: var(--color-primary);
+  text-underline-offset: 0.18em;
+
+  &:hover {
+    color: var(--color-primary-hover);
+  }
 }
 
 :focus-visible {
@@ -121,7 +125,7 @@ a {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-card);
-  padding: var(--space-6);
+  padding: clamp(var(--space-4), 3vw, var(--space-8));
 }
 
 .button {
@@ -136,12 +140,23 @@ a {
   background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 700;
   text-decoration: none;
   cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.1s ease;
 
   &:hover {
+    border-color: var(--color-border-strong);
     background: var(--color-surface-muted);
+    color: var(--color-text);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
   }
 }
 
@@ -149,10 +164,14 @@ a {
   border-color: var(--color-primary);
   background: var(--color-primary);
   color: var(--color-on-primary);
+  box-shadow:
+    0 0 0 1px var(--color-primary),
+    0 4px 18px color-mix(in srgb, var(--color-primary) 22%, transparent);
 
   &:hover {
     border-color: var(--color-primary-hover);
     background: var(--color-primary-hover);
+    color: var(--color-on-primary);
   }
 }
 
@@ -197,13 +216,21 @@ a {
 
 .badge {
   display: inline-block;
-  padding: 0.1rem var(--space-2);
+  padding: 0.15rem 0.6rem;
   border: 1px solid var(--color-border);
   border-radius: 999px;
   background: var(--color-surface-muted);
+  font-family: var(--font-display);
   font-size: 0.8125rem;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
+}
+
+/* The recommended mode (table, chart): sunset, always with its "★ Recommended" text. */
+.badge--recommended {
+  border-color: var(--color-highlight);
+  background: var(--color-highlight-bg);
+  color: var(--color-on-highlight);
 }
 
 /* Segmented control: a radio group shown as a row of buttons. */
@@ -246,7 +273,8 @@ a {
 
   input:checked + span {
     border-color: var(--color-primary);
-    background: var(--color-surface);
+    background: var(--color-primary-soft);
+    color: var(--color-text);
     box-shadow: var(--shadow-card);
   }
 
@@ -273,7 +301,8 @@ a {
 
 .field label,
 .field legend {
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 700;
 }
 
 .field__hint {
@@ -291,13 +320,22 @@ input,
 select,
 textarea {
   width: 100%;
-  min-height: 2.75rem;
+  min-height: 2.875rem;
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
+  transition: border-color 0.15s ease;
+
+  &:hover {
+    border-color: var(--color-text-muted);
+  }
+
+  &:focus-visible {
+    border-color: var(--color-primary);
+  }
 }
 
 textarea {

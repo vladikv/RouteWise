@@ -73,7 +73,9 @@ Changing requests need the `X-XSRF-TOKEN` header echoing the `XSRF-TOKEN` cookie
 - [x] `feat/frontend-trips`: trip list, form, details, delete
 - [x] `feat/frontend-comparison`: comparison view, advice panel, free-text input
 - [x] `feat/ui-experience`: interactive route map, instant comparison, comparison chart
+- [x] `feat/map-filters`: land outline, zoom and pan, collision-free labels, city pickers, URL state
 - [x] `feat/auth`: accounts, session login, private trips, login/registration UI
+- [x] `feat/visual-refresh`: midnight/white/lime 60/30/10 dark theme, Manrope headings, 17 px body, split-screen login, AA contrast
 - [ ] `docs/readme-demo`: README, screenshots, demo recording
 
 ## Decisions log
@@ -126,6 +128,11 @@ Changing requests need the `X-XSRF-TOKEN` header echoing the `XSRF-TOKEN` cookie
 | 2026-11-12 | The takeaway line is computed from the comparison only (CO₂ and money saved against the highest-emitting alternative, or time gained) | A concrete fact, never an invented equivalence |
 | 2026-11-12 | A new trip's title follows the chosen cities until the user types their own | Prefilled titles no longer go stale when a city is changed |
 | 2026-11-12 | On narrow screens the interactive map keeps its size and scrolls sideways | City names stay readable instead of shrinking to about 7 px |
+| 2026-11-12 | Map land and borders from Natural Earth 1:50m (public domain), clipped and simplified by a script into `europe-land.ts` (35 kB, lazy chunk) | Real geography without a map library or tile service; regenerate rather than hand-edit |
+| 2026-11-12 | Map zoom/pan by changing the SVG viewBox (1×–6×); marks and text sized per CSS pixel so they stay readable at any zoom and screen width | Replaces the sideways-scrolling map on phones; one drawing for all sizes |
+| 2026-11-12 | City labels placed by a collision check (no overlaps); a label that does not fit is hidden until zoomed in, the city stays a labelled button | Readable at every zoom without a hand-maintained placement table |
+| 2026-11-12 | Explorer state (route, date, travelers, priority) lives in the URL; a new route adds a history entry, other changes replace it | Shareable links and a working Back button without extra history noise |
+| 2026-11-12 | Results stay visible (dimmed) while a new comparison loads | Changing a setting no longer makes the page jump |
 | 2026-11-12 | Accounts with Spring Security session login (HTTP-only `JSESSIONID`), not JWT; JSON endpoints under `/api/auth`, no form login | A same-site SPA needs no tokens in JavaScript; sessions can be ended server-side; least code |
 | 2026-11-12 | Added `spring-boot-starter-security` (+ `-security-test`) | Password hashing, session handling and CSRF protection should not be hand-written |
 | 2026-11-12 | Trips get `owner_id` (V4); another user's trip answers 404, not 403 | Ids reveal nothing about other users' trips |
@@ -139,3 +146,14 @@ Changing requests need the `X-XSRF-TOKEN` header echoing the `XSRF-TOKEN` cookie
 | 2026-11-12 | Demo account seeded at start-up by `DemoDataSeeder` through the regular services (account + 3 trips 14/30/45 days ahead); `routewise.demo.*`, on by default, `ROUTEWISE_DEMO_ENABLED=false` turns it off | Reviewers can try the app in one click; relative dates never go stale; public credentials, so not a secret |
 | 2026-11-12 | Taken email on register → 409 Conflict (`DuplicateFieldException`), still with an `errors` entry | Conflict is the correct status for a unique-value clash; the UI keeps showing it on the email field |
 | 2026-11-12 | Session timeout 2 h of inactivity (`ROUTEWISE_SESSION_TIMEOUT`), cookie HTTP-only + SameSite=Lax; no signing secret because session ids are random server-side ids, not signed tokens | Explicit, configurable expiry instead of the container default; nothing secret to configure keeps the zero-config start |
+| 2026-11-12 | Visual refresh: "fresh travel" palette (ocean-blue primary #1F5FD6, sunset highlight for the recommended mode, soft white background), dark theme retuned to match | Chosen by the human from three directions; brighter and friendlier than the gray/teal look, still calm enough for data |
+| 2026-11-12 | Recommended mode uses the sunset highlight (row, badge, chart bar) instead of the primary blue | Blue now means "action or selection"; a separate color for "best option" reads at a glance, and the badge text and row border keep it clear without color |
+| 2026-11-12 | Body text 17 px / 1.6, Manrope for headings, labels, buttons and navigation (Google Fonts, system font fallback) | Readability was the main complaint; a display font gives the brand a face without changing body text rendering |
+| 2026-11-12 | Contrast checked with a script for every token pair (text 4.5:1, marks 3:1) in both themes; inputs get a 3:1 border | Verified, not eyeballed; the old input border was about 1.3:1 |
+| 2026-11-12 | Replaced the "fresh travel" palette with a strict 60/30/10: midnight black backgrounds (#0B0D12, cards #141820), pure white text and lines, lime #B6F23C as the only accent | Brief from the human after seeing the first palette; one accent keeps the eye on actions and the best option |
+| 2026-11-12 | Dark theme only; the light/dark toggle and `ThemeService` were removed | The identity is black/white/lime; a light variant could only use lime as a fill (lime text on white is about 1.3:1) |
+| 2026-11-12 | The recommended mode, primary actions, links, selection, focus and the map route all use the same lime; every other mark is gray (`--color-bar`) | Supersedes the sunset highlight: with one accent, "lime" means "act here" or "best option"; badge text and row border keep it clear without colour |
+| 2026-11-12 | Login and registration are a split screen on wide screens (pitch with benefits and the demo account on the left, form card on the right), stacked with the form first on phones | The old narrow left column looked unbalanced; the form stays first in DOM order for keyboard and screen-reader users |
+| 2026-11-12 | Home page: the map spans the full width on top; below it the settings (route, priority, date, travelers) sit on the left and the results on the right (sticky), stacked on narrow screens | Requested by the human; the map is the main way in, and results next to the settings show the effect of each change at once |
+| 2026-11-12 | The wide map widens its view to the land outline (lon -18..30, about 1.5:1) instead of stretching or cropping the square map | Same projection and labels, no empty bands or cut-off coasts, and the map does not grow taller than the screen |
+| 2026-11-12 | Land outline regenerated for longitude -30..48 (was -18..30; 56 kB, lazy map chunk) with `frontend/scripts/gen-europe-land.py`, and the wide home map shows only the band the cities occupy | The full-width map dropped from about 830 to about 465 px tall on a laptop with every city still visible; the generator is now in the repo so the data can really be regenerated |

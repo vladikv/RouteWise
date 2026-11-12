@@ -3,51 +3,93 @@
 } @else if (cities.error(); as error) {
   <app-error-message [error]="error" (retry)="cities.reload()" />
 } @else if (cities.value(); as cityList) {
+  <div class="explorer__map">
+    <app-route-map
+      [cities]="cityList"
+      [originId]="originId()"
+      [destinationId]="destinationId()"
+      [wide]="true"
+      (selectionChange)="select($event)"
+    />
+  </div>
+
   <div class="explorer">
-    <div class="explorer__map">
-      <app-route-map
-        [cities]="cityList"
-        [originId]="originId()"
-        [destinationId]="destinationId()"
-        (selectionChange)="select($event)"
-      />
-      <div class="actions map-actions">
+    <div class="explorer__settings">
+      <div class="route-bar">
+        <app-city-picker
+          label="From"
+          pin="A"
+          placeholder="Where from?"
+          [cities]="cityList"
+          [value]="originId()"
+          [excludeId]="destinationId()"
+          (valueChange)="setOrigin($event)"
+        />
         <button
           type="button"
-          class="button"
-          [disabled]="originId() === null || destinationId() === null"
+          class="swap"
+          aria-label="Swap origin and destination"
+          title="Swap origin and destination"
+          [disabled]="originId() === null && destinationId() === null"
           (click)="swap()"
         >
-          ⇄ Swap direction
+          ⇄
         </button>
-        <button type="button" class="button" [disabled]="originId() === null" (click)="clear()">
-          Clear
-        </button>
+        <app-city-picker
+          label="To"
+          pin="B"
+          placeholder="Where to?"
+          [cities]="cityList"
+          [value]="destinationId()"
+          [excludeId]="originId()"
+          (valueChange)="setDestination($event)"
+        />
       </div>
-    </div>
 
-    <div class="explorer__panel">
-      <div class="controls">
-        <fieldset class="control">
-          <legend>What matters most?</legend>
-          <div class="segmented">
-            @for (option of priorities; track option) {
-              <label>
-                <input
-                  type="radio"
-                  name="explorer-priority"
-                  [value]="option"
-                  [checked]="priority() === option"
-                  (change)="priority.set(option)"
-                />
-                <span>{{ priorityLabels[option] }}</span>
-              </label>
-            }
+      <app-priority-picker
+        class="settings"
+        name="explorer-priority"
+        [value]="priority()"
+        (valueChange)="priority.set($event)"
+      />
+
+      <div class="settings settings--row">
+        <div class="when">
+          <label class="settings__label" for="explorer-date">When</label>
+          <div class="when__controls">
+            <input
+              #dateInput
+              id="explorer-date"
+              type="date"
+              [min]="today"
+              [value]="date()"
+              aria-describedby="explorer-forecast"
+              (change)="setDate(dateInput.value)"
+            />
+            <div class="chips" role="group" aria-label="Quick dates">
+              @for (quick of quickDates; track quick.label) {
+                <button
+                  type="button"
+                  class="chip"
+                  [attr.aria-pressed]="date() === quick.date"
+                  (click)="setDate(quick.date)"
+                >
+                  {{ quick.label }}
+                </button>
+              }
+            </div>
           </div>
-        </fieldset>
+          <p id="explorer-forecast" class="forecast" [class.forecast--on]="forecastAvailable()">
+            @if (forecastAvailable()) {
+              <span aria-hidden="true">☁</span> Weather forecast included
+            } @else {
+              Forecast not available yet: it covers the next 16 days ({{ daysAhead() }} days away)
+            }
+          </p>
+        </div>
 
-        <div class="control">
-          <span id="explorer-travelers-label" class="control__label">Travelers</span>
+        <div class="travelers">
+          <span id="explorer-travelers-label" class="settings__label">Travelers</span>
           <div class="stepper" role="group" aria-labelledby="explorer-travelers-label">
             <button
               type="button"
@@ -58,7 +100,10 @@
             >
               −
             </button>
-            <output class="stepper__value" aria-live="polite">{{ travelers() }}</output>
+            <output class="stepper__value" aria-live="polite">
+              {{ travelers() }}
+              <span class="visually-hidden">{{ travelersLabel(travelers()) }}</span>
+            </output>
             <button
               type="button"
               class="button"
@@ -70,38 +115,40 @@
             </button>
           </div>
         </div>
-
-        <div class="control">
-          <label class="control__label" for="explorer-date">Departure date</label>
-          <input
-            #dateInput
-            id="explorer-date"
-            type="date"
-            [min]="today"
-            [value]="date()"
-            (change)="setDate(dateInput.value)"
-          />
-        </div>
       </div>
+    </div>
 
-      <div class="results">
+    <div class="explorer__results">
+      <div
+        class="results"
+        [class.results--refreshing]="refreshing()"
+        [attr.aria-busy]="refreshing()"
+      >
+        @if (refreshing()) {
+          <div class="results__progress" role="status">
+            <span class="visually-hidden">Updating the comparison…</span>
+          </div>
+        }
         @if (!request()) {
-          <p class="placeholder">
-            Pick two cities on the map to see how train, bus, car, bike and plane compare.
-          </p>
-        } @else if (comparison.isLoading()) {
-          <app-spinner label="Comparing transport modes…" />
+          <div class="placeholder">
+            <p class="placeholder__title">Where are you going?</p>
+            <p>Choose two cities on the map or with the From and To fields.</p>
+          </div>
         } @else if (comparison.error(); as error) {
           <app-error-message [error]="error" (retry)="comparison.reload()" />
-        } @else if (comparison.value(); as result) {
-          <app-comparison-chart [comparison]="result" />
-          <details class="exact">
-            <summary>Exact numbers and weather</summary>
-            <app-comparison-panel [comparison]="result" />
-          </details>
-          <a class="button button--primary" routerLink="/trips/new" [queryParams]="saveParams()">
-            Save as trip
-          </a>
+        } @else if (shown(); as result) {
+          <div class="results__content">
+            <app-comparison-chart [comparison]="result" />
+            <details class="exact">
+              <summary>Exact numbers and weather</summary>
+              <app-comparison-panel [comparison]="result" />
+            </details>
+            <a class="button button--primary" routerLink="/trips/new" [queryParams]="saveParams()">
+              Save as trip
+            </a>
+          </div>
+        } @else {
+          <app-spinner label="Comparing transport modes…" />
         }
       </div>
     </div>

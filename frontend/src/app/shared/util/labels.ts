@@ -7,6 +7,14 @@ export const PRIORITY_LABELS: Record<TripPriority, string> = {
   BALANCED: 'Balanced',
 };
 
+/** What each priority optimises, in one short line. */
+export const PRIORITY_DESCRIPTIONS: Record<TripPriority, string> = {
+  BALANCED: 'Time, cost and CO₂ weighed equally',
+  FASTEST: 'Least time door to door',
+  CHEAPEST: 'Lowest total price',
+  GREENEST: 'Lowest CO₂ emissions',
+};
+
 /** Priorities in the order the trip form offers them. */
 export const PRIORITIES: TripPriority[] = ['BALANCED', 'FASTEST', 'CHEAPEST', 'GREENEST'];
 

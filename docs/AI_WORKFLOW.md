@@ -282,6 +282,44 @@ corrected manually, and why.
 - Interactive UI has to be judged while it runs: every correction above came
   from using the page, and none would have failed a unit test first.
 
+## `feat/map-filters` (2026-11-12)
+
+**Delegated to AI**
+- Planned in plan mode after the human asked to make the map and filters
+  "more readable and interactive" and to add accounts; accounts are the
+  separate `feat/auth` milestone.
+- Map: Natural Earth land and borders (processed by a script, public domain),
+  zoom and pan (wheel, pinch, drag, buttons, keys), labels placed without
+  overlaps, a hover/focus card with the distance from the origin, arrow-key
+  movement between cities, and a travelling dot on the route.
+- Filters: searchable From/To pickers with a swap button, priority cards with
+  icons and meanings, quick date picks with a forecast note, results that
+  stay visible while updating, and the whole state in the URL.
+- 34 new tests (141 in total). Checked in a real browser: labels never
+  overlap at any zoom (measured), pickers, Back button, shared links, phone
+  width, dark theme.
+
+**Corrected manually / human decisions**
+- The human decided the auth questions up front (private trips, in-memory
+  accounts, Spring Security approved).
+- Found by using the page, not by tests: labels cut off at the map edge and
+  under the zoom buttons, a few near-touching labels, the Home tab no longer
+  highlighted once the URL had parameters, and cramped priority cards on
+  phones.
+- A test found a real bug: a failed comparison made the results logic throw
+  (reading a resource value in its error state).
+- Lint caught an unfocusable element with key handlers and two unused
+  constants. For the city list options, the two "click needs a key handler /
+  must be focusable" rules are suppressed with an explanation: keys are
+  handled on the input, as the ARIA combobox pattern requires.
+- Tooling slips: two file writes were rejected because the formatter had
+  changed the files, and a Python string mangled a regex and an apostrophe in
+  test code. Both were caught by the build and tests.
+
+**Why**
+- "Readable" was measured, not judged: the browser script counts overlapping
+  label boxes at each zoom level.
+
 ## `feat/auth` (2026-11-12)
 
 **Delegated to AI**
@@ -338,3 +376,55 @@ corrected manually, and why.
   to JWT: there is no signing secret, expiry is the session timeout, and
   the interceptor sends the cookie and CSRF header. Recorded in the
   decisions log.
+
+## `feat/visual-refresh` (2026-11-12)
+
+**Delegated to AI**
+- Offered three visual directions with palette previews; the human chose
+  "fresh travel" (ocean blue + sunset, Manrope, 17 px body).
+- Rewrote the design tokens for both themes, base typography, buttons,
+  inputs, badges and the recommended-mode styling; header polish.
+- Checked every token pair with a contrast script (both themes) and
+  reviewed screenshots of home, login, trips and trip details in light,
+  dark and at 375 px.
+
+**Corrected manually / human decisions**
+- The human pointed out that the requested UI work was missing. It turned
+  out the earlier `feat/map-filters` work had never been pushed, and a new
+  palette had never been started. The AI merged `main` into
+  `feat/map-filters` (header and docs conflicts, both sides kept) and
+  built this milestone on top of it.
+- The first light highlight color failed 3:1 against white (2.98); it was
+  darkened before use.
+
+**Why**
+- A request spanning several sessions got split across branches, and only
+  part of it reached `main`. Checking unpushed branches against the
+  original request would have caught it before the human did.
+
+**Follow-up: midnight / white / lime (same day)**
+- After seeing the first palette, the human set a strict 60/30/10 brief:
+  midnight black, pure white, lime accent, and said the login page
+  looked wrong with everything on the left.
+- The AI asked three questions with previews (where the 30% white goes,
+  what happens to the theme toggle, which login layout) and planned the
+  change before coding. The human chose white as text and lines, dark
+  only, and a split-screen login.
+- Done: one dark token set (contrast script: one gray failed at 2.27:1
+  and was lightened), theme toggle and `ThemeService` removed, split-screen
+  auth page with the form first in the DOM. Screenshots at 1280 and 375 px.
+- Found by looking at the screenshots: the score meters in the comparison
+  table were lime on every row, which broke the "lime = recommended" rule;
+  they are now gray except for the recommended mode.
+
+**Follow-up: full-width map on the home page (same day)**
+- The human asked for the map at full width with the other controls
+  below, split into left and right. Settings went left, results right.
+- The square map would have grown about 1000 px tall at full width, so
+  `RouteMap` got a `wide` mode that shows more of the land outline
+  instead. A new spec caught a bug in the first version: the small maps
+  also lost their height limit.
+- The full UI suite became flaky (5 s timeouts on the first test of map
+  pages). A/B runs showed the same code taking 9-23 s just to compile,
+  so the cause was machine load (app, Maven and Chrome running in
+  parallel), not the change; reruns with less load pass.

@@ -8,8 +8,6 @@ import { routes } from './app.routes';
 
 describe('App', () => {
   beforeEach(async () => {
-    localStorage.clear();
-    document.documentElement.removeAttribute('data-theme');
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [provideRouter(routes), provideHttpClient(), provideHttpClientTesting()],
@@ -25,21 +23,6 @@ describe('App', () => {
     expect(shell.querySelector('header .brand')?.textContent).toContain('RouteWise');
     expect(shell.querySelector('main#main')).not.toBeNull();
     expect(shell.querySelector('footer')?.textContent).toContain('Open-Meteo');
-  });
-
-  it('toggles the theme from the header button', async () => {
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    const toggle = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
-      '.theme-toggle',
-    );
-
-    expect(toggle?.getAttribute('aria-pressed')).toBe('false');
-    toggle?.click();
-    await fixture.whenStable();
-
-    expect(toggle?.getAttribute('aria-pressed')).toBe('true');
-    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
   });
 
   it('shows the not-found page for unknown routes', async () => {
