@@ -376,3 +376,28 @@ corrected manually, and why.
   to JWT: there is no signing secret, expiry is the session timeout, and
   the interceptor sends the cookie and CSRF header. Recorded in the
   decisions log.
+
+## `feat/visual-refresh` (2026-11-12)
+
+**Delegated to AI**
+- Offered three visual directions with palette previews; the human chose
+  "fresh travel" (ocean blue + sunset, Manrope, 17 px body).
+- Rewrote the design tokens for both themes, base typography, buttons,
+  inputs, badges and the recommended-mode styling; header polish.
+- Checked every token pair with a contrast script (both themes) and
+  reviewed screenshots of home, login, trips and trip details in light,
+  dark and at 375 px.
+
+**Corrected manually / human decisions**
+- The human pointed out that the requested UI work was missing. It turned
+  out the earlier `feat/map-filters` work had never been pushed, and a new
+  palette had never been started. The AI merged `main` into
+  `feat/map-filters` (header and docs conflicts, both sides kept) and
+  built this milestone on top of it.
+- The first light highlight color failed 3:1 against white (2.98); it was
+  darkened before use.
+
+**Why**
+- A request spanning several sessions got split across branches, and only
+  part of it reached `main`. Checking unpushed branches against the
+  original request would have caught it before the human did.

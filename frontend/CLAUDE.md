@@ -77,7 +77,7 @@ src/
   the `viewBox` (`viewport.ts`); marks and text are sized per CSS pixel via
   `unit()`; labels are placed by `layoutLabels` (no overlaps). It is
   presentational and emits the selection. `ComparisonChart` shows one metric at a time with the
-  recommended mode as the only accent bar (`--color-primary`, others
+  recommended mode as the only accent bar (`--color-highlight`, others
   `--color-bar`). Neither may be the only way to get information: keep a
   text or form equivalent (dropdowns for the map, the table for the chart)
   and state selection in text and `aria-pressed`, not color alone.
@@ -93,11 +93,17 @@ src/
 - **Async views:** load with `rxResource` and render all states: loading
   (`<app-spinner>`), error with retry, empty, and data.
 - **Styling:** no UI library. Use the tokens in `styles.scss` (`var(--color-…)`,
-  `var(--space-…)`), never raw colors, so light and dark both work. Shared
-  classes: `.card`, `.button` (`--primary`, `--danger`), `.page-header`,
-  `.actions`, `.badge`, `.segmented` (radio group as buttons), `.field`
-  (`__hint`, `__error`), `.muted`, `.visually-hidden`.
-  Component styles stay small (4 kB budget).
+  `var(--space-…)`), never raw colors, so light and dark both work. Palette:
+  ocean-blue `--color-primary` for actions and selection (`--color-primary-soft`
+  for selected backgrounds), sunset `--color-highlight` (+ `-bg`, `--color-on-highlight`)
+  only for the recommended mode, `--color-border-strong` for control borders.
+  Every text pair meets 4.5:1 and every meaningful mark 3:1 in both themes;
+  check a new or changed pair before using it. Type: 17 px body (system font),
+  `--font-display` (Manrope, loaded in `index.html`) for headings, labels,
+  buttons and navigation. Shared classes: `.card`, `.button` (`--primary`,
+  `--danger`), `.page-header`, `.actions`, `.badge` (`--recommended`),
+  `.segmented` (radio group as buttons), `.field` (`__hint`, `__error`),
+  `.muted`, `.visually-hidden`. Component styles stay small (4 kB budget).
 - **Theme:** follows the OS until the user toggles; `ThemeService` stores the
   choice in `localStorage` (`routewise.theme`) and sets `data-theme` on `<html>`.
 - **Accessibility:** semantic HTML and landmarks, labels on inputs, visible
