@@ -12,9 +12,8 @@ src/
 └── app/
     ├── core/
     │   ├── api/         typed API layer: models, one service per resource, ApiError
-    │   ├── auth/        Session (who is logged in), authGuard, credentialsInterceptor
-    │   └── theme/       ThemeService (light/dark)
-    ├── layout/          app chrome: header (nav, account, theme toggle)
+    │   └── auth/        Session (who is logged in), authGuard, credentialsInterceptor
+    ├── layout/          app chrome: header (nav, account)
     ├── shared/ui/       presentational building blocks (spinner, error message, confirm action)
     ├── shared/map/      route map (SVG) and its pure projection maths
     ├── shared/util/     pure helpers (dates, labels)
@@ -93,19 +92,23 @@ src/
 - **Async views:** load with `rxResource` and render all states: loading
   (`<app-spinner>`), error with retry, empty, and data.
 - **Styling:** no UI library. Use the tokens in `styles.scss` (`var(--color-…)`,
-  `var(--space-…)`), never raw colors, so light and dark both work. Palette:
-  ocean-blue `--color-primary` for actions and selection (`--color-primary-soft`
-  for selected backgrounds), sunset `--color-highlight` (+ `-bg`, `--color-on-highlight`)
-  only for the recommended mode, `--color-border-strong` for control borders.
-  Every text pair meets 4.5:1 and every meaningful mark 3:1 in both themes;
-  check a new or changed pair before using it. Type: 17 px body (system font),
+  `var(--space-…)`), never raw colors. Palette is a strict 60/30/10: midnight
+  black backgrounds (`--color-bg`, `--color-surface`), pure white text and lines
+  (`--color-text`, borders), and lime `--color-primary` as the **only** accent.
+  Use lime only for primary buttons, links, active/selected states
+  (`--color-primary-soft` backgrounds), focus, the map route and the
+  recommended mode (`--color-highlight*`, which map to lime). Everything else
+  stays black/white/gray (`--color-bar` for de-emphasised marks). Red
+  (`--color-danger`) and amber (`--color-accent`, weather) are semantic only.
+  `--color-border-strong` for control borders. Every text pair meets 4.5:1 and
+  every meaningful mark 3:1; check a new or changed pair before using it. Type: 17 px body (system font),
   `--font-display` (Manrope, loaded in `index.html`) for headings, labels,
   buttons and navigation. Shared classes: `.card`, `.button` (`--primary`,
   `--danger`), `.page-header`, `.actions`, `.badge` (`--recommended`),
   `.segmented` (radio group as buttons), `.field` (`__hint`, `__error`),
   `.muted`, `.visually-hidden`. Component styles stay small (4 kB budget).
-- **Theme:** follows the OS until the user toggles; `ThemeService` stores the
-  choice in `localStorage` (`routewise.theme`) and sets `data-theme` on `<html>`.
+- **Theme:** one dark theme only (`color-scheme: dark`); there is no theme
+  toggle. Do not add light-mode styles.
 - **Accessibility:** semantic HTML and landmarks, labels on inputs, visible
   focus, nothing conveyed by color alone, scrollable regions focusable.
   Layouts work down to 375 px.

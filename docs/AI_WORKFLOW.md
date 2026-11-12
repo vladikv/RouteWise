@@ -401,3 +401,18 @@ corrected manually, and why.
 - A request spanning several sessions got split across branches, and only
   part of it reached `main`. Checking unpushed branches against the
   original request would have caught it before the human did.
+
+**Follow-up: midnight / white / lime (same day)**
+- After seeing the first palette, the human set a strict 60/30/10 brief:
+  midnight black, pure white, lime accent, and said the login page
+  looked wrong with everything on the left.
+- The AI asked three questions with previews (where the 30% white goes,
+  what happens to the theme toggle, which login layout) and planned the
+  change before coding. The human chose white as text and lines, dark
+  only, and a split-screen login.
+- Done: one dark token set (contrast script: one gray failed at 2.27:1
+  and was lightened), theme toggle and `ThemeService` removed, split-screen
+  auth page with the form first in the DOM. Screenshots at 1280 and 375 px.
+- Found by looking at the screenshots: the score meters in the comparison
+  table were lime on every row, which broke the "lime = recommended" rule;
+  they are now gray except for the recommended mode.

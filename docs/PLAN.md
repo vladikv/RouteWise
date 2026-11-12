@@ -75,7 +75,7 @@ Changing requests need the `X-XSRF-TOKEN` header echoing the `XSRF-TOKEN` cookie
 - [x] `feat/ui-experience`: interactive route map, instant comparison, comparison chart
 - [x] `feat/map-filters`: land outline, zoom and pan, collision-free labels, city pickers, URL state
 - [x] `feat/auth`: accounts, session login, private trips, login/registration UI
-- [x] `feat/visual-refresh`: fresh travel palette, Manrope headings, 17 px body, AA contrast in both themes
+- [x] `feat/visual-refresh`: midnight/white/lime 60/30/10 dark theme, Manrope headings, 17 px body, split-screen login, AA contrast
 - [ ] `docs/readme-demo`: README, screenshots, demo recording
 
 ## Decisions log
@@ -150,3 +150,7 @@ Changing requests need the `X-XSRF-TOKEN` header echoing the `XSRF-TOKEN` cookie
 | 2026-11-12 | Recommended mode uses the sunset highlight (row, badge, chart bar) instead of the primary blue | Blue now means "action or selection"; a separate color for "best option" reads at a glance, and the badge text and row border keep it clear without color |
 | 2026-11-12 | Body text 17 px / 1.6, Manrope for headings, labels, buttons and navigation (Google Fonts, system font fallback) | Readability was the main complaint; a display font gives the brand a face without changing body text rendering |
 | 2026-11-12 | Contrast checked with a script for every token pair (text 4.5:1, marks 3:1) in both themes; inputs get a 3:1 border | Verified, not eyeballed; the old input border was about 1.3:1 |
+| 2026-11-12 | Replaced the "fresh travel" palette with a strict 60/30/10: midnight black backgrounds (#0B0D12, cards #141820), pure white text and lines, lime #B6F23C as the only accent | Brief from the human after seeing the first palette; one accent keeps the eye on actions and the best option |
+| 2026-11-12 | Dark theme only; the light/dark toggle and `ThemeService` were removed | The identity is black/white/lime; a light variant could only use lime as a fill (lime text on white is about 1.3:1) |
+| 2026-11-12 | The recommended mode, primary actions, links, selection, focus and the map route all use the same lime; every other mark is gray (`--color-bar`) | Supersedes the sunset highlight: with one accent, "lime" means "act here" or "best option"; badge text and row border keep it clear without colour |
+| 2026-11-12 | Login and registration are a split screen on wide screens (pitch with benefits and the demo account on the left, form card on the right), stacked with the form first on phones | The old narrow left column looked unbalanced; the form stays first in DOM order for keyboard and screen-reader users |
