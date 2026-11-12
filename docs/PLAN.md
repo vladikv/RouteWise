@@ -10,6 +10,7 @@ checkboxes when a milestone is completed.
 - AI travel advisor: free-text trip request → trip draft + explanation
 - Works with zero configuration (rule-based fallback without an AI key)
 - Accounts (email + password, session login); saved trips are private to their owner
+- Demo account with sample trips (`demo@routewise.app` / `demo1234`), one click on the login page
 
 Out of scope for v1: social login, password reset, email verification,
 real-time timetables, booking.
@@ -40,7 +41,7 @@ Changing requests need the `X-XSRF-TOKEN` header echoing the `XSRF-TOKEN` cookie
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/api/auth/register` | Create an account and log in (201) |
+| POST | `/api/auth/register` | Create an account and log in (201; 409 if the email is taken) |
 | POST | `/api/auth/login` | Log in; starts a session |
 | POST | `/api/auth/logout` | End the session (204) |
 | GET | `/api/auth/me` | The logged-in account (401 when logged out) |
@@ -134,3 +135,7 @@ Changing requests need the `X-XSRF-TOKEN` header echoing the `XSRF-TOKEN` cookie
 | 2026-11-12 | UI reads `XSRF-TOKEN` from `document.cookie` in its own interceptor | Works because UI and API share the host (cookies ignore ports); a deployment on different hosts needs a reverse proxy under one host |
 | 2026-11-12 | Login errors use one message for unknown email and wrong password; passwords 8–72 characters | No account enumeration; 72 is BCrypt's input limit |
 | 2026-11-12 | After login the UI returns to `returnUrl` only if it is a path inside the app | Prevents open redirects through crafted login links |
+| 2026-11-12 | Auth moved from out of scope into v1 scope | Saved trips need an owner before the app can be shared or deployed; without accounts every visitor sees and edits every trip |
+| 2026-11-12 | Demo account seeded at start-up by `DemoDataSeeder` through the regular services (account + 3 trips 14/30/45 days ahead); `routewise.demo.*`, on by default, `ROUTEWISE_DEMO_ENABLED=false` turns it off | Reviewers can try the app in one click; relative dates never go stale; public credentials, so not a secret |
+| 2026-11-12 | Taken email on register → 409 Conflict (`DuplicateFieldException`), still with an `errors` entry | Conflict is the correct status for a unique-value clash; the UI keeps showing it on the email field |
+| 2026-11-12 | Session timeout 2 h of inactivity (`ROUTEWISE_SESSION_TIMEOUT`), cookie HTTP-only + SameSite=Lax; no signing secret because session ids are random server-side ids, not signed tokens | Explicit, configurable expiry instead of the container default; nothing secret to configure keeps the zero-config start |

@@ -50,7 +50,8 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
   No Lombok on services, controllers, DTOs or config.
 - **Errors:** throw a `RouteWiseException` subclass: `ResourceNotFoundException` (404)
   or `FieldValidationException` (400 with an `errors` entry, for business rules on a
-  specific field, e.g. an unknown city id).
+  specific field, e.g. an unknown city id), or `DuplicateFieldException` (409 with the
+  same `errors` entry, for a taken unique value such as a registered email).
   `GlobalExceptionHandler` turns them into RFC 7807 Problem Details
   (`application/problem+json`). Do not use `ResponseStatusException` and do not
   build error bodies in controllers. Validation errors use the `errors`

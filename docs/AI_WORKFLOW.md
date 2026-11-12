@@ -324,3 +324,17 @@ corrected manually, and why.
 - Security code has to be checked through the real filter chain and a
   real browser: the slice tests used test helpers that hide exactly the
   cookie and CORS behaviour that broke.
+
+**Follow-up: review checklist (same day)**
+- The human reviewed the milestone against a checklist. The AI checked
+  each item against the code and reported which were already met.
+- Gaps closed: demo account with sample trips plus a "Try the demo"
+  button and README credentials (the item the human marked as most
+  important); 409 instead of 400 for a taken email; an explicit,
+  configurable session timeout; tests for PUT on another user's trip and
+  for CORS allowing `Authorization`.
+- Items written for token auth (token secret, token expiry, interceptor
+  adding a token) were mapped to the session design instead of switching
+  to JWT: there is no signing secret, expiry is the session timeout, and
+  the interceptor sends the cookie and CSRF header. Recorded in the
+  decisions log.
