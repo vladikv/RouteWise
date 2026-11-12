@@ -11,6 +11,7 @@ import com.routewise.city.service.CityService;
 import com.routewise.demo.config.DemoProperties;
 import com.routewise.trip.domain.TripPriority;
 import com.routewise.trip.dto.TripRequest;
+import com.routewise.trip.dto.TripStopRequest;
 import com.routewise.trip.service.TripService;
 import com.routewise.user.domain.AuthUser;
 import com.routewise.user.dto.RegisterRequest;
@@ -37,16 +38,18 @@ public class DemoDataSeeder implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(DemoDataSeeder.class);
 
     /** Departures are relative to today, so the samples never lie in the past. */
-    record SampleTrip(String title, String origin, String destination, int daysAhead, int travelers,
-                      TripPriority priority, String notes) {
+    record SampleTrip(String title, List<String> stops, int daysAhead, int travelers, TripPriority priority,
+                      String notes) {
     }
 
     static final List<SampleTrip> SAMPLE_TRIPS = List.of(
-            new SampleTrip("Weekend in Vienna", "Berlin", "Vienna", 14, 2, TripPriority.GREENEST,
+            new SampleTrip("Weekend in Vienna", List.of("Berlin", "Vienna"), 14, 2, TripPriority.GREENEST,
                     "City break with a friend"),
-            new SampleTrip("Client meeting in Amsterdam", "Paris", "Amsterdam", 30, 1, TripPriority.FASTEST,
-                    null),
-            new SampleTrip("Family trip to Prague", "Munich", "Prague", 45, 4, TripPriority.CHEAPEST,
+            new SampleTrip("Central Europe rail loop", List.of("Berlin", "Prague", "Vienna", "Munich", "Berlin"),
+                    21, 2, TripPriority.BALANCED, "Two nights in each city"),
+            new SampleTrip("Client meeting in Amsterdam", List.of("Paris", "Amsterdam"), 30, 1,
+                    TripPriority.FASTEST, null),
+            new SampleTrip("Family trip to Prague", List.of("Munich", "Prague"), 45, 4, TripPriority.CHEAPEST,
                     "Two adults, two kids"));
 
     private final DemoProperties properties;
@@ -76,8 +79,9 @@ public class DemoDataSeeder implements ApplicationRunner {
                 .collect(Collectors.toMap(CityResponse::name, CityResponse::id));
         LocalDate today = LocalDate.now(clock);
         SAMPLE_TRIPS.forEach(sample -> tripService.create(new TripRequest(sample.title(),
-                cityIds.get(sample.origin()), cityIds.get(sample.destination()), today.plusDays(sample.daysAhead()),
-                sample.travelers(), sample.priority(), sample.notes()), demo.id()));
+                sample.stops().stream().map(name -> new TripStopRequest(cityIds.get(name))).toList(),
+                today.plusDays(sample.daysAhead()), sample.travelers(), sample.priority(), sample.notes()),
+                demo.id()));
         log.info("Demo account {} created with {} sample trips", properties.email(), SAMPLE_TRIPS.size());
     }
 }

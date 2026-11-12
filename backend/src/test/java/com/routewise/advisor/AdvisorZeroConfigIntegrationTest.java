@@ -48,8 +48,8 @@ class AdvisorZeroConfigIntegrationTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.source").value("RULES"))
-                .andExpect(jsonPath("$.origin.name").value("Vienna"))
-                .andExpect(jsonPath("$.destination.name").value("Berlin"))
+                .andExpect(jsonPath("$.stops[0].name").value("Vienna"))
+                .andExpect(jsonPath("$.stops[1].name").value("Berlin"))
                 .andExpect(jsonPath("$.travelers").value(3))
                 .andExpect(jsonPath("$.priority").value("GREENEST"))
                 .andExpect(jsonPath("$.warnings[0]").value("No departure date recognised."));

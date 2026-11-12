@@ -13,6 +13,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 
 import com.routewise.city.dto.CityResponse;
@@ -20,6 +21,7 @@ import com.routewise.city.service.CityService;
 import com.routewise.demo.config.DemoProperties;
 import com.routewise.trip.domain.TripPriority;
 import com.routewise.trip.dto.TripRequest;
+import com.routewise.trip.dto.TripStopRequest;
 import com.routewise.trip.service.TripService;
 import com.routewise.user.domain.AuthUser;
 import com.routewise.user.dto.RegisterRequest;
@@ -67,15 +69,18 @@ class DemoDataSeederTest {
         seeder.run(null);
 
         ArgumentCaptor<TripRequest> trips = ArgumentCaptor.forClass(TripRequest.class);
-        verify(tripService, times(3)).create(trips.capture(), eq(42L));
-        // Today is 2026-11-12: +14, +30 and +45 days.
+        verify(tripService, times(4)).create(trips.capture(), eq(42L));
+        // Today is 2026-11-12: +14, +21, +30 and +45 days.
         assertThat(trips.getAllValues()).containsExactly(
-                new TripRequest("Weekend in Vienna", 1L, 2L, LocalDate.of(2026, 11, 26), 2,
+                new TripRequest("Weekend in Vienna", stops(1L, 2L), LocalDate.of(2026, 11, 26), 2,
                         TripPriority.GREENEST, "City break with a friend"),
-                new TripRequest("Client meeting in Amsterdam", 3L, 4L, LocalDate.of(2026, 12, 12), 1,
+                new TripRequest("Central Europe rail loop", stops(1L, 6L, 2L, 5L, 1L), LocalDate.of(2026, 12, 3), 2,
+                        TripPriority.BALANCED, "Two nights in each city"),
+                new TripRequest("Client meeting in Amsterdam", stops(3L, 4L), LocalDate.of(2026, 12, 12), 1,
                         TripPriority.FASTEST, null),
-                new TripRequest("Family trip to Prague", 5L, 6L, LocalDate.of(2026, 12, 27), 4,
+                new TripRequest("Family trip to Prague", stops(5L, 6L), LocalDate.of(2026, 12, 27), 4,
                         TripPriority.CHEAPEST, "Two adults, two kids"));
+        assertThat(trips.getAllValues()).anySatisfy(trip -> assertThat(trip.stops()).hasSizeGreaterThanOrEqualTo(3));
     }
 
     @Test
@@ -90,5 +95,9 @@ class DemoDataSeederTest {
 
     private static CityResponse city(long id, String name) {
         return new CityResponse(id, name, "XX", 0, 0);
+    }
+
+    private static List<TripStopRequest> stops(Long... cityIds) {
+        return Arrays.stream(cityIds).map(TripStopRequest::new).toList();
     }
 }

@@ -1,10 +1,13 @@
 package com.routewise.trip.mapper;
 
+import java.util.List;
+
 import com.routewise.city.domain.City;
-import com.routewise.city.mapper.CityMapper;
 import com.routewise.trip.domain.Trip;
+import com.routewise.trip.domain.TripStop;
 import com.routewise.trip.dto.TripRequest;
 import com.routewise.trip.dto.TripResponse;
+import com.routewise.trip.dto.TripStopResponse;
 
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -12,18 +15,11 @@ import org.springframework.util.StringUtils;
 @Component
 public class TripMapper {
 
-    private final CityMapper cityMapper;
-
-    public TripMapper(CityMapper cityMapper) {
-        this.cityMapper = cityMapper;
-    }
-
     public TripResponse toResponse(Trip trip) {
         return new TripResponse(
                 trip.getId(),
                 trip.getTitle(),
-                cityMapper.toSummary(trip.getOrigin()),
-                cityMapper.toSummary(trip.getDestination()),
+                trip.getStops().stream().map(TripMapper::toResponse).toList(),
                 trip.getDepartureDate(),
                 trip.getTravelers(),
                 trip.getPriority(),
@@ -33,16 +29,20 @@ public class TripMapper {
     }
 
     /**
-     * Copies the request onto {@code trip}; the cities are resolved by the caller.
+     * Copies the request onto {@code trip}; the stop cities are resolved by the caller.
      * Blank notes are stored as {@code null}.
      */
-    public void updateEntity(Trip trip, TripRequest request, City origin, City destination) {
+    public void updateEntity(Trip trip, TripRequest request, List<City> stopCities) {
         trip.setTitle(request.title().strip());
-        trip.setOrigin(origin);
-        trip.setDestination(destination);
+        trip.replaceStops(stopCities);
         trip.setDepartureDate(request.departureDate());
         trip.setTravelers(request.travelers());
         trip.setPriority(request.priority());
         trip.setNotes(StringUtils.hasText(request.notes()) ? request.notes().strip() : null);
+    }
+
+    private static TripStopResponse toResponse(TripStop stop) {
+        City city = stop.getCity();
+        return new TripStopResponse(city.getId(), city.getName(), city.getCountry(), stop.getPosition());
     }
 }

@@ -6,16 +6,18 @@ import com.routewise.advisor.domain.AdvisorSource;
 import com.routewise.transportmode.domain.TransportModeCode;
 
 /**
- * Explanation of a trip's recommendation. The recommendation itself comes from
- * the comparison engine, whatever the source of the wording.
+ * Explanation of a trip's recommended itinerary. The recommendation itself comes
+ * from the comparison engine, whatever the source of the wording.
  *
- * @param recommendedMode {@code null} when no mode is available
- * @param tips            alternatives, weather and practical hints; may be empty
+ * @param recommendedModes one entry per leg; an entry is {@code null} when no mode is available on that leg
+ * @param legs             one sentence per leg explaining its recommended mode
+ * @param tips             alternatives, weather and practical hints; may be empty
  */
 public record AdviceResponse(
         Long tripId,
-        TransportModeCode recommendedMode,
+        List<TransportModeCode> recommendedModes,
         String summary,
+        List<String> legs,
         List<String> tips,
         AdvisorSource source) {
 }

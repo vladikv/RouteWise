@@ -31,34 +31,60 @@ class RuleBasedTripParserTest {
         TripExtraction result = parser.parse("Berlin to Vienna next Friday, 2 people, as cheap as possible",
                 CITIES, TODAY);
 
-        assertThat(result).isEqualTo(new TripExtraction(null, "Berlin", "Vienna", LocalDate.of(2026, 11, 13),
-                2, TripPriority.CHEAPEST, null));
+        assertThat(result).isEqualTo(new TripExtraction(null, List.of("Berlin", "Vienna"),
+                LocalDate.of(2026, 11, 13), false, 2, TripPriority.CHEAPEST, null));
     }
 
     @Test
-    void parse_destinationMentionedFirst_usesFromAndToMarkers() {
+    void parse_destinationMentionedFirst_putsTheFromCityFirst() {
         TripExtraction result = parser.parse("I want to go to Vienna from Berlin", CITIES, TODAY);
 
-        assertThat(result.originCity()).isEqualTo("Berlin");
-        assertThat(result.destinationCity()).isEqualTo("Vienna");
+        assertThat(result.stops()).containsExactly("Berlin", "Vienna");
+    }
+
+    @Test
+    void parse_severalStops_keepsTheOrderOfMention() {
+        TripExtraction result = parser.parse("Berlin to Prague, then Vienna via Budapest", CITIES, TODAY);
+
+        assertThat(result.stops()).containsExactly("Berlin", "Prague", "Vienna", "Budapest");
+    }
+
+    @Test
+    void parse_backHome_returnsToTheFirstStopAndTreatsItsDateAsALaterDate() {
+        TripExtraction result = parser.parse("Rzeszów to Kraków, then Zakopane, back home Sunday", CITIES, TODAY);
+
+        assertThat(result.stops()).containsExactly("Rzeszów", "Krakow", "Zakopane", "Rzeszów");
+        assertThat(result.departureDate()).isNull();
+        assertThat(result.laterDates()).isTrue();
+    }
+
+    @Test
+    void parse_departureAndReturnDates_keepsTheDepartureOnly() {
+        TripExtraction result = parser.parse("Berlin to Vienna on friday and back on sunday", CITIES, TODAY);
+
+        assertThat(result.stops()).containsExactly("Berlin", "Vienna", "Berlin");
+        assertThat(result.departureDate()).isEqualTo(LocalDate.of(2026, 11, 13));
+        assertThat(result.laterDates()).isTrue();
     }
 
     @Test
     void parse_localSpellingsAndDiacritics_mapToSeededCities() {
-        assertThat(parser.parse("Wien - München", CITIES, TODAY))
-                .extracting(TripExtraction::originCity, TripExtraction::destinationCity)
-                .containsExactly("Vienna", "Munich");
-        assertThat(parser.parse("ZÜRICH to Kraków", CITIES, TODAY))
-                .extracting(TripExtraction::originCity, TripExtraction::destinationCity)
-                .containsExactly("Zurich", "Krakow");
+        assertThat(parser.parse("Wien - München", CITIES, TODAY).stops()).containsExactly("Vienna", "Munich");
+        assertThat(parser.parse("ZÜRICH to Kraków", CITIES, TODAY).stops()).containsExactly("Zurich", "Krakow");
     }
 
     @Test
-    void parse_unsupportedOrigin_keepsOnlyTheSupportedDestination() {
+    void parse_unsupportedCity_isKeptAsWrittenForTheResolverToReport() {
         TripExtraction result = parser.parse("Oslo to Berlin", CITIES, TODAY);
 
-        assertThat(result.originCity()).isNull();
-        assertThat(result.destinationCity()).isEqualTo("Berlin");
+        assertThat(result.stops()).containsExactly("Oslo", "Berlin");
+    }
+
+    @Test
+    void parse_capitalisedWordsThatAreNotPlaces_areIgnored() {
+        TripExtraction result = parser.parse("Berlin to Vienna next Friday, then Monday to Prague", CITIES, TODAY);
+
+        assertThat(result.stops()).containsExactly("Berlin", "Vienna", "Prague");
     }
 
     @Test
@@ -69,11 +95,10 @@ class RuleBasedTripParserTest {
     }
 
     @Test
-    void parse_sameCityTwice_countsOnce() {
+    void parse_sameCityTwiceInARow_isLeftForTheResolver() {
         TripExtraction result = parser.parse("Paris, Paris and Lyon", CITIES, TODAY);
 
-        assertThat(result.originCity()).isEqualTo("Paris");
-        assertThat(result.destinationCity()).isEqualTo("Lyon");
+        assertThat(result.stops()).containsExactly("Paris", "Paris", "Lyon");
     }
 
     @ParameterizedTest(name = "\"{0}\" -> {1}")

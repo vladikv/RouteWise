@@ -36,9 +36,12 @@ public class ClaudeAdvisorClient implements AdvisorClient {
             You extract trip details from a traveler's request for RouteWise, a European trip
             planner that compares train, bus, car, bike and plane.
 
-            - Use only city names from the supported list. Map local or alternative spellings
-              to it (Wien is Vienna, München is Munich). If a city is not in the list, leave
-              the field empty; never substitute a different city.
+            - List every stop in travel order. Use city names from the supported list and map
+              local or alternative spellings to it (Wien is Vienna, München is Munich). Write a
+              city that is not in the list exactly as stated; never substitute a different city.
+            - "Back home", "and back" or "return" means the trip ends at its first stop again.
+            - The departure date is the first day of travel. Set laterDates if other dates
+              (such as a return day) are mentioned; do not use them as the departure date.
             - Resolve relative dates ("tomorrow", "next Friday", "in two weeks") against the
               given today date. Leave the date empty if none is stated.
             - Count the requester as a traveler: "with two friends" means 3 travelers.
@@ -50,8 +53,10 @@ public class ClaudeAdvisorClient implements AdvisorClient {
             already been computed from travel time, cost, CO2 and the weather forecast.
 
             - Use only the facts given. Do not invent prices, times, timetables or weather.
-            - Keep the recommended mode. You may mention the best alternative and its trade-off.
-            - If no mode is available, say so and explain why from the facts.
+            - The route has one or more legs. Keep the recommended mode of every leg. You may
+              compare the recommended plan with the best single-mode alternative.
+            - Write exactly one short sentence per leg, in leg order.
+            - If no mode is available on a leg, say so and explain why from the facts.
             - Plain English, no markdown. Summary: at most two sentences. Tips: at most four,
               each one short sentence.
             """;
@@ -79,11 +84,15 @@ public class ClaudeAdvisorClient implements AdvisorClient {
                 </request>
                 """.formatted(String.join(", ", cityNames), today, today.getDayOfWeek(), text);
         ClaudeTripExtraction result = request(ClaudeTripExtraction.class, EXTRACTION_SYSTEM_PROMPT, userMessage);
+        List<String> stops = result.stops() == null ? List.of() : result.stops().stream()
+                .map(ClaudeAdvisorClient::blankToNull)
+                .filter(Objects::nonNull)
+                .toList();
         return new TripExtraction(
                 blankToNull(result.title()),
-                blankToNull(result.originCity()),
-                blankToNull(result.destinationCity()),
+                stops,
                 parseDate(result.departureDate()),
+                result.laterDates(),
                 result.travelers() > 0 ? result.travelers() : null,
                 result.priority(),
                 blankToNull(result.notes()));
@@ -105,7 +114,17 @@ public class ClaudeAdvisorClient implements AdvisorClient {
                 .filter(tip -> tip.length() <= MAX_TIP_LENGTH)
                 .limit(MAX_TIPS)
                 .toList();
-        return new AdviceText(summary, tips);
+        int legCount = context.comparison().legs().size();
+        List<String> legs = result.legs() == null ? List.of() : result.legs().stream()
+                .map(ClaudeAdvisorClient::blankToNull)
+                .filter(Objects::nonNull)
+                .filter(leg -> leg.length() <= MAX_TIP_LENGTH)
+                .toList();
+        if (legs.size() != legCount) {
+            throw new AdvisorClientException("Claude returned %d leg sentences for %d legs"
+                    .formatted(legs.size(), legCount));
+        }
+        return new AdviceText(summary, legs, tips);
     }
 
     private <T> T request(Class<T> type, String systemPrompt, String userMessage) {

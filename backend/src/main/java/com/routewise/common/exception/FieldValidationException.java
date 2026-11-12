@@ -23,6 +23,15 @@ public class FieldValidationException extends RouteWiseException {
         this.errors = List.of(new ValidationError(field, message));
     }
 
+    /** Several fields at once, e.g. two unknown cities in one stop list. */
+    public FieldValidationException(List<ValidationError> errors) {
+        super(HttpStatus.BAD_REQUEST, errors.stream()
+                .map(error -> "%s %s".formatted(error.field(), error.message()))
+                .reduce((a, b) -> a + "; " + b)
+                .orElse("invalid request"));
+        this.errors = List.copyOf(errors);
+    }
+
     public List<ValidationError> getErrors() {
         return errors;
     }

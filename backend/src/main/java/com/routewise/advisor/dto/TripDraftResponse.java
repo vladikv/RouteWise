@@ -11,11 +11,13 @@ import com.routewise.trip.domain.TripPriority;
  * A trip draft to prefill the trip form; not stored. Values that could not be
  * determined are {@code null} and explained in {@code warnings}. Travelers
  * default to 1 and priority to BALANCED when the text does not mention them.
+ *
+ * @param stops at least two entries in travel order; an entry is {@code null}
+ *              where the stop is unknown or not a supported city
  */
 public record TripDraftResponse(
         String title,
-        CitySummary origin,
-        CitySummary destination,
+        List<CitySummary> stops,
         LocalDate departureDate,
         int travelers,
         TripPriority priority,
