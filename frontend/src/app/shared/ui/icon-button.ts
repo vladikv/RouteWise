@@ -14,6 +14,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       [attr.title]="label()"
       [attr.aria-pressed]="pressed() ?? null"
       [attr.aria-expanded]="expanded() ?? null"
+      [attr.aria-controls]="controls() ?? null"
       [disabled]="disabled()"
     >
       <ng-content />
@@ -72,5 +73,7 @@ export class IconButton {
   readonly type = input<'button' | 'submit'>('button');
   readonly pressed = input<boolean>();
   readonly expanded = input<boolean>();
+  /** Id of the element this button shows or hides. */
+  readonly controls = input<string>();
   readonly disabled = input(false);
 }

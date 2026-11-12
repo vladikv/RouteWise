@@ -1,164 +1,90 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { IsActiveMatchOptions, Router, RouterLink, RouterLinkActive } from '@angular/router';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink } from '@angular/router';
+import { filter } from 'rxjs';
 import { Session } from '../../core/auth/session';
+import { IconButton } from '../../shared/ui/icon-button';
+import { PillNav, PillNavItem } from '../../shared/ui/pill-nav';
 
-/** App header: brand, main navigation and the account (log in / log out). */
+type OpenMenu = 'account' | 'nav' | null;
+
+/** App header: brand, main navigation and the account (log in / avatar menu); a menu below 768 px. */
 @Component({
   selector: 'app-header',
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, IconButton, PillNav],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <header class="header">
-      <div class="header__inner">
-        <a class="brand" routerLink="/">
-          <span class="brand__mark" aria-hidden="true">↗</span>
-          RouteWise
-        </a>
-        <nav aria-label="Main">
-          <ul class="nav">
-            <li>
-              <a
-                routerLink="/"
-                routerLinkActive="nav__link--active"
-                [routerLinkActiveOptions]="homeActiveOptions"
-                ariaCurrentWhenActive="page"
-                class="nav__link"
-              >
-                Home
-              </a>
-            </li>
-            <li>
-              <a
-                routerLink="/trips"
-                routerLinkActive="nav__link--active"
-                ariaCurrentWhenActive="page"
-                class="nav__link"
-              >
-                Trips
-              </a>
-            </li>
-          </ul>
-        </nav>
-        <div class="account">
-          @if (session.user(); as user) {
-            <span class="account__name">
-              <span class="visually-hidden">Logged in as </span>{{ user.displayName }}
-            </span>
-            <button type="button" class="button" (click)="logout()">Log out</button>
-          } @else {
-            <a class="button" routerLink="/login">Log in</a>
-          }
-        </div>
-      </div>
-    </header>
-  `,
-  styles: `
-    .header {
-      background: var(--color-surface);
-      border-bottom: 1px solid var(--color-border);
-    }
-
-    .header__inner {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: var(--space-3) var(--space-6);
-      max-width: var(--content-width);
-      margin: 0 auto;
-      padding: var(--space-3) var(--space-4);
-    }
-
-    .brand {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--space-2);
-      color: var(--color-text);
-      font-size: 1.2rem;
-      font-weight: 700;
-      text-decoration: none;
-    }
-
-    .brand__mark {
-      display: grid;
-      place-items: center;
-      width: 1.9rem;
-      height: 1.9rem;
-      border-radius: var(--radius-sm);
-      background: var(--color-primary);
-      color: var(--color-on-primary);
-    }
-
-    nav {
-      flex: 1;
-    }
-
-    .nav {
-      display: flex;
-      gap: var(--space-2);
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-
-    .nav__link {
-      display: inline-block;
-      padding: var(--space-2) var(--space-3);
-      border-bottom: 2px solid transparent;
-      color: var(--color-text-muted);
-      font-family: var(--font-display);
-      font-weight: 700;
-      text-decoration: none;
-    }
-
-    .nav__link:hover,
-    .nav__link--active {
-      color: var(--color-text);
-    }
-
-    .nav__link--active {
-      border-bottom-color: var(--color-primary);
-    }
-
-    .account {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-    }
-
-    .account__name {
-      max-width: 12rem;
-      overflow: hidden;
-      color: var(--color-text-muted);
-      font-weight: 600;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .account .button {
-      min-height: 2.5rem;
-    }
-
-    /* Phones: the name gives way so brand, navigation and the account button share one row. */
-    @media (max-width: 30rem) {
-      .account__name {
-        display: none;
-      }
-    }
-  `,
+  templateUrl: './header.html',
+  styleUrl: './header.scss',
+  host: {
+    '(keydown.escape)': 'closeWithFocus()',
+    '(document:click)': 'closeOnOutsideClick($event)',
+  },
 })
 export class Header {
   protected readonly session = inject(Session);
-  /** Home stays highlighted while the route explorer keeps its state in the query string. */
-  protected readonly homeActiveOptions: IsActiveMatchOptions = {
-    paths: 'exact',
-    queryParams: 'ignored',
-    matrixParams: 'ignored',
-    fragment: 'ignored',
-  };
+  protected readonly navItems: PillNavItem[] = [
+    { label: 'Home', link: '/', exact: true },
+    { label: 'Trips', link: '/trips' },
+  ];
+  protected readonly open = signal<OpenMenu>(null);
+  protected readonly initials = computed(() => {
+    const words = (this.session.user()?.displayName ?? '').trim().split(/\s+/).filter(Boolean);
+    return words
+      .slice(0, 2)
+      .map((word) => word.charAt(0).toUpperCase())
+      .join('');
+  });
 
   private readonly router = inject(Router);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly avatarButton = viewChild<ElementRef<HTMLButtonElement>>('avatarButton');
+  private readonly menuButton = viewChild('menuButton', { read: ElementRef<HTMLElement> });
+
+  protected toggle(menu: Exclude<OpenMenu, null>): void {
+    this.open.update((current) => (current === menu ? null : menu));
+  }
+
+  /** Escape closes the open menu and puts focus back on the button that opened it. */
+  protected closeWithFocus(): void {
+    const menu = this.open();
+    if (!menu) {
+      return;
+    }
+    this.open.set(null);
+    const trigger =
+      menu === 'account'
+        ? this.avatarButton()?.nativeElement
+        : this.menuButton()?.nativeElement.querySelector('button');
+    trigger?.focus();
+  }
+
+  protected closeOnOutsideClick(event: Event): void {
+    const menu = this.open();
+    const area = menu && this.host.nativeElement.querySelector(`[data-menu="${menu}"]`);
+    if (area && !area.contains(event.target as Node)) {
+      this.open.set(null);
+    }
+  }
+
+  constructor() {
+    this.router.events
+      .pipe(
+        filter((event) => event instanceof NavigationEnd),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => this.open.set(null));
+  }
 
   protected logout(): void {
+    this.open.set(null);
     this.session.logout().subscribe(() => void this.router.navigateByUrl('/'));
   }
 }
