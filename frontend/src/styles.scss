@@ -7,6 +7,10 @@
  * selection, focus, the recommended mode, the map route). Red and amber are
  * semantic only (errors, weather warnings). Every text pair meets WCAG AA
  * (4.5:1) and every meaningful mark 3:1; re-check when changing a value.
+ *
+ * Glass: translucent surfaces are alpha variants (--color-*-aNN, NN = percent)
+ * of the palette over the layered background, with a blur and a light border.
+ * Keep the surface alpha at 60% or more so text keeps its contrast.
  */
 :root {
   color-scheme: dark;
@@ -34,8 +38,21 @@
   --color-danger: #ff8a80;
   --color-danger-bg: #3a1b1e;
   --color-focus: var(--color-primary);
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 30%);
-  --shadow-raised: 0 12px 32px rgb(0 0 0 / 55%);
+  /* Alpha variants of the palette above (same hues, written from the hex values). */
+  --color-surface-a60: rgb(20 24 32 / 60%);
+  --color-surface-a85: rgb(20 24 32 / 85%);
+  --color-surface-muted-a80: rgb(28 33 43 / 80%);
+  --color-text-a14: rgb(255 255 255 / 14%);
+  --color-primary-a12: rgb(182 242 60 / 12%);
+  --color-primary-a20: rgb(182 242 60 / 20%);
+  /* Glass surfaces; --glass-bg-strong is the lighter fill for active items. */
+  --glass-bg: var(--color-surface-a60);
+  --glass-bg-strong: var(--color-surface-muted-a80);
+  --glass-border: var(--color-text-a14);
+  --glass-blur: 18px;
+  /* Very light shadows: depth comes from the border and blur. */
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 20%);
+  --shadow-raised: 0 8px 20px rgb(0 0 0 / 25%);
   /* De-emphasised chart bars; the recommended bar uses --color-highlight. */
   --color-bar: #6b7385;
   /* Route map */
@@ -44,10 +61,15 @@
   --map-border: #343b4a;
   --map-city: #b8bfcc;
 
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-display: 'Manrope', var(--font-sans);
+  /* Manrope (loaded in index.html) is the only font; the system stack is the fallback. */
+  --font-sans:
+    'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: var(--font-sans);
   --radius: 14px;
   --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -55,6 +77,15 @@
   --space-6: 1.5rem;
   --space-8: 2rem;
   --content-width: 68rem;
+}
+
+/* Glass becomes solid: no see-through surfaces, no blur. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-bg: var(--color-surface);
+    --glass-bg-strong: var(--color-surface-muted);
+    --glass-blur: 0px;
+  }
 }
 
 *,
@@ -73,6 +104,20 @@ body {
   font-size: 1.0625rem;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Layered background: soft lime glows on the dark base. A fixed pseudo-element
+   stays put while the page scrolls and is never repainted with the content. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(48rem 34rem at 12% -8%, var(--color-primary-a20), transparent 70%),
+    radial-gradient(40rem 30rem at 95% 30%, var(--color-primary-a12), transparent 70%),
+    radial-gradient(52rem 36rem at 40% 115%, var(--color-surface-muted-a80), transparent 70%);
 }
 
 h1,
@@ -114,16 +159,18 @@ a {
 }
 
 :focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
 /* Shared building blocks */
 
 .card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
   padding: clamp(var(--space-4), 3vw, var(--space-8));
 }
@@ -135,9 +182,9 @@ a {
   gap: var(--space-2);
   min-height: 2.75rem;
   padding: 0 var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg-strong);
   color: var(--color-text);
   font: inherit;
   font-family: var(--font-display);
@@ -166,7 +213,7 @@ a {
   color: var(--color-on-primary);
   box-shadow:
     0 0 0 1px var(--color-primary),
-    0 4px 18px color-mix(in srgb, var(--color-primary) 22%, transparent);
+    0 4px 18px var(--color-primary-a20);
 
   &:hover {
     border-color: var(--color-primary-hover);
@@ -177,7 +224,7 @@ a {
 
 .button--danger {
   border-color: var(--color-danger);
-  background: var(--color-surface);
+  background: var(--glass-bg-strong);
   color: var(--color-danger);
 
   &:hover {
@@ -217,9 +264,9 @@ a {
 .badge {
   display: inline-block;
   padding: 0.15rem 0.6rem;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-surface-muted);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg-strong);
   font-family: var(--font-display);
   font-size: 0.8125rem;
   font-weight: 700;
@@ -241,9 +288,9 @@ a {
   gap: var(--space-1);
   margin: 0;
   padding: var(--space-1);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-muted);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
 
   label {
     position: relative;
@@ -267,7 +314,7 @@ a {
     min-height: 2.25rem;
     padding: 0 var(--space-3);
     border: 1px solid transparent;
-    border-radius: 4px;
+    border-radius: var(--radius-pill);
     font-weight: 600;
   }
 
@@ -285,7 +332,7 @@ a {
   }
 
   input:focus-visible + span {
-    outline: 3px solid var(--color-focus);
+    outline: 2px solid var(--color-focus);
     outline-offset: 2px;
   }
 }
@@ -323,8 +370,8 @@ textarea {
   min-height: 2.875rem;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg-strong);
   color: var(--color-text);
   font: inherit;
   transition: border-color 0.15s ease;
@@ -340,6 +387,7 @@ textarea {
 
 textarea {
   min-height: 6rem;
+  border-radius: var(--radius-md);
   resize: vertical;
 }
 
@@ -367,6 +415,8 @@ textarea[aria-invalid='true'] {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

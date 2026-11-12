@@ -117,9 +117,18 @@ src/
   stays black/white/gray (`--color-bar` for de-emphasised marks). Red
   (`--color-danger`) and amber (`--color-accent`, weather) are semantic only.
   `--color-border-strong` for control borders. Every text pair meets 4.5:1 and
-  every meaningful mark 3:1; check a new or changed pair before using it. Type: 17 px body (system font),
-  `--font-display` (Manrope, loaded in `index.html`) for headings, labels,
-  buttons and navigation. Shared classes: `.card`, `.button` (`--primary`,
+  every meaningful mark 3:1; check a new or changed pair before using it.
+  Glass look: translucent surfaces use the `--glass-bg`, `--glass-bg-strong`,
+  `--glass-border` and `--glass-blur` tokens, built from alpha variants of the
+  palette (`--color-surface-a60`, `--color-primary-a12`, … NN = percent; same
+  hues, add a variant only when used). Keep surface alpha at 60% or more for
+  contrast and use few stacked `backdrop-filter` layers. Under
+  `prefers-reduced-transparency` the glass tokens become solid surfaces with no
+  blur, so never hard-code a blur or a translucent fill. Radii: `--radius-lg`
+  (cards), `--radius-md`, `--radius-pill` (buttons, inputs, badges). A fixed
+  `body::before` draws the lime glows. Type: 17 px body, Manrope (loaded in
+  `index.html`, weights 400-800) is the only font (`--font-sans`; `--font-display`
+  is an alias). Shared classes: `.card`, `.button` (`--primary`,
   `--danger`), `.page-header`, `.actions`, `.badge` (`--recommended`),
   `.segmented` (radio group as buttons), `.field` (`__hint`, `__error`),
   `.muted`, `.visually-hidden`. Component styles stay small (4 kB budget).
