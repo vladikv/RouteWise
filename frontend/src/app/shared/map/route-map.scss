@@ -2,28 +2,51 @@
   display: block;
 }
 
-/* On narrow screens the interactive map keeps a legible size and scrolls sideways
-   instead of shrinking its city names below reading size. */
-.map-scroll {
-  overflow-x: auto;
+.frame {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius);
-}
-
-.map--interactive {
-  min-width: 30rem;
+  background: var(--map-sea);
 }
 
 .map {
   display: block;
   width: 100%;
   height: auto;
-  max-height: 34rem;
-  border-radius: var(--radius);
-  /* A dot grid stands in for a base map: light, and it works in both themes. */
-  background-color: var(--color-surface-muted);
-  background-image: radial-gradient(var(--color-border) 1px, transparent 1.5px);
-  background-size: 22px 22px;
+  aspect-ratio: 640 / 620;
+  max-height: 36rem;
+  outline: none;
+  user-select: none;
 }
+
+.frame--interactive .map {
+  cursor: grab;
+  touch-action: none; /* pinch and drag move the map, not the page */
+}
+
+.frame--interactive .map:active {
+  cursor: grabbing;
+}
+
+.map:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: -3px;
+}
+
+.sea {
+  fill: var(--map-sea);
+}
+
+.land {
+  fill: var(--map-land);
+  stroke: var(--map-border);
+  stroke-width: 1px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Cities */
 
 .city {
   cursor: pointer;
@@ -39,60 +62,80 @@
 }
 
 .city__dot {
-  fill: var(--color-text-muted);
-  transition: r 0.15s ease;
+  fill: var(--map-city);
+  stroke: var(--map-land);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+  transition: r 0.12s ease;
 }
 
-.city__name {
-  fill: var(--color-text);
-  font-size: 15px;
-  font-weight: 500;
-  /* A halo keeps names readable where they cross the route or the grid. */
-  paint-order: stroke;
-  stroke: var(--color-surface-muted);
-  stroke-width: 4px;
-  stroke-linejoin: round;
-}
-
-.city__ring {
-  fill: var(--color-primary);
-}
-
-.city__letter {
-  fill: var(--color-on-primary);
-  font-size: 12px;
-  font-weight: 700;
-  text-anchor: middle;
-  pointer-events: none;
-}
-
-.city:hover .city__dot,
+.city--hovered .city__dot,
 .city:focus-visible .city__dot {
-  r: 7;
   fill: var(--color-primary);
 }
 
 .city:focus-visible .city__hit {
   stroke: var(--color-focus);
-  stroke-width: 3;
+  stroke-width: 3px;
+  vector-effect: non-scaling-stroke;
+}
+
+.city__name {
+  fill: var(--color-text);
+  font-weight: 500;
+  /* A halo keeps names readable over coastlines, borders and the route. */
+  paint-order: stroke;
+  stroke: var(--map-land);
+  stroke-linejoin: round;
+  pointer-events: none;
 }
 
 .city--origin .city__name,
-.city--destination .city__name {
+.city--destination .city__name,
+.city--hovered .city__name {
   font-weight: 700;
 }
 
-.city--faded .city__dot {
-  opacity: 0.45;
+.city--dimmed {
+  opacity: 0.55;
 }
+
+.city--dimmed.city--hovered {
+  opacity: 1;
+}
+
+.city__ring {
+  fill: var(--color-primary);
+  stroke: var(--map-land);
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+}
+
+.city__letter {
+  fill: var(--color-on-primary);
+  font-weight: 800;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+/* Route */
 
 .route {
   fill: none;
   stroke: var(--color-primary);
-  stroke-width: 3;
+  stroke-width: 3px;
   stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
   stroke-dasharray: 1;
   animation: draw-route 0.7s ease-out both;
+}
+
+.route--halo {
+  stroke: var(--map-land);
+  stroke-width: 7px;
+  stroke-dasharray: none;
+  animation: none;
+  opacity: 0.8;
 }
 
 @keyframes draw-route {
@@ -105,8 +148,112 @@
   }
 }
 
+.traveller {
+  fill: var(--color-surface);
+  stroke: var(--color-primary);
+  stroke-width: 2.5px;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Controls */
+
+.zoom {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+
+  button {
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 0;
+    background: transparent;
+    color: var(--color-text);
+    font: inherit;
+    font-size: 1.25rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  button + button {
+    border-top: 1px solid var(--color-border);
+  }
+
+  button:hover:not(:disabled) {
+    background: var(--color-surface-muted);
+  }
+
+  button:disabled {
+    color: var(--color-text-muted);
+    opacity: 0.45;
+    cursor: default;
+  }
+}
+
+.hint {
+  position: absolute;
+  left: var(--space-3);
+  bottom: var(--space-2);
+  margin: 0;
+  padding: 0.1rem var(--space-2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+
+/* Hover / focus card */
+
+.card-tip {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 9rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 18%);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  transform: translate(-50%, calc(-100% - 16px));
+  pointer-events: none;
+}
+
+.card-tip--below {
+  transform: translate(-50%, 16px);
+}
+
+.card-tip strong {
+  font-size: 0.9375rem;
+}
+
+.card-tip__country,
+.card-tip__hint {
+  color: var(--color-text-muted);
+}
+
+.card-tip__distance {
+  font-weight: 600;
+}
+
 .status {
   margin: var(--space-2) 0 0;
   color: var(--color-text-muted);
   font-size: 0.9375rem;
+}
+
+@media (max-width: 30rem) {
+  .hint {
+    display: none;
+  }
 }

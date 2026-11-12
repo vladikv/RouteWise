@@ -62,13 +62,20 @@ src/
   `params` (e.g. comparison and advice wait for the trip), so a missing trip
   produces one error, not three. Each section shows its own loading and error state.
 - **Map and charts:** hand-drawn SVG/HTML, no library. `RouteMap` places cities
-  with `createProjection` (Mercator); it is presentational and emits the
-  selection. `ComparisonChart` shows one metric at a time with the
+  with `createProjection` (Mercator) over the land shapes in `europe-land.ts`
+  (generated from Natural Earth; regenerate, do not edit). Zoom and pan change
+  the `viewBox` (`viewport.ts`); marks and text are sized per CSS pixel via
+  `unit()`; labels are placed by `layoutLabels` (no overlaps). It is
+  presentational and emits the selection. `ComparisonChart` shows one metric at a time with the
   recommended mode as the only accent bar (`--color-primary`, others
   `--color-bar`). Neither may be the only way to get information: keep a
   text or form equivalent (dropdowns for the map, the table for the chart)
   and state selection in text and `aria-pressed`, not color alone.
   Mode icons (`ModeIcon`) are decorative and always sit next to the name.
+- **City choice:** `CityPicker` (ARIA combobox) next to every interactive map;
+  priorities with `PriorityPicker`.
+- **Explorer state** is mirrored in the URL (`from`, `to`, `date`, `travelers`,
+  `priority`; defaults left out).
 - **Query parameters** also arrive as component inputs; `/trips/new` accepts
   `from`, `to`, `date`, `travelers`, `priority` and ignores invalid values.
 - **Destructive actions:** `<app-confirm-action>` (inline two-step confirm),

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { IsActiveMatchOptions, RouterLink, RouterLinkActive } from '@angular/router';
 import { ThemeService } from '../../core/theme/theme.service';
 
 /** App header: brand, main navigation and the theme toggle. */
@@ -20,7 +20,7 @@ import { ThemeService } from '../../core/theme/theme.service';
               <a
                 routerLink="/"
                 routerLinkActive="nav__link--active"
-                [routerLinkActiveOptions]="{ exact: true }"
+                [routerLinkActiveOptions]="homeActiveOptions"
                 ariaCurrentWhenActive="page"
                 class="nav__link"
               >
@@ -138,4 +138,11 @@ import { ThemeService } from '../../core/theme/theme.service';
 export class Header {
   protected readonly theme = inject(ThemeService);
   protected readonly isDark = computed(() => this.theme.theme() === 'dark');
+  /** Home stays highlighted while the route explorer keeps its state in the query string. */
+  protected readonly homeActiveOptions: IsActiveMatchOptions = {
+    paths: 'exact',
+    queryParams: 'ignored',
+    matrixParams: 'ignored',
+    fragment: 'ignored',
+  };
 }

@@ -21,6 +21,10 @@
   --color-focus: #9ad0ff;
   --shadow-card: 0 1px 2px rgb(0 0 0 / 40%);
   --color-bar: #6b7888;
+  --map-sea: #101b26;
+  --map-land: #1f2a36;
+  --map-border: #3a4859;
+  --map-city: #a3b0c0;
 }
 
 :root {
@@ -42,6 +46,11 @@
   --shadow-card: 0 1px 2px rgb(16 24 40 / 8%);
   /* De-emphasised chart bars; the accent bar uses --color-primary. */
   --color-bar: #8a96a3;
+  /* Route map */
+  --map-sea: #dfeaf2;
+  --map-land: #fbfaf6;
+  --map-border: #c5ccd4;
+  --map-city: #556270;
 
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --radius: 10px;

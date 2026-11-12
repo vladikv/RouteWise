@@ -1,53 +1,70 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  afterNextRender,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+  viewChild,
+} from '@angular/core';
 import { City } from '../../core/api/models';
-import { MapPoint, createProjection, haversineKm, routeArc } from './projection';
+import { LAND_RINGS } from './europe-land';
+import { LabelRequest, LabelSide, PlacedLabel, layoutLabels } from './label-layout';
+import { MapPoint, Projection, createProjection, haversineKm, routeArc } from './projection';
+import {
+  MAX_ZOOM,
+  MIN_ZOOM,
+  View,
+  fitPoints,
+  interpolateView,
+  panBy,
+  zoomAt,
+  zoomOf,
+} from './viewport';
 
 export interface RouteSelection {
   originId: number | null;
   destinationId: number | null;
 }
 
-type LabelSide = 'right' | 'left' | 'top' | 'bottom';
-
 interface CityMarker {
   city: City;
   point: MapPoint;
   role: 'origin' | 'destination' | null;
-  label: { x: number; y: number; anchor: 'start' | 'end' | 'middle' };
+  label: PlacedLabel | null;
   ariaLabel: string;
+  dimmed: boolean;
 }
 
 const WIDTH = 640;
 const HEIGHT = 620;
 const PADDING = 64;
-const STATIC_WIDTH = 340;
-const STATIC_HEIGHT = 260;
-const STATIC_PADDING = 64;
+const BASE: View = { x: 0, y: 0, width: WIDTH, height: HEIGHT };
 
-/** Where a label sits when the default (right of the dot) would collide with a neighbour. */
-const LABEL_SIDES: Record<string, LabelSide> = {
-  Amsterdam: 'top',
-  Brussels: 'left',
-  Frankfurt: 'bottom',
-  Hamburg: 'top',
-  Prague: 'top',
-  Vienna: 'bottom',
-  Venice: 'bottom',
-  Milan: 'left',
-  Munich: 'top',
-  Zurich: 'left',
-  Lyon: 'left',
-  Paris: 'left',
-  London: 'left',
-  Lisbon: 'top',
-  Warsaw: 'top',
-};
+/** Sizes in CSS pixels; they stay the same on screen at every zoom and map size. */
+const LABEL_PX = 13;
+const DOT_PX = 4.5;
+/** Space kept around a route when the map zooms to it, in CSS pixels. */
+const FIT_MARGIN_PX = 70;
+const ZOOM_STEP = 1.6;
+/** A pointer that moves further than this between press and release is a drag, not a click. */
+const DRAG_THRESHOLD_PX = 4;
+const ANIMATION_MS = 380;
 
 /**
- * Map of the supported cities, placed from their coordinates. When interactive,
- * each city is a button: the first pick is the origin, the second the
- * destination, and a further pick starts a new route. Presentational; the
- * selection lives in the parent.
+ * Interactive map of the supported cities on a land outline. Pick a city for
+ * the origin, another for the destination; a further pick starts a new route.
+ * Zoom with the wheel, a pinch, the buttons or `+`/`-`/`0`; drag to move.
+ * Labels never overlap: those that do not fit appear when zooming in. Arrow
+ * keys move between cities. Presentational: the selection lives in the parent.
+ *
+ * With `interactive` false it shows one route, zoomed to fit, as an image.
  */
 @Component({
   selector: 'app-route-map',
@@ -59,105 +76,199 @@ export class RouteMap {
   readonly cities = input.required<City[]>();
   readonly originId = input<number | null>(null);
   readonly destinationId = input<number | null>(null);
-  /** False shows the route only: no buttons, one image with a text description. */
   readonly interactive = input(true);
   readonly selectionChange = output<RouteSelection>();
 
-  /**
-   * What the map frames. Interactive: all cities, so any can be picked. Read-only
-   * with a route: zoomed to the route's two cities, in a smaller drawing that
-   * stays legible in a narrow column; other cities appear only if they fall inside.
-   */
-  private readonly frame = computed(() => {
-    const cities = this.cities();
-    const ends = cities.filter(
-      (city) => city.id === this.originId() || city.id === this.destinationId(),
-    );
-    return !this.interactive() && ends.length === 2
-      ? { width: STATIC_WIDTH, height: STATIC_HEIGHT, padding: STATIC_PADDING, fit: ends }
-      : { width: WIDTH, height: HEIGHT, padding: PADDING, fit: cities };
+  private readonly svg = viewChild<ElementRef<SVGSVGElement>>('svg');
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly destroyRef = inject(DestroyRef);
+
+  protected readonly base = BASE;
+  protected readonly view = signal<View>({ ...BASE });
+  /** Rendered width of the drawing in CSS pixels; updated by a ResizeObserver. */
+  private readonly renderedWidth = signal(WIDTH);
+  protected readonly hoveredId = signal<number | null>(null);
+  protected readonly reducedMotion = prefersReducedMotion();
+
+  protected readonly viewBox = computed(() => {
+    const { x, y, width, height } = this.view();
+    return `${x} ${y} ${width} ${height}`;
   });
+  protected readonly zoom = computed(() => zoomOf(this.view(), BASE));
+  protected readonly canZoomIn = computed(() => this.zoom() < MAX_ZOOM - 0.01);
+  protected readonly canZoomOut = computed(() => this.zoom() > MIN_ZOOM + 0.01);
+  /** Drawing units per CSS pixel, so marks and text keep their on-screen size. */
+  protected readonly unit = computed(() => this.view().width / Math.max(this.renderedWidth(), 1));
 
-  protected readonly viewBox = computed(() => `0 0 ${this.frame().width} ${this.frame().height}`);
-
-  protected readonly markers = computed<CityMarker[]>(() => {
-    const frame = this.frame();
-    const zoomed = frame.fit.length !== this.cities().length;
-    const project = createProjection(frame.fit, frame.width, frame.height, frame.padding);
-    const points = new Map(this.cities().map((city) => [city.id, project(city)]));
-    const originY = points.get(this.originId() ?? -1)?.y ?? 0;
-    const destinationY = points.get(this.destinationId() ?? -1)?.y ?? 0;
-
-    return this.cities()
-      .map((city) => {
-        const point = points.get(city.id) as MapPoint;
-        const role: CityMarker['role'] =
-          city.id === this.originId()
-            ? 'origin'
-            : city.id === this.destinationId()
-              ? 'destination'
-              : null;
-        // Zoomed in, the two names go above the northern and below the southern city,
-        // clear of the route between them.
-        const northern = role === 'origin' ? originY <= destinationY : destinationY < originY;
-        const side: LabelSide =
-          zoomed && role ? (northern ? 'top' : 'bottom') : (LABEL_SIDES[city.name] ?? 'right');
-        return {
-          city,
-          point,
-          role,
-          label: labelPosition(point, side),
-          ariaLabel: role ? `${city.name}, ${role}` : city.name,
-        };
-      })
-      .filter(
-        (marker) =>
-          marker.point.x >= 0 &&
-          marker.point.x <= frame.width &&
-          marker.point.y >= 0 &&
-          marker.point.y <= frame.height,
-      );
-  });
-
-  protected readonly origin = computed(() => this.markers().find((m) => m.role === 'origin'));
-  protected readonly destination = computed(() =>
-    this.markers().find((m) => m.role === 'destination'),
+  private readonly projection = computed<Projection>(() =>
+    createProjection(this.cities(), WIDTH, HEIGHT, PADDING),
   );
 
+  /** All land shapes as one SVG path in drawing coordinates. */
+  protected readonly land = computed(() => landPath(this.projection()));
+
+  private readonly points = computed(() => {
+    const project = this.projection();
+    return new Map(this.cities().map((city) => [city.id, project(city)]));
+  });
+
   protected readonly route = computed(() => {
-    const origin = this.origin();
-    const destination = this.destination();
+    const origin = this.cityById(this.originId());
+    const destination = this.cityById(this.destinationId());
     if (!origin || !destination) {
       return null;
     }
+    const from = this.points().get(origin.id) as MapPoint;
+    const to = this.points().get(destination.id) as MapPoint;
     return {
-      path: routeArc(origin.point, destination.point),
-      distanceKm: haversineKm(origin.city, destination.city),
+      from,
+      to,
+      path: routeArc(from, to),
+      distanceKm: haversineKm(origin, destination),
+    };
+  });
+
+  protected readonly markers = computed<CityMarker[]>(() => {
+    const unit = this.unit();
+    const view = this.view();
+    const points = this.points();
+    const route = this.route();
+    const originId = this.originId();
+    const destinationId = this.destinationId();
+
+    const inView = (p: MapPoint) =>
+      p.x >= view.x && p.x <= view.x + view.width && p.y >= view.y && p.y <= view.y + view.height;
+    const requests: LabelRequest[] = this.cities()
+      .filter((city) => inView(points.get(city.id) as MapPoint))
+      .map((city) => {
+        const point = points.get(city.id) as MapPoint;
+        const pinned = city.id === originId || city.id === destinationId;
+        return {
+          id: city.id,
+          x: point.x,
+          y: point.y,
+          text: city.name,
+          pinned,
+          preferred: pinned && route ? routeLabelSides(point, route.from, route.to) : undefined,
+        };
+      });
+    const interactive = this.interactive();
+    const edge = 4 * unit;
+    const right = view.x + view.width;
+    const bottom = view.y + view.height;
+    const labels = layoutLabels(requests, {
+      fontSize: LABEL_PX * unit,
+      dotRadius: (DOT_PX + 2) * unit,
+      bounds: {
+        left: view.x + edge,
+        top: view.y + edge,
+        right: right - edge,
+        bottom: bottom - edge,
+      },
+      // The zoom buttons (top right) and the hint (bottom left) sit over the drawing.
+      reserved: interactive
+        ? [
+            { left: right - 60 * unit, top: view.y, right, bottom: view.y + 140 * unit },
+            { left: view.x, top: bottom - 30 * unit, right: view.x + 240 * unit, bottom },
+          ]
+        : [],
+    });
+
+    return this.cities().map((city) => {
+      const role =
+        city.id === originId ? 'origin' : city.id === destinationId ? 'destination' : null;
+      return {
+        city,
+        point: points.get(city.id) as MapPoint,
+        role,
+        label: labels.get(city.id) ?? null,
+        ariaLabel: role ? `${city.name}, ${role}` : city.name,
+        dimmed: route !== null && role === null,
+      };
+    });
+  });
+
+  /** Details for the city under the pointer or keyboard focus, positioned over the map. */
+  protected readonly card = computed(() => {
+    const city = this.cityById(this.hoveredId());
+    if (!city || !this.interactive()) {
+      return null;
+    }
+    const point = this.points().get(city.id) as MapPoint;
+    const view = this.view();
+    const origin = this.cityById(this.originId());
+    const left = ((point.x - view.x) / view.width) * 100;
+    const top = ((point.y - view.y) / view.height) * 100;
+    let hint: string;
+    if (city.id === this.originId()) {
+      hint = this.destinationId() === null ? 'Origin · select again to clear' : 'Origin';
+    } else if (city.id === this.destinationId()) {
+      hint = 'Destination';
+    } else if (this.originId() === null || this.destinationId() !== null) {
+      hint = 'Select to start here';
+    } else {
+      hint = 'Select as destination';
+    }
+    return {
+      city,
+      hint,
+      distanceKm: origin && origin.id !== city.id ? haversineKm(origin, city) : null,
+      left: Math.min(Math.max(left, 12), 88),
+      top,
+      below: top < 22,
     };
   });
 
   /** Text equivalent of what the map shows; announced when the selection changes. */
   protected readonly description = computed(() => {
-    const origin = this.origin();
-    const destination = this.destination();
+    const origin = this.cityById(this.originId());
+    const destination = this.cityById(this.destinationId());
     const route = this.route();
     if (origin && destination && route) {
-      return `Route from ${origin.city.name} to ${destination.city.name}, ${Math.round(route.distanceKm)} km straight-line.`;
+      return `Route from ${origin.name} to ${destination.name}, ${Math.round(route.distanceKm)} km straight-line.`;
     }
     if (origin) {
-      return `Origin: ${origin.city.name}. Choose a destination.`;
+      return `Origin: ${origin.name}. Choose a destination.`;
     }
     return 'Choose an origin city.';
   });
 
+  private animationFrame = 0;
+  private readonly pointers = new Map<number, { x: number; y: number }>();
+  private pressStart: { x: number; y: number } | null = null;
+  private dragged = false;
+  private pinchDistance = 0;
+
+  constructor() {
+    afterNextRender(() => this.observeSize());
+    this.destroyRef.onDestroy(() => this.stopAnimation());
+
+    // Zoom to a newly chosen route; back out when it is cleared.
+    effect(() => {
+      const route = this.route();
+      const interactive = this.interactive();
+      untracked(() => {
+        const unit = this.unit() * zoomOf(this.view(), BASE); // units per px at zoom 1
+        if (route) {
+          const target = fitPoints([route.from, route.to], BASE, FIT_MARGIN_PX * unit);
+          this.moveTo(target, interactive);
+        } else if (this.cityById(this.originId()) === undefined) {
+          this.moveTo({ ...BASE }, interactive);
+        }
+      });
+    });
+  }
+
+  // --- Selection ---------------------------------------------------------------
+
   protected pick(city: City): void {
-    if (!this.interactive()) {
+    if (!this.interactive() || this.consumeDrag()) {
       return;
     }
     const originId = this.originId();
     const destinationId = this.destinationId();
     if (originId === null) {
-      // Keeps a destination that was chosen first (e.g. in the form's dropdown).
+      // Keeps a destination that was chosen first (e.g. in a picker).
       this.selectionChange.emit({
         originId: city.id,
         destinationId: destinationId === city.id ? null : destinationId,
@@ -173,21 +284,303 @@ export class RouteMap {
     }
   }
 
-  protected pickWithSpace(event: Event, city: City): void {
+  protected pickWithKey(event: Event, city: City): void {
     event.preventDefault(); // Space would otherwise scroll the page
     this.pick(city);
   }
+
+  // --- Zoom buttons and keys ------------------------------------------------------
+
+  protected zoomIn(): void {
+    this.moveTo(zoomAt(this.view(), BASE, ZOOM_STEP, this.center()), true);
+  }
+
+  protected zoomOut(): void {
+    this.moveTo(zoomAt(this.view(), BASE, 1 / ZOOM_STEP, this.center()), true);
+  }
+
+  /** Shows the whole route, or the whole map when there is none. */
+  protected fit(): void {
+    const route = this.route();
+    const unitAtBase = WIDTH / Math.max(this.renderedWidth(), 1);
+    this.moveTo(
+      route ? fitPoints([route.from, route.to], BASE, FIT_MARGIN_PX * unitAtBase) : { ...BASE },
+      true,
+    );
+  }
+
+  protected onMapKey(event: KeyboardEvent): void {
+    if (event.key === '+' || event.key === '=') {
+      this.zoomIn();
+    } else if (event.key === '-' || event.key === '_') {
+      this.zoomOut();
+    } else if (event.key === '0') {
+      this.fit();
+    } else {
+      return;
+    }
+    event.preventDefault();
+  }
+
+  /** Arrow keys move focus to the nearest city in that direction. */
+  protected onCityArrow(event: KeyboardEvent, city: City): void {
+    const direction = ARROWS[event.key];
+    if (!direction) {
+      return;
+    }
+    event.preventDefault();
+    const next = nearestInDirection(city, direction, this.cities(), this.points());
+    if (next) {
+      this.focusCity(next.id);
+    }
+  }
+
+  // --- Pointer: wheel, drag, pinch -----------------------------------------------
+
+  protected onWheel(event: WheelEvent): void {
+    if (!this.interactive()) {
+      return;
+    }
+    event.preventDefault(); // zoom the map instead of scrolling the page
+    const factor = Math.exp(-event.deltaY * 0.0018);
+    this.stopAnimation();
+    this.view.set(zoomAt(this.view(), BASE, factor, this.toDrawing(event)));
+  }
+
+  protected onPointerDown(event: PointerEvent): void {
+    if (!this.interactive() || event.button !== 0) {
+      return;
+    }
+    this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (this.pointers.size === 1) {
+      this.pressStart = { x: event.clientX, y: event.clientY };
+      this.dragged = false;
+    } else if (this.pointers.size === 2) {
+      this.pinchDistance = this.pointerSpread();
+    }
+  }
+
+  protected onPointerMove(event: PointerEvent): void {
+    const previous = this.pointers.get(event.pointerId);
+    if (!previous) {
+      return;
+    }
+    this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (this.pointers.size === 2) {
+      const spread = this.pointerSpread();
+      if (this.pinchDistance > 0 && spread > 0) {
+        const [a, b] = [...this.pointers.values()];
+        const middle = this.toDrawing({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 });
+        this.view.set(zoomAt(this.view(), BASE, spread / this.pinchDistance, middle));
+      }
+      this.pinchDistance = spread;
+      this.dragged = true;
+      return;
+    }
+
+    const start = this.pressStart;
+    if (start && !this.dragged) {
+      const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+      if (moved < DRAG_THRESHOLD_PX) {
+        return;
+      }
+      this.dragged = true;
+      // Captured only once it is a drag, so a plain click still reaches the city.
+      (event.currentTarget as Element).setPointerCapture?.(event.pointerId);
+    }
+    this.stopAnimation();
+    const unit = this.unit();
+    this.view.set(
+      panBy(
+        this.view(),
+        BASE,
+        -(event.clientX - previous.x) * unit,
+        -(event.clientY - previous.y) * unit,
+      ),
+    );
+  }
+
+  protected onPointerUp(event: PointerEvent): void {
+    this.pointers.delete(event.pointerId);
+    if (this.pointers.size < 2) {
+      this.pinchDistance = 0;
+    }
+    if (this.pointers.size === 0) {
+      this.pressStart = null;
+    }
+  }
+
+  // --- Helpers --------------------------------------------------------------------
+
+  private cityById(id: number | null): City | undefined {
+    return id === null ? undefined : this.cities().find((city) => city.id === id);
+  }
+
+  /** True once after a drag, so the click that ends a drag does not select a city. */
+  private consumeDrag(): boolean {
+    const wasDrag = this.dragged;
+    this.dragged = false;
+    return wasDrag;
+  }
+
+  private center(): MapPoint {
+    const view = this.view();
+    return { x: view.x + view.width / 2, y: view.y + view.height / 2 };
+  }
+
+  private toDrawing(event: { clientX: number; clientY: number }): MapPoint {
+    const rect = this.svg()?.nativeElement.getBoundingClientRect();
+    const view = this.view();
+    if (!rect || rect.width === 0 || rect.height === 0) {
+      return this.center();
+    }
+    return {
+      x: view.x + ((event.clientX - rect.left) / rect.width) * view.width,
+      y: view.y + ((event.clientY - rect.top) / rect.height) * view.height,
+    };
+  }
+
+  private pointerSpread(): number {
+    const [a, b] = [...this.pointers.values()];
+    return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+  }
+
+  private focusCity(id: number): void {
+    const element = this.host.nativeElement.querySelector<SVGGElement>(`g.city[data-id="${id}"]`);
+    element?.focus();
+    this.hoveredId.set(id);
+    const point = this.points().get(id);
+    const view = this.view();
+    if (
+      point &&
+      (point.x < view.x ||
+        point.x > view.x + view.width ||
+        point.y < view.y ||
+        point.y > view.y + view.height)
+    ) {
+      this.moveTo(
+        panBy(
+          view,
+          BASE,
+          point.x - (view.x + view.width / 2),
+          point.y - (view.y + view.height / 2),
+        ),
+        true,
+      );
+    }
+  }
+
+  private moveTo(target: View, animate: boolean): void {
+    this.stopAnimation();
+    if (!animate || this.reducedMotion || typeof requestAnimationFrame === 'undefined') {
+      this.view.set(target);
+      return;
+    }
+    const from = this.view();
+    const started = performance.now();
+    const step = (now: number) => {
+      const t = Math.min(1, (now - started) / ANIMATION_MS);
+      const eased = 1 - Math.pow(1 - t, 3);
+      this.view.set(interpolateView(from, target, eased));
+      if (t < 1) {
+        this.animationFrame = requestAnimationFrame(step);
+      }
+    };
+    this.animationFrame = requestAnimationFrame(step);
+  }
+
+  private stopAnimation(): void {
+    if (this.animationFrame) {
+      cancelAnimationFrame(this.animationFrame);
+      this.animationFrame = 0;
+    }
+  }
+
+  private observeSize(): void {
+    const element = this.svg()?.nativeElement;
+    if (!element) {
+      return;
+    }
+    const update = () => {
+      const width = element.getBoundingClientRect().width;
+      if (width > 0) {
+        this.renderedWidth.set(width);
+      }
+    };
+    update();
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    this.destroyRef.onDestroy(() => observer.disconnect());
+  }
 }
 
-function labelPosition(point: MapPoint, side: LabelSide): CityMarker['label'] {
-  switch (side) {
-    case 'left':
-      return { x: point.x - 12, y: point.y + 4, anchor: 'end' };
-    case 'top':
-      return { x: point.x, y: point.y - 13, anchor: 'middle' };
-    case 'bottom':
-      return { x: point.x, y: point.y + 22, anchor: 'middle' };
-    default:
-      return { x: point.x + 12, y: point.y + 4, anchor: 'start' };
+const ARROWS: Record<string, MapPoint> = {
+  ArrowRight: { x: 1, y: 0 },
+  ArrowLeft: { x: -1, y: 0 },
+  ArrowUp: { x: 0, y: -1 },
+  ArrowDown: { x: 0, y: 1 },
+};
+
+/** Nearest city whose direction is within 60° of `direction`, preferring straighter lines. */
+export function nearestInDirection(
+  from: City,
+  direction: MapPoint,
+  cities: City[],
+  points: Map<number, MapPoint>,
+): City | null {
+  const origin = points.get(from.id);
+  if (!origin) {
+    return null;
   }
+  let best: { city: City; score: number } | null = null;
+  for (const city of cities) {
+    const point = points.get(city.id);
+    if (city.id === from.id || !point) {
+      continue;
+    }
+    const dx = point.x - origin.x;
+    const dy = point.y - origin.y;
+    const distance = Math.hypot(dx, dy);
+    const cosine = (dx * direction.x + dy * direction.y) / distance;
+    if (cosine < 0.5) {
+      continue; // more than 60° off
+    }
+    const score = distance * (2 - cosine);
+    if (!best || score < best.score) {
+      best = { city, score };
+    }
+  }
+  return best?.city ?? null;
+}
+
+/** Keeps the two route labels on the outer side of each end, away from the line. */
+function routeLabelSides(point: MapPoint, from: MapPoint, to: MapPoint): LabelSide[] {
+  const other = point === from ? to : from;
+  const dx = other.x - point.x;
+  const dy = other.y - point.y;
+  if (Math.abs(dy) >= Math.abs(dx)) {
+    return dy > 0 ? ['top', 'left', 'right'] : ['bottom', 'right', 'left'];
+  }
+  return dx > 0 ? ['left', 'top', 'bottom'] : ['right', 'top', 'bottom'];
+}
+
+function landPath(project: Projection): string {
+  const parts: string[] = [];
+  for (const ring of LAND_RINGS) {
+    let segment = '';
+    for (let i = 0; i < ring.length; i += 2) {
+      const { x, y } = project({ longitude: ring[i], latitude: ring[i + 1] });
+      segment += `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
+    }
+    parts.push(segment + 'Z');
+  }
+  return parts.join('');
+}
+
+function prefersReducedMotion(): boolean {
+  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 }

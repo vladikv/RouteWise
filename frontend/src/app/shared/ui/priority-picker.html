@@ -1,0 +1,45 @@
+<fieldset class="priority">
+  <legend>What matters most?</legend>
+  <div class="priority__options">
+    @for (option of priorities; track option) {
+      <label class="priority__option">
+        <input
+          type="radio"
+          [name]="name()"
+          [value]="option"
+          [checked]="value() === option"
+          (change)="valueChange.emit(option)"
+        />
+        <span class="priority__card">
+          <span class="priority__icon" aria-hidden="true">
+            @switch (option) {
+              @case ('FASTEST') {
+                <svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z" /></svg>
+              }
+              @case ('CHEAPEST') {
+                <svg viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M15.5 8.5A4 4 0 1 0 15.5 15.5M7 10.5h6M7 13.5h6" />
+                </svg>
+              }
+              @case ('GREENEST') {
+                <svg viewBox="0 0 24 24">
+                  <path d="M5 19c0-8 5-13 15-14-1 10-6 15-14 15M5 19l8-8" />
+                </svg>
+              }
+              @default {
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 4v16M5 8h14M5 8l-2.5 6h5zM19 8l-2.5 6h5zM8 20h8" />
+                </svg>
+              }
+            }
+          </span>
+          <span class="priority__text">
+            <span class="priority__name">{{ labels[option] }}</span>
+            <span class="priority__description">{{ descriptions[option] }}</span>
+          </span>
+        </span>
+      </label>
+    }
+  </div>
+</fieldset>
