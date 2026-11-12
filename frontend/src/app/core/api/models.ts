@@ -128,3 +128,20 @@ export interface TripDraft {
   source: AdvisorSource;
   warnings: string[];
 }
+
+/** The logged-in account. */
+export interface User {
+  id: number;
+  email: string;
+  displayName: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+/** Password 8–72 characters (BCrypt's limit), display name up to 50. */
+export interface RegisterRequest extends LoginRequest {
+  displayName: string;
+}
