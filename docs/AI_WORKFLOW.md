@@ -281,3 +281,41 @@ corrected manually, and why.
 **Why**
 - Interactive UI has to be judged while it runs: every correction above came
   from using the page, and none would have failed a unit test first.
+
+## `feat/map-filters` (2026-11-12)
+
+**Delegated to AI**
+- Planned in plan mode after the human asked to make the map and filters
+  "more readable and interactive" and to add accounts; accounts are the
+  separate `feat/auth` milestone.
+- Map: Natural Earth land and borders (processed by a script, public domain),
+  zoom and pan (wheel, pinch, drag, buttons, keys), labels placed without
+  overlaps, a hover/focus card with the distance from the origin, arrow-key
+  movement between cities, and a travelling dot on the route.
+- Filters: searchable From/To pickers with a swap button, priority cards with
+  icons and meanings, quick date picks with a forecast note, results that
+  stay visible while updating, and the whole state in the URL.
+- 34 new tests (141 in total). Checked in a real browser: labels never
+  overlap at any zoom (measured), pickers, Back button, shared links, phone
+  width, dark theme.
+
+**Corrected manually / human decisions**
+- The human decided the auth questions up front (private trips, in-memory
+  accounts, Spring Security approved).
+- Found by using the page, not by tests: labels cut off at the map edge and
+  under the zoom buttons, a few near-touching labels, the Home tab no longer
+  highlighted once the URL had parameters, and cramped priority cards on
+  phones.
+- A test found a real bug: a failed comparison made the results logic throw
+  (reading a resource value in its error state).
+- Lint caught an unfocusable element with key handlers and two unused
+  constants. For the city list options, the two "click needs a key handler /
+  must be focusable" rules are suppressed with an explanation: keys are
+  handled on the input, as the ARIA combobox pattern requires.
+- Tooling slips: two file writes were rejected because the formatter had
+  changed the files, and a Python string mangled a regex and an apostrophe in
+  test code. Both were caught by the build and tests.
+
+**Why**
+- "Readable" was measured, not judged: the browser script counts overlapping
+  label boxes at each zoom level.

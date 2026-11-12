@@ -59,6 +59,7 @@ Distance = haversine between cities × road/rail factor.
 - [x] `feat/frontend-trips`: trip list, form, details, delete
 - [x] `feat/frontend-comparison`: comparison view, advice panel, free-text input
 - [x] `feat/ui-experience`: interactive route map, instant comparison, comparison chart
+- [x] `feat/map-filters`: land outline, zoom and pan, collision-free labels, city pickers, URL state
 - [ ] `docs/readme-demo`: README, screenshots, demo recording
 
 ## Decisions log
@@ -111,3 +112,8 @@ Distance = haversine between cities × road/rail factor.
 | 2026-11-12 | The takeaway line is computed from the comparison only (CO₂ and money saved against the highest-emitting alternative, or time gained) | A concrete fact, never an invented equivalence |
 | 2026-11-12 | A new trip's title follows the chosen cities until the user types their own | Prefilled titles no longer go stale when a city is changed |
 | 2026-11-12 | On narrow screens the interactive map keeps its size and scrolls sideways | City names stay readable instead of shrinking to about 7 px |
+| 2026-11-12 | Map land and borders from Natural Earth 1:50m (public domain), clipped and simplified by a script into `europe-land.ts` (35 kB, lazy chunk) | Real geography without a map library or tile service; regenerate rather than hand-edit |
+| 2026-11-12 | Map zoom/pan by changing the SVG viewBox (1×–6×); marks and text sized per CSS pixel so they stay readable at any zoom and screen width | Replaces the sideways-scrolling map on phones; one drawing for all sizes |
+| 2026-11-12 | City labels placed by a collision check (no overlaps); a label that does not fit is hidden until zoomed in, the city stays a labelled button | Readable at every zoom without a hand-maintained placement table |
+| 2026-11-12 | Explorer state (route, date, travelers, priority) lives in the URL; a new route adds a history entry, other changes replace it | Shareable links and a working Back button without extra history noise |
+| 2026-11-12 | Results stay visible (dimmed) while a new comparison loads | Changing a setting no longer makes the page jump |
