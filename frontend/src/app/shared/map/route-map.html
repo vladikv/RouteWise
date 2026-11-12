@@ -4,6 +4,8 @@
   <svg
     #svg
     class="map"
+    [class.map--wide]="isWideView()"
+    [style.aspect-ratio]="aspectRatio()"
     tabindex="-1"
     [attr.viewBox]="viewBox()"
     [attr.role]="interactive() ? 'group' : 'img'"
@@ -19,12 +21,13 @@
     (pointercancel)="onPointerUp($event)"
     (keydown)="onMapKey($event)"
   >
+    @let whole = base();
     <rect
       class="sea"
-      [attr.x]="base.x"
-      [attr.y]="base.y"
-      [attr.width]="base.width"
-      [attr.height]="base.height"
+      [attr.x]="whole.x"
+      [attr.y]="whole.y"
+      [attr.width]="whole.width"
+      [attr.height]="whole.height"
     />
     <path class="land" [attr.d]="land()" />
 

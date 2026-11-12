@@ -3,48 +3,49 @@
 } @else if (cities.error(); as error) {
   <app-error-message [error]="error" (retry)="cities.reload()" />
 } @else if (cities.value(); as cityList) {
-  <div class="route-bar">
-    <app-city-picker
-      label="From"
-      pin="A"
-      placeholder="Where from?"
+  <div class="explorer__map">
+    <app-route-map
       [cities]="cityList"
-      [value]="originId()"
-      [excludeId]="destinationId()"
-      (valueChange)="setOrigin($event)"
-    />
-    <button
-      type="button"
-      class="swap"
-      aria-label="Swap origin and destination"
-      title="Swap origin and destination"
-      [disabled]="originId() === null && destinationId() === null"
-      (click)="swap()"
-    >
-      ⇄
-    </button>
-    <app-city-picker
-      label="To"
-      pin="B"
-      placeholder="Where to?"
-      [cities]="cityList"
-      [value]="destinationId()"
-      [excludeId]="originId()"
-      (valueChange)="setDestination($event)"
+      [originId]="originId()"
+      [destinationId]="destinationId()"
+      [wide]="true"
+      (selectionChange)="select($event)"
     />
   </div>
 
   <div class="explorer">
-    <div class="explorer__map">
-      <app-route-map
-        [cities]="cityList"
-        [originId]="originId()"
-        [destinationId]="destinationId()"
-        (selectionChange)="select($event)"
-      />
-    </div>
+    <div class="explorer__settings">
+      <div class="route-bar">
+        <app-city-picker
+          label="From"
+          pin="A"
+          placeholder="Where from?"
+          [cities]="cityList"
+          [value]="originId()"
+          [excludeId]="destinationId()"
+          (valueChange)="setOrigin($event)"
+        />
+        <button
+          type="button"
+          class="swap"
+          aria-label="Swap origin and destination"
+          title="Swap origin and destination"
+          [disabled]="originId() === null && destinationId() === null"
+          (click)="swap()"
+        >
+          ⇄
+        </button>
+        <app-city-picker
+          label="To"
+          pin="B"
+          placeholder="Where to?"
+          [cities]="cityList"
+          [value]="destinationId()"
+          [excludeId]="originId()"
+          (valueChange)="setDestination($event)"
+        />
+      </div>
 
-    <div class="explorer__panel">
       <app-priority-picker
         class="settings"
         name="explorer-priority"
@@ -115,7 +116,9 @@
           </div>
         </div>
       </div>
+    </div>
 
+    <div class="explorer__results">
       <div
         class="results"
         [class.results--refreshing]="refreshing()"
@@ -129,7 +132,7 @@
         @if (!request()) {
           <div class="placeholder">
             <p class="placeholder__title">Where are you going?</p>
-            <p>Choose two cities on the map or in the fields above.</p>
+            <p>Choose two cities on the map or with the From and To fields.</p>
           </div>
         } @else if (comparison.error(); as error) {
           <app-error-message [error]="error" (retry)="comparison.reload()" />

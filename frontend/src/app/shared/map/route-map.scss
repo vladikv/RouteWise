@@ -14,10 +14,15 @@
   display: block;
   width: 100%;
   height: auto;
-  aspect-ratio: 640 / 620;
+  aspect-ratio: 640 / 620; /* overridden inline by the current whole-map view */
   max-height: 36rem;
   outline: none;
   user-select: none;
+}
+
+/* Landscape view: its height follows the width, so no cap (a cap would letterbox it). */
+.map--wide {
+  max-height: none;
 }
 
 .frame--interactive .map {

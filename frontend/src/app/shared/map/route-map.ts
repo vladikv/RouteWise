@@ -46,6 +46,11 @@ const WIDTH = 640;
 const HEIGHT = 620;
 const PADDING = 64;
 const BASE: View = { x: 0, y: 0, width: WIDTH, height: HEIGHT };
+/** Longitudes covered by the land outline (see europe-land.ts); a wide map shows them all. */
+const LAND_WEST = -18;
+const LAND_EAST = 30;
+/** A `wide` map switches to the wide view from this rendered width on (CSS pixels). */
+const WIDE_MIN_PX = 720;
 
 /** Sizes in CSS pixels; they stay the same on screen at every zoom and map size. */
 const LABEL_PX = 13;
@@ -65,6 +70,9 @@ const ANIMATION_MS = 380;
  * keys move between cities. Presentational: the selection lives in the parent.
  *
  * With `interactive` false it shows one route, zoomed to fit, as an image.
+ * With `wide`, a map at least 720 px wide shows the whole land outline in a
+ * landscape view instead of the near-square one (same projection, more to the
+ * west and east), so it can span a full-width layout without growing too tall.
  */
 @Component({
   selector: 'app-route-map',
@@ -77,13 +85,13 @@ export class RouteMap {
   readonly originId = input<number | null>(null);
   readonly destinationId = input<number | null>(null);
   readonly interactive = input(true);
+  readonly wide = input(false);
   readonly selectionChange = output<RouteSelection>();
 
   private readonly svg = viewChild<ElementRef<SVGSVGElement>>('svg');
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly destroyRef = inject(DestroyRef);
 
-  protected readonly base = BASE;
   protected readonly view = signal<View>({ ...BASE });
   /** Rendered width of the drawing in CSS pixels; updated by a ResizeObserver. */
   private readonly renderedWidth = signal(WIDTH);
@@ -94,7 +102,7 @@ export class RouteMap {
     const { x, y, width, height } = this.view();
     return `${x} ${y} ${width} ${height}`;
   });
-  protected readonly zoom = computed(() => zoomOf(this.view(), BASE));
+  protected readonly zoom = computed(() => zoomOf(this.view(), this.base()));
   protected readonly canZoomIn = computed(() => this.zoom() < MAX_ZOOM - 0.01);
   protected readonly canZoomOut = computed(() => this.zoom() > MIN_ZOOM + 0.01);
   /** Drawing units per CSS pixel, so marks and text keep their on-screen size. */
@@ -103,6 +111,25 @@ export class RouteMap {
   private readonly projection = computed<Projection>(() =>
     createProjection(this.cities(), WIDTH, HEIGHT, PADDING),
   );
+
+  /** The whole-map view (zoom 1): near-square, or landscape for a wide map. */
+  protected readonly base = computed<View>(() => {
+    if (!this.wide() || this.renderedWidth() < WIDE_MIN_PX) {
+      return BASE;
+    }
+    const project = this.projection();
+    const west = project({ longitude: LAND_WEST, latitude: 50 }).x;
+    const east = project({ longitude: LAND_EAST, latitude: 50 }).x;
+    return {
+      x: Math.min(west, 0),
+      y: 0,
+      width: Math.max(east, WIDTH) - Math.min(west, 0),
+      height: HEIGHT,
+    };
+  });
+  protected readonly isWideView = computed(() => this.base() !== BASE);
+  protected readonly aspectRatio = computed(() => `${this.base().width} / ${this.base().height}`);
+  private lastBase: View | null = null;
 
   /** All land shapes as one SVG path in drawing coordinates. */
   protected readonly land = computed(() => landPath(this.projection()));
@@ -243,17 +270,21 @@ export class RouteMap {
     afterNextRender(() => this.observeSize());
     this.destroyRef.onDestroy(() => this.stopAnimation());
 
-    // Zoom to a newly chosen route; back out when it is cleared.
+    // Zoom to a newly chosen route; back out when it is cleared. A change of the
+    // whole-map view (resize across the wide threshold) jumps without animation.
     effect(() => {
       const route = this.route();
       const interactive = this.interactive();
+      const base = this.base();
       untracked(() => {
-        const unit = this.unit() * zoomOf(this.view(), BASE); // units per px at zoom 1
+        const baseChanged = base !== this.lastBase;
+        this.lastBase = base;
+        const animate = interactive && !baseChanged;
+        const unitAtBase = base.width / Math.max(this.renderedWidth(), 1);
         if (route) {
-          const target = fitPoints([route.from, route.to], BASE, FIT_MARGIN_PX * unit);
-          this.moveTo(target, interactive);
-        } else if (this.cityById(this.originId()) === undefined) {
-          this.moveTo({ ...BASE }, interactive);
+          this.moveTo(fitPoints([route.from, route.to], base, FIT_MARGIN_PX * unitAtBase), animate);
+        } else if (baseChanged || this.cityById(this.originId()) === undefined) {
+          this.moveTo({ ...base }, animate);
         }
       });
     });
@@ -292,19 +323,20 @@ export class RouteMap {
   // --- Zoom buttons and keys ------------------------------------------------------
 
   protected zoomIn(): void {
-    this.moveTo(zoomAt(this.view(), BASE, ZOOM_STEP, this.center()), true);
+    this.moveTo(zoomAt(this.view(), this.base(), ZOOM_STEP, this.center()), true);
   }
 
   protected zoomOut(): void {
-    this.moveTo(zoomAt(this.view(), BASE, 1 / ZOOM_STEP, this.center()), true);
+    this.moveTo(zoomAt(this.view(), this.base(), 1 / ZOOM_STEP, this.center()), true);
   }
 
   /** Shows the whole route, or the whole map when there is none. */
   protected fit(): void {
     const route = this.route();
-    const unitAtBase = WIDTH / Math.max(this.renderedWidth(), 1);
+    const base = this.base();
+    const unitAtBase = base.width / Math.max(this.renderedWidth(), 1);
     this.moveTo(
-      route ? fitPoints([route.from, route.to], BASE, FIT_MARGIN_PX * unitAtBase) : { ...BASE },
+      route ? fitPoints([route.from, route.to], base, FIT_MARGIN_PX * unitAtBase) : { ...base },
       true,
     );
   }
@@ -344,7 +376,7 @@ export class RouteMap {
     event.preventDefault(); // zoom the map instead of scrolling the page
     const factor = Math.exp(-event.deltaY * 0.0018);
     this.stopAnimation();
-    this.view.set(zoomAt(this.view(), BASE, factor, this.toDrawing(event)));
+    this.view.set(zoomAt(this.view(), this.base(), factor, this.toDrawing(event)));
   }
 
   protected onPointerDown(event: PointerEvent): void {
@@ -372,7 +404,7 @@ export class RouteMap {
       if (this.pinchDistance > 0 && spread > 0) {
         const [a, b] = [...this.pointers.values()];
         const middle = this.toDrawing({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 });
-        this.view.set(zoomAt(this.view(), BASE, spread / this.pinchDistance, middle));
+        this.view.set(zoomAt(this.view(), this.base(), spread / this.pinchDistance, middle));
       }
       this.pinchDistance = spread;
       this.dragged = true;
@@ -394,7 +426,7 @@ export class RouteMap {
     this.view.set(
       panBy(
         this.view(),
-        BASE,
+        this.base(),
         -(event.clientX - previous.x) * unit,
         -(event.clientY - previous.y) * unit,
       ),
@@ -462,7 +494,7 @@ export class RouteMap {
       this.moveTo(
         panBy(
           view,
-          BASE,
+          this.base(),
           point.x - (view.x + view.width / 2),
           point.y - (view.y + view.height / 2),
         ),

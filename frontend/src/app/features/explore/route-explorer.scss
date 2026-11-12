@@ -52,18 +52,30 @@
   }
 }
 
-/* Map and panel */
+/* Full-width map on top; settings (left) and results (right) below it. */
+
+.explorer__map {
+  margin-bottom: var(--space-6);
+}
 
 .explorer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--space-6);
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: var(--space-6) var(--space-8);
   align-items: start;
 }
 
 @media (max-width: 56rem) {
   .explorer {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The results stay in view while the settings beside them change. */
+@media (min-width: 56.01rem) {
+  .explorer__results {
+    position: sticky;
+    top: var(--space-4);
   }
 }
 
@@ -176,7 +188,13 @@
 .results {
   position: relative;
   padding-top: var(--space-2);
-  border-top: 1px solid var(--color-border);
+}
+
+/* Stacked under the settings (narrow screens): a divider separates the two. */
+@media (max-width: 56rem) {
+  .results {
+    border-top: 1px solid var(--color-border);
+  }
 }
 
 .results__content {
