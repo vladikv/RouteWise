@@ -28,4 +28,30 @@ describe('PillNav', () => {
     expect(links[0].getAttribute('aria-current')).toBeNull();
     expect(links[1].getAttribute('aria-current')).toBe('page');
   });
+
+  it('keeps an exact item active when the URL has query parameters', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([
+          { path: '', children: [] },
+          { path: 'trips', children: [] },
+        ]),
+      ],
+    });
+    const fixture = TestBed.createComponent(PillNav);
+    fixture.componentRef.setInput('ariaLabel', 'Primary');
+    fixture.componentRef.setInput('items', [
+      { label: 'Explore', link: '/', exact: true },
+      { label: 'Trips', link: '/trips' },
+    ]);
+    const element = fixture.nativeElement as HTMLElement;
+
+    for (const url of ['/', '/?from=3&to=23']) {
+      await TestBed.inject(Router).navigateByUrl(url);
+      await fixture.whenStable();
+      const links = element.querySelectorAll('a');
+      expect(links[0].getAttribute('aria-current')).toBe('page');
+      expect(links[1].getAttribute('aria-current')).toBeNull();
+    }
+  });
 });

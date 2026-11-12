@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { IsActiveMatchOptions, RouterLink, RouterLinkActive } from '@angular/router';
 
 export interface PillNavItem {
   label: string;
@@ -22,7 +22,7 @@ export interface PillNavItem {
               [routerLink]="item.link"
               routerLinkActive="active"
               ariaCurrentWhenActive="page"
-              [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
+              [routerLinkActiveOptions]="item.exact ? exactPath : subtree"
               >{{ item.label }}</a
             >
           </li>
@@ -72,4 +72,13 @@ export interface PillNavItem {
 export class PillNav {
   readonly items = input.required<PillNavItem[]>();
   readonly ariaLabel = input('Main');
+
+  /** Query parameters are ignored: the home page keeps the explorer's state in them. */
+  protected readonly exactPath: IsActiveMatchOptions = {
+    paths: 'exact',
+    queryParams: 'ignored',
+    matrixParams: 'ignored',
+    fragment: 'ignored',
+  };
+  protected readonly subtree: IsActiveMatchOptions = { ...this.exactPath, paths: 'subset' };
 }
