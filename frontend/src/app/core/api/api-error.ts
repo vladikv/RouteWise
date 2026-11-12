@@ -25,8 +25,9 @@ export class ApiError extends Error {
     return this.status === 404;
   }
 
+  /** Field errors to show on the form: invalid input (400) or a taken unique value (409). */
   get isValidation(): boolean {
-    return this.status === 400 && this.fieldErrors.length > 0;
+    return (this.status === 400 || this.status === 409) && this.fieldErrors.length > 0;
   }
 }
 

@@ -10,6 +10,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -38,7 +41,32 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(FieldValidationException.class)
     ProblemDetail handleFieldValidation(FieldValidationException ex) {
-        return validationProblem(ex.getErrors());
+        if (ex.getStatus() == HttpStatus.BAD_REQUEST) {
+            return validationProblem(ex.getErrors());
+        }
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(ex.getStatus(), ex.getMessage());
+        problem.setTitle(ex.getStatus().getReasonPhrase());
+        problem.setProperty(ERRORS_PROPERTY, ex.getErrors());
+        return problem;
+    }
+
+    /** Requests to protected endpoints without a login (raised by the security filter chain). */
+    @ExceptionHandler(AuthenticationException.class)
+    ProblemDetail handleAuthentication(AuthenticationException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Please log in to continue");
+        problem.setTitle(HttpStatus.UNAUTHORIZED.getReasonPhrase());
+        return problem;
+    }
+
+    /** Forbidden requests, including a missing or invalid CSRF token. */
+    @ExceptionHandler(AccessDeniedException.class)
+    ProblemDetail handleAccessDenied(AccessDeniedException ex) {
+        String detail = ex instanceof CsrfException
+                ? "The request is missing a valid CSRF token; reload the page and try again"
+                : "You do not have access to this resource";
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, detail);
+        problem.setTitle(HttpStatus.FORBIDDEN.getReasonPhrase());
+        return problem;
     }
 
     @ExceptionHandler(Exception.class)

@@ -25,6 +25,8 @@ public class CorsConfig implements WebMvcConfigurer {
                 .allowedOrigins(corsProperties.allowedOrigins().toArray(String[]::new))
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
-                .exposedHeaders(HttpHeaders.LOCATION);
+                .exposedHeaders(HttpHeaders.LOCATION)
+                // The UI sends the session and XSRF-TOKEN cookies; safe because origins are explicit.
+                .allowCredentials(true);
     }
 }

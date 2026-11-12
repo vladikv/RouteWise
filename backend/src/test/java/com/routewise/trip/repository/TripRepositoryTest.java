@@ -13,7 +13,10 @@ import com.routewise.transportmode.domain.TransportModeCode;
 import com.routewise.transportmode.repository.TransportModeRepository;
 import com.routewise.trip.domain.Trip;
 import com.routewise.trip.domain.TripPriority;
+import com.routewise.user.domain.AppUser;
+import com.routewise.user.repository.AppUserRepository;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -36,7 +39,19 @@ class TripRepositoryTest {
     private TransportModeRepository transportModeRepository;
 
     @Autowired
+    private AppUserRepository userRepository;
+
+    @Autowired
     private TestEntityManager entityManager;
+
+    private AppUser alice;
+    private AppUser bob;
+
+    @BeforeEach
+    void createUsers() {
+        alice = userRepository.save(user("alice@example.com"));
+        bob = userRepository.save(user("bob@example.com"));
+    }
 
     @Test
     void seedData_containsCitiesAndAllTransportModes() {
@@ -57,15 +72,32 @@ class TripRepositoryTest {
     }
 
     @Test
-    void findAllByOrderByDepartureDate_returnsSoonestFirstWithCitiesLoaded() {
+    void findAllByOwnerId_returnsOnlyThatOwnersTripsSoonestFirstWithCitiesLoaded() {
         tripRepository.save(trip("Paris", "Rome", LocalDate.now().plusDays(30)));
         tripRepository.save(trip("Berlin", "Vienna", LocalDate.now().plusDays(3)));
+        Trip bobsTrip = trip("Lisbon", "Madrid", LocalDate.now().plusDays(1));
+        bobsTrip.setOwnerId(bob.getId());
+        tripRepository.save(bobsTrip);
         entityManager.flush();
         entityManager.clear();
 
-        List<Trip> trips = tripRepository.findAllByOrderByDepartureDateAscIdAsc();
+        List<Trip> trips = tripRepository.findAllByOwnerIdOrderByDepartureDateAscIdAsc(alice.getId());
 
         assertThat(trips).extracting(trip -> trip.getOrigin().getName()).containsExactly("Berlin", "Paris");
+    }
+
+    @Test
+    void findWithCitiesByIdAndOwnerId_forAnotherOwner_isEmpty() {
+        Trip alicesTrip = tripRepository.saveAndFlush(trip("Berlin", "Vienna", LocalDate.now().plusDays(3)));
+
+        assertThat(tripRepository.findWithCitiesByIdAndOwnerId(alicesTrip.getId(), alice.getId())).isPresent();
+        assertThat(tripRepository.findWithCitiesByIdAndOwnerId(alicesTrip.getId(), bob.getId())).isEmpty();
+    }
+
+    @Test
+    void save_withDuplicateEmail_isRejectedByDatabase() {
+        assertThatThrownBy(() -> userRepository.saveAndFlush(user("alice@example.com")))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
@@ -89,7 +121,16 @@ class TripRepositoryTest {
         trip.setDepartureDate(departureDate);
         trip.setTravelers(2);
         trip.setPriority(TripPriority.BALANCED);
+        trip.setOwnerId(alice.getId());
         return trip;
+    }
+
+    private static AppUser user(String email) {
+        AppUser user = new AppUser();
+        user.setEmail(email);
+        user.setDisplayName(email.substring(0, email.indexOf('@')));
+        user.setPasswordHash("$2a$10$hashedPasswordForTestsOnly");
+        return user;
     }
 
     private City cityByName(String name) {

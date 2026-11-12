@@ -37,6 +37,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class TripServiceTest {
 
+    private static final long OWNER_ID = 7L;
     private static final LocalDate TODAY = LocalDate.of(2026, 11, 11);
     private static final LocalDate DEPARTURE = TODAY.plusDays(7);
     private static final Clock CLOCK = Clock.fixed(TODAY.atStartOfDay().toInstant(ZoneOffset.UTC), ZoneOffset.UTC);
@@ -63,10 +64,11 @@ class TripServiceTest {
         when(cityRepository.findById(2L)).thenReturn(Optional.of(vienna));
         when(tripRepository.saveAndFlush(any(Trip.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        TripResponse response = tripService.create(request(1L, 2L, "  Notes  "));
+        TripResponse response = tripService.create(request(1L, 2L, "  Notes  "), OWNER_ID);
 
         ArgumentCaptor<Trip> saved = ArgumentCaptor.forClass(Trip.class);
         verify(tripRepository).saveAndFlush(saved.capture());
+        assertThat(saved.getValue().getOwnerId()).isEqualTo(OWNER_ID);
         assertThat(saved.getValue().getOrigin()).isSameAs(berlin);
         assertThat(saved.getValue().getDestination()).isSameAs(vienna);
         assertThat(response.title()).isEqualTo("Weekend in Vienna");
@@ -82,7 +84,7 @@ class TripServiceTest {
         when(cityRepository.findById(2L)).thenReturn(Optional.of(vienna));
         when(tripRepository.saveAndFlush(any(Trip.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        TripResponse response = tripService.create(request(1L, 2L, "   "));
+        TripResponse response = tripService.create(request(1L, 2L, "   "), OWNER_ID);
 
         assertThat(response.notes()).isNull();
     }
@@ -93,14 +95,14 @@ class TripServiceTest {
         when(cityRepository.findById(2L)).thenReturn(Optional.of(vienna));
         when(tripRepository.saveAndFlush(any(Trip.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        TripResponse response = tripService.create(requestDeparting(TODAY));
+        TripResponse response = tripService.create(requestDeparting(TODAY), OWNER_ID);
 
         assertThat(response.departureDate()).isEqualTo(TODAY);
     }
 
     @Test
     void create_withPastDeparture_throwsFieldValidation() {
-        assertThatThrownBy(() -> tripService.create(requestDeparting(TODAY.minusDays(1))))
+        assertThatThrownBy(() -> tripService.create(requestDeparting(TODAY.minusDays(1)), OWNER_ID))
                 .isInstanceOf(FieldValidationException.class)
                 .extracting(ex -> ((FieldValidationException) ex).getErrors())
                 .isEqualTo(List.of(new ValidationError("departureDate", "must be today or later")));
@@ -109,7 +111,7 @@ class TripServiceTest {
 
     @Test
     void create_withSameOriginAndDestination_throwsFieldValidation() {
-        assertThatThrownBy(() -> tripService.create(request(1L, 1L, null)))
+        assertThatThrownBy(() -> tripService.create(request(1L, 1L, null), OWNER_ID))
                 .isInstanceOf(FieldValidationException.class)
                 .extracting(ex -> ((FieldValidationException) ex).getErrors())
                 .isEqualTo(List.of(new ValidationError("destinationCityId", "must differ from originCityId")));
@@ -120,7 +122,7 @@ class TripServiceTest {
     void create_withUnknownOrigin_throwsFieldValidation() {
         when(cityRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> tripService.create(request(99L, 2L, null)))
+        assertThatThrownBy(() -> tripService.create(request(99L, 2L, null), OWNER_ID))
                 .isInstanceOf(FieldValidationException.class)
                 .extracting(ex -> ((FieldValidationException) ex).getErrors().getFirst().field())
                 .isEqualTo("originCityId");
@@ -129,9 +131,9 @@ class TripServiceTest {
 
     @Test
     void findById_whenMissing_throwsNotFound() {
-        when(tripRepository.findWithCitiesById(42L)).thenReturn(Optional.empty());
+        when(tripRepository.findWithCitiesByIdAndOwnerId(42L, OWNER_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> tripService.findById(42L))
+        assertThatThrownBy(() -> tripService.findById(42L, OWNER_ID))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Trip with id 42 not found");
     }
@@ -140,21 +142,21 @@ class TripServiceTest {
     void findAll_mapsTripsInRepositoryOrder() {
         Trip first = trip(1L, "First");
         Trip second = trip(2L, "Second");
-        when(tripRepository.findAllByOrderByDepartureDateAscIdAsc()).thenReturn(List.of(first, second));
+        when(tripRepository.findAllByOwnerIdOrderByDepartureDateAscIdAsc(OWNER_ID)).thenReturn(List.of(first, second));
 
-        assertThat(tripService.findAll()).extracting(TripResponse::title).containsExactly("First", "Second");
+        assertThat(tripService.findAll(OWNER_ID)).extracting(TripResponse::title).containsExactly("First", "Second");
     }
 
     @Test
     void update_existingTrip_replacesFields() {
         Trip existing = trip(5L, "Old title");
-        when(tripRepository.findWithCitiesById(5L)).thenReturn(Optional.of(existing));
+        when(tripRepository.findWithCitiesByIdAndOwnerId(5L, OWNER_ID)).thenReturn(Optional.of(existing));
         when(cityRepository.findById(2L)).thenReturn(Optional.of(vienna));
         when(cityRepository.findById(1L)).thenReturn(Optional.of(berlin));
         when(tripRepository.saveAndFlush(existing)).thenReturn(existing);
 
         TripRequest swapped = new TripRequest("Back home", 2L, 1L, DEPARTURE, 3, TripPriority.CHEAPEST, null);
-        TripResponse response = tripService.update(5L, swapped);
+        TripResponse response = tripService.update(5L, swapped, OWNER_ID);
 
         assertThat(response.id()).isEqualTo(5L);
         assertThat(response.title()).isEqualTo("Back home");
@@ -168,12 +170,12 @@ class TripServiceTest {
     void update_pastTripWithUnchangedDate_isAccepted() {
         Trip pastTrip = trip(5L, "Last summer");
         pastTrip.setDepartureDate(TODAY.minusMonths(3));
-        when(tripRepository.findWithCitiesById(5L)).thenReturn(Optional.of(pastTrip));
+        when(tripRepository.findWithCitiesByIdAndOwnerId(5L, OWNER_ID)).thenReturn(Optional.of(pastTrip));
         when(cityRepository.findById(1L)).thenReturn(Optional.of(berlin));
         when(cityRepository.findById(2L)).thenReturn(Optional.of(vienna));
         when(tripRepository.saveAndFlush(pastTrip)).thenReturn(pastTrip);
 
-        TripResponse response = tripService.update(5L, requestDeparting(TODAY.minusMonths(3)));
+        TripResponse response = tripService.update(5L, requestDeparting(TODAY.minusMonths(3)), OWNER_ID);
 
         assertThat(response.title()).isEqualTo("Weekend in Vienna");
         assertThat(response.departureDate()).isEqualTo(TODAY.minusMonths(3));
@@ -181,9 +183,9 @@ class TripServiceTest {
 
     @Test
     void update_movingDepartureIntoPast_throwsFieldValidation() {
-        when(tripRepository.findWithCitiesById(5L)).thenReturn(Optional.of(trip(5L, "Upcoming")));
+        when(tripRepository.findWithCitiesByIdAndOwnerId(5L, OWNER_ID)).thenReturn(Optional.of(trip(5L, "Upcoming")));
 
-        assertThatThrownBy(() -> tripService.update(5L, requestDeparting(TODAY.minusDays(1))))
+        assertThatThrownBy(() -> tripService.update(5L, requestDeparting(TODAY.minusDays(1)), OWNER_ID))
                 .isInstanceOf(FieldValidationException.class)
                 .extracting(ex -> ((FieldValidationException) ex).getErrors().getFirst().field())
                 .isEqualTo("departureDate");
@@ -192,27 +194,27 @@ class TripServiceTest {
 
     @Test
     void update_whenMissing_throwsNotFound() {
-        when(tripRepository.findWithCitiesById(42L)).thenReturn(Optional.empty());
+        when(tripRepository.findWithCitiesByIdAndOwnerId(42L, OWNER_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> tripService.update(42L, request(1L, 2L, null)))
+        assertThatThrownBy(() -> tripService.update(42L, request(1L, 2L, null), OWNER_ID))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
     void delete_existingTrip_deletesIt() {
         Trip existing = trip(5L, "To delete");
-        when(tripRepository.findById(5L)).thenReturn(Optional.of(existing));
+        when(tripRepository.findWithCitiesByIdAndOwnerId(5L, OWNER_ID)).thenReturn(Optional.of(existing));
 
-        tripService.delete(5L);
+        tripService.delete(5L, OWNER_ID);
 
         verify(tripRepository).delete(existing);
     }
 
     @Test
     void delete_whenMissing_throwsNotFound() {
-        when(tripRepository.findById(42L)).thenReturn(Optional.empty());
+        when(tripRepository.findWithCitiesByIdAndOwnerId(42L, OWNER_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> tripService.delete(42L)).isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> tripService.delete(42L, OWNER_ID)).isInstanceOf(ResourceNotFoundException.class);
         verify(tripRepository, never()).delete(any());
     }
 
@@ -235,6 +237,7 @@ class TripServiceTest {
         trip.setDepartureDate(DEPARTURE);
         trip.setTravelers(1);
         trip.setPriority(TripPriority.BALANCED);
+        trip.setOwnerId(OWNER_ID);
         return trip;
     }
 }

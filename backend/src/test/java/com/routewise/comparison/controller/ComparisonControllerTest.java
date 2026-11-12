@@ -13,6 +13,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 
+import com.routewise.common.config.SecurityConfig;
 import com.routewise.common.exception.FieldValidationException;
 import com.routewise.common.exception.ResourceNotFoundException;
 import com.routewise.comparison.dto.ComparisonRequest;
@@ -22,29 +23,41 @@ import com.routewise.comparison.dto.WeatherSummary;
 import com.routewise.comparison.service.ComparisonService;
 import com.routewise.transportmode.domain.TransportModeCode;
 import com.routewise.trip.domain.TripPriority;
+import com.routewise.user.TestUsers;
 import com.routewise.weather.domain.WeatherHazard;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.context.WebApplicationContext;
 
+@Import(SecurityConfig.class)
 @WebMvcTest(ComparisonController.class)
 class ComparisonControllerTest {
 
     private static final LocalDate DEPARTURE = LocalDate.of(2026, 11, 20);
 
     @Autowired
+    private WebApplicationContext context;
+
     private MockMvc mockMvc;
+
+    @BeforeEach
+    void setUpMockMvc() {
+        mockMvc = TestUsers.mockMvcAsAlice(context);
+    }
 
     @MockitoBean
     private ComparisonService comparisonService;
 
     @Test
     void compare_returnsComparison() throws Exception {
-        when(comparisonService.compare(1L)).thenReturn(new ComparisonResponse(1L, DEPARTURE, 2,
+        when(comparisonService.compare(1L, TestUsers.ALICE_ID)).thenReturn(new ComparisonResponse(1L, DEPARTURE, 2,
                 TripPriority.GREENEST, new BigDecimal("523.6"), "EUR",
                 List.of(new WeatherSummary("Vienna", DEPARTURE, "Rain", 4.0, 9.0, 90, 20.0,
                         Set.of(WeatherHazard.RAIN))),
@@ -134,7 +147,7 @@ class ComparisonControllerTest {
 
     @Test
     void compare_whenTripMissing_returns404() throws Exception {
-        when(comparisonService.compare(42L)).thenThrow(new ResourceNotFoundException("Trip", 42L));
+        when(comparisonService.compare(42L, TestUsers.ALICE_ID)).thenThrow(new ResourceNotFoundException("Trip", 42L));
 
         mockMvc.perform(get("/api/trips/42/comparison"))
                 .andExpect(status().isNotFound())

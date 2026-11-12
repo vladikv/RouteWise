@@ -8,21 +8,34 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.math.BigDecimal;
 import java.util.List;
 
+import com.routewise.common.config.SecurityConfig;
 import com.routewise.transportmode.domain.TransportModeCode;
 import com.routewise.transportmode.dto.TransportModeResponse;
 import com.routewise.transportmode.service.TransportModeService;
+import com.routewise.user.TestUsers;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.context.WebApplicationContext;
 
+@Import(SecurityConfig.class)
 @WebMvcTest(TransportModeController.class)
 class TransportModeControllerTest {
 
     @Autowired
+    private WebApplicationContext context;
+
     private MockMvc mockMvc;
+
+    @BeforeEach
+    void setUpMockMvc() {
+        mockMvc = TestUsers.mockMvcAsAlice(context);
+    }
 
     @MockitoBean
     private TransportModeService transportModeService;

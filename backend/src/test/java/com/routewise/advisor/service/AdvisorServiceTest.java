@@ -35,6 +35,7 @@ import com.routewise.transportmode.domain.TransportModeCode;
 import com.routewise.trip.domain.TripPriority;
 import com.routewise.trip.dto.TripResponse;
 import com.routewise.trip.service.TripService;
+import com.routewise.user.TestUsers;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -115,7 +116,7 @@ class AdvisorServiceTest {
     void advise_withoutAdvisorClient_usesRulesAndEngineRecommendation() {
         stubTrip();
 
-        AdviceResponse advice = service(Optional.empty()).advise(1L);
+        AdviceResponse advice = service(Optional.empty()).advise(1L, TestUsers.ALICE_ID);
 
         assertThat(advice.tripId()).isEqualTo(1L);
         assertThat(advice.recommendedMode()).isEqualTo(TransportModeCode.TRAIN);
@@ -130,7 +131,7 @@ class AdvisorServiceTest {
         when(advisorClient.writeAdvice(expectedContext))
                 .thenReturn(new AdviceText("Take the train.", List.of("Pack an umbrella.")));
 
-        AdviceResponse advice = service(Optional.of(advisorClient)).advise(1L);
+        AdviceResponse advice = service(Optional.of(advisorClient)).advise(1L, TestUsers.ALICE_ID);
 
         assertThat(advice).isEqualTo(new AdviceResponse(1L, TransportModeCode.TRAIN, "Take the train.",
                 List.of("Pack an umbrella."), AdvisorSource.AI));
@@ -141,7 +142,7 @@ class AdvisorServiceTest {
         stubTrip();
         when(advisorClient.writeAdvice(any())).thenThrow(new AdvisorClientException("refusal"));
 
-        AdviceResponse advice = service(Optional.of(advisorClient)).advise(1L);
+        AdviceResponse advice = service(Optional.of(advisorClient)).advise(1L, TestUsers.ALICE_ID);
 
         assertThat(advice.source()).isEqualTo(AdvisorSource.RULES);
         assertThat(advice.recommendedMode()).isEqualTo(TransportModeCode.TRAIN);
@@ -149,19 +150,19 @@ class AdvisorServiceTest {
 
     @Test
     void advise_noModeAvailable_hasNoRecommendedMode() {
-        when(tripService.findById(1L)).thenReturn(trip());
-        when(comparisonService.compare(1L)).thenReturn(comparison(List.of(), bikeUnavailable()));
+        when(tripService.findById(1L, TestUsers.ALICE_ID)).thenReturn(trip());
+        when(comparisonService.compare(1L, TestUsers.ALICE_ID)).thenReturn(comparison(List.of(), bikeUnavailable()));
 
-        AdviceResponse advice = service(Optional.empty()).advise(1L);
+        AdviceResponse advice = service(Optional.empty()).advise(1L, TestUsers.ALICE_ID);
 
         assertThat(advice.recommendedMode()).isNull();
     }
 
     @Test
     void advise_unknownTrip_throwsNotFoundWithoutCallingTheClient() {
-        when(tripService.findById(42L)).thenThrow(new ResourceNotFoundException("Trip", 42L));
+        when(tripService.findById(42L, TestUsers.ALICE_ID)).thenThrow(new ResourceNotFoundException("Trip", 42L));
 
-        assertThatThrownBy(() -> service(Optional.of(advisorClient)).advise(42L))
+        assertThatThrownBy(() -> service(Optional.of(advisorClient)).advise(42L, TestUsers.ALICE_ID))
                 .isInstanceOf(ResourceNotFoundException.class);
         verifyNoInteractions(advisorClient, comparisonService);
     }
@@ -178,8 +179,8 @@ class AdvisorServiceTest {
     }
 
     private void stubTrip() {
-        when(tripService.findById(1L)).thenReturn(trip());
-        when(comparisonService.compare(1L)).thenReturn(berlinToVienna());
+        when(tripService.findById(1L, TestUsers.ALICE_ID)).thenReturn(trip());
+        when(comparisonService.compare(1L, TestUsers.ALICE_ID)).thenReturn(berlinToVienna());
     }
 
     private static TripResponse trip() {

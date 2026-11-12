@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { AdvisorApi } from './advisor-api';
+import { AuthApi } from './auth-api';
 import { API_BASE_URL } from './api-config';
 import { CityApi } from './city-api';
 import { ComparisonApi } from './comparison-api';
@@ -113,6 +114,25 @@ describe('API services', () => {
 
       const call = httpTesting.expectOne({ method: 'POST', url: `${BASE}/api/comparisons` });
       expect(call.request.body).toEqual(request);
+    });
+  });
+
+  describe('AuthApi', () => {
+    it('calls the session endpoints', () => {
+      const api = TestBed.inject(AuthApi);
+      const credentials = { email: 'alice@example.com', password: 'correct horse' };
+
+      api.me().subscribe();
+      api.login(credentials).subscribe();
+      api.register({ ...credentials, displayName: 'Alice' }).subscribe();
+      api.logout().subscribe();
+
+      httpTesting.expectOne({ method: 'GET', url: `${BASE}/api/auth/me` });
+      const login = httpTesting.expectOne({ method: 'POST', url: `${BASE}/api/auth/login` });
+      expect(login.request.body).toEqual(credentials);
+      const register = httpTesting.expectOne({ method: 'POST', url: `${BASE}/api/auth/register` });
+      expect(register.request.body).toEqual({ ...credentials, displayName: 'Alice' });
+      httpTesting.expectOne({ method: 'POST', url: `${BASE}/api/auth/logout` });
     });
   });
 
