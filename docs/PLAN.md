@@ -383,3 +383,9 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
 | 2026-11-13 | "How the modes compare" moves from Home to its own Modes page (`/modes`) | Home stays focused on the map and the comparison; mode parameters get room for a card per mode and a chart |
 | 2026-11-13 | A list row loads its trip's comparison only when it is first expanded | Legs, per-leg figures and weather already come from `GET /api/trips/{id}/comparison`; no new endpoint and no request per row up front |
 | 2026-11-13 | Preferences in the account menu are an optional step needing its own approval | No endpoint exists; the milestone otherwise changes no backend or API contract |
+
+## Backlog / ideas
+
+Not planned yet; each item becomes a milestone (via `add-milestone`) before any code is written.
+
+- Connecting flights via hubs for very long routes: distance, time and CO₂ calculated per flight segment, hub chosen to minimise detour.
