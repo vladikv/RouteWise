@@ -94,8 +94,7 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
 - **Open-Meteo**: weather forecast, no API key required
 - **LLM provider**: optional Claude (Anthropic) via `ANTHROPIC_API_KEY`; behind an
   `AdvisorClient` interface, with rule-based parsing/advice as fallback
-- **Natural Earth** (public domain): world land and borders at 1:110m for the globe, and the
-  coordinates of the seeded cities (`feat/globe-map`)
+- **Natural Earth** (public domain): world land and borders at 1:110m for the globe (`feat/globe-map`)
 
 ## Milestones
 
@@ -142,18 +141,18 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
     - Map layout fixes: map covers the whole area under the top bar with no edges; route fit padded by the panel widths; empty results panel collapses into a hint chip until results arrive; left panel fits 1440×900 without an inner scrollbar (one-line intro, 2×2 priorities, tighter spacing); no horizontal scrollbars inside panels (the "Exact numbers" table wraps or stacks); zoom controls bottom-right, clear of both panels
     - New building blocks: filter group, menu, toast; loading, empty and error states in both themes
     - Done when: `npm run lint` and `npm test` green, with specs for the theme service (saved choice, System, storage failure), layout selection (breakpoint, saved preference, storage failure, state kept when switching), filter logic and result count, list sorting, priority change by drag and by menu incl. rollback, duplicate prefill; screenshots in `docs/screenshots/` replacing the round-1 `after-*` set: both themes × Home Split, Trips Board and Trips List at 1920/1280/375 px, plus Home Map at 1920 px in both themes; `docs/AI_WORKFLOW.md` entry
-- [ ] `feat/globe-map`: interactive globe map, about 150 worldwide cities, landmass-based mode availability and split flight CO₂ factors
+- [x] `feat/globe-map`: interactive globe map, about 150 worldwide cities, landmass-based mode availability and split flight CO₂ factors
   - Depends on `feat/ui-glass-redesign` (Map/Split layouts, themes); start only after it is merged
   - Globe: `RouteMap` becomes an orthographic globe with `d3-geo` (only new dependency): drag to rotate, scroll/pinch and +/− to zoom, "Reset view", animated rotation to the selected route (instant under reduced motion); initial view on the selected cities, otherwise Europe; routes as great-circle arcs, markers as now, far-side cities, labels and arc parts hidden; land and borders follow the theme; works in Map and Split layouts and on the trip form and details maps; smooth while rotating (re-projection per animation frame, no layout work)
   - Labels never overlap (existing collision layout): `labelRank` 1 (capitals and major hubs) first, ranks 2–3 appear as the zoom grows; a hidden city stays a labelled button
   - World land: Natural Earth 1:110m land and borders, simplified by an extended generator script (replaces `europe-land.ts`), lazy chunk; size reported in the PR
-  - Cities: new Flyway migration (V6) adds `continent`, `landmass`, `capital`, `label_rank` to `city`, fills them for the 25 existing cities, and seeds about 125 more (capitals and major transport hubs on all continents, Natural Earth coordinates); no existing migration edited; city picker and autocomplete use the full list
+  - Cities: new Flyway migrations: V6 adds `continent`, `landmass`, `capital`, `label_rank` to `city`, V7 fills them for the 25 existing cities and seeds 125 more (capitals and major transport hubs on all continents, city-centre coordinates), V8 sets the PLANE factors; no existing migration edited; city picker and autocomplete use the full list
   - Comparison (pure functions, backend): landmass and distance availability per leg with reason codes; PLANE short-/long-haul CO₂ factors from the DEFRA greenhouse gas conversion factors (year and threshold recorded in the README and the migration); PLANE `max_distance_km` raised so every city pair has at least one mode; multi-stop itinerary and single-mode totals use available modes only (as today)
   - Advisor: the rule-based parser matches multi-word and accented city names ("New York", "São Paulo", "Sao Paulo"); the LLM resolver keeps accepting seeded cities only
   - UI: unavailable modes greyed out with a readable reason from the code ("Not available: different continent or island", "Not available: too far for this mode")
   - README "Data & assumptions" (new section): prices are global estimates, landmass rule with its fixed links, flight factor split and source
-  - Done when: tests for the migration (city count, coordinates within range, every city has a continent and landmass, existing 25 keep their ids), availability rules incl. edge cases (same landmass but too far, different landmass but short, exactly at the limit, Great Britain and Denmark via fixed links), short/long-haul factor at the threshold, per-leg itinerary with an intercontinental leg, parser with multi-word/accented names, far-side visibility, label priority by zoom, globe drag/zoom/reset and arc rendering; `./mvnw verify`, `npm run lint` and `npm test` green; screenshots of the globe in both themes and layouts; `docs/AI_WORKFLOW.md` entry
-- [ ] `docs/readme-demo`: README, screenshots, demo recording
+  - Done when: tests for the migration (city count, coordinates within range, every city has a continent and landmass, existing 25 keep their ids), availability rules incl. edge cases (same landmass but too far, different landmass but short, exactly at the limit, Great Britain and Denmark via fixed links), short/long-haul factor at the threshold, per-leg itinerary with an intercontinental leg, parser with multi-word/accented names, far-side visibility, label priority by zoom, globe drag/zoom/reset and arc rendering; `./mvnw verify`, `npm run lint` and `npm test` green; `docs/AI_WORKFLOW.md` entry
+- [ ] `docs/readme-demo`: README and demo recording
 
 ## Decisions log
 | Date | Decision | Reason |
@@ -272,3 +271,10 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
 | 2026-11-13 | Cities carry `capital` and a hand-assigned `labelRank` (1–3) for label priority | "Capitals first, more as you zoom in" needs an order; a rank is simpler and more stable than population data |
 | 2026-11-13 | About 150 cities replace the "City list stays at the 25 seeded cities" rule | Worldwide routes need cities on every continent; existing city ids stay so saved trips keep their stops |
 | 2026-11-13 | One `RouteMap` globe everywhere (Home, trip form, trip details) | One map component to test and theme; small maps start on the route instead of Europe |
+| 2026-11-13 | Flight CO₂ factors: DEFRA 2023, economy class with radiative forcing: 183 g/pkm short-haul, 200 g/pkm above 3,700 km great-circle distance (threshold exclusive); set in their own migration (V8) | Economy matches the cost model's typical traveller; keeping the factors out of the city seed (V7) keeps one concern per migration. To verify against the official DESNZ spreadsheet before release |
+| 2026-11-13 | City coordinates are hand-entered city centres, not taken from Natural Earth | About 150 well-known points need no data pipeline; Natural Earth stays the source of land and borders only |
+| 2026-11-13 | `landmass` precedence: a ground mode between landmasses is `DIFFERENT_LANDMASS` even when it is also too far | The landmass is the reason the user can change (pick another mode), distance is secondary |
+| 2026-11-13 | Maps inside a scrolling page (trip form, stacked Home Split) use cooperative gestures: Ctrl + scroll to zoom, vertical swipes scroll the page | A full-width globe must not trap page scroll; the Map layout and side-by-side Split keep direct wheel zoom |
+| 2026-11-13 | Crowded low-rank cities are not drawn at the current zoom (they stay in the city picker); hit areas shrink to half the gap to the nearest city | With 150 cities, Europe at zoom 1 had neighbours taking each other's clicks and rank-1 labels pushed out |
+| 2026-11-13 | `--map-border` raised to 3:1 against sea and land in both themes instead of a separate merged coastline | A merged outline needs polygon union, which the generator cannot do reliably without a new dependency |
+| 2026-11-13 | No screenshots: milestones no longer require or produce screenshots; the UI reviewer works from code and tokens | Human decision; `docs/` is ignored by git, so new screenshots would not be kept anyway |

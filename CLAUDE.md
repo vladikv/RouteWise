@@ -73,6 +73,7 @@ UI: http://localhost:4200
 ## Working rules for Claude
 
 - Ask before adding a new dependency; explain why it is needed.
+- No screenshots: milestones do not require them and reviews work from code and tokens.
 - Do not change public API contracts (paths, DTO fields) without saying so explicitly.
 - Run the relevant tests after changes and report the result honestly.
 - When unsure about a requirement, ask instead of guessing.
