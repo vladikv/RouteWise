@@ -1,3 +1,4 @@
+import { Component, TemplateRef, computed, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { IconRail, RailItem } from './icon-rail';
@@ -66,5 +67,61 @@ describe('IconRail', () => {
     await fixture.whenStable();
     expect(control('New trip').getAttribute('aria-current')).toBe('page');
     expect(control('Trips').hasAttribute('aria-current')).toBe(false);
+  });
+});
+
+@Component({
+  imports: [IconRail],
+  template: `
+    <ng-template #panel><a href="/trips/7">Berlin to Vienna</a></ng-template>
+    <app-icon-rail [items]="items()" />
+  `,
+})
+class RailHost {
+  private readonly panel = viewChild.required<TemplateRef<unknown>>('panel');
+  readonly items = computed<RailItem[]>(() => [
+    { label: 'Search', icon: 'M0 0', shortcut: { label: 'Ctrl+K', aria: 'Control+K Meta+K' } },
+    { label: 'Upcoming trips', icon: 'M1 1', popover: this.panel() },
+  ]);
+}
+
+describe('IconRail popover and shortcut items', () => {
+  let fixture: ComponentFixture<RailHost>;
+  let rail: HTMLElement;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [RailHost],
+      providers: [provideRouter([])],
+    }).compileComponents();
+    fixture = TestBed.createComponent(RailHost);
+    rail = fixture.nativeElement as HTMLElement;
+    await fixture.whenStable();
+  });
+
+  it('names the shortcut in the tooltip and in aria-keyshortcuts', () => {
+    const search = rail.querySelector('button[aria-label="Search"]')!;
+    expect(search.getAttribute('title')).toBe('Search (Ctrl+K)');
+    expect(search.getAttribute('aria-keyshortcuts')).toBe('Control+K Meta+K');
+  });
+
+  it('opens a popover item to the right of the rail, focuses its first link and closes on Escape', async () => {
+    const trigger = rail.querySelector<HTMLButtonElement>('button[aria-label="Upcoming trips"]')!;
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(trigger.getAttribute('title')).toBe('Upcoming trips');
+
+    trigger.click();
+    await fixture.whenStable();
+
+    const panel = rail.querySelector('.menu-panel')!;
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(trigger.getAttribute('aria-controls')).toBe(panel.id);
+    expect(panel.classList).toContain('menu-panel--end');
+    expect(document.activeElement).toBe(panel.querySelector('a'));
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await fixture.whenStable();
+    expect(rail.querySelector('.menu-panel')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   });
 });

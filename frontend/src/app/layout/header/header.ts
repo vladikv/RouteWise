@@ -8,7 +8,7 @@ import { HomeLayout, HomeLayoutChoice } from '../../features/explore/home-layout
 import { Menu, MenuContent } from '../../shared/ui/menu';
 import { PillNav, PillNavItem } from '../../shared/ui/pill-nav';
 import { SegmentedToggle, ToggleOption } from '../../shared/ui/segmented-toggle';
-import { SearchFocus } from '../../shared/util/search-focus';
+import { PaletteState } from '../command-palette/palette-state';
 import { AccountPanel, initialsOf } from './account-panel';
 
 const LAYOUT_OPTIONS: ToggleOption<HomeLayoutChoice>[] = [
@@ -54,7 +54,7 @@ export class Header {
   });
 
   private readonly router = inject(Router);
-  private readonly searchFocus = inject(SearchFocus);
+  private readonly palette = inject(PaletteState);
   private readonly path = toSignal(
     this.router.events.pipe(
       filter((event): event is NavigationEnd => event instanceof NavigationEnd),
@@ -67,8 +67,9 @@ export class Header {
     () => this.path() === '/' && this.homeLayout.mapAvailable(),
   );
 
-  protected searchTrips(): void {
-    this.searchFocus.open();
+  /** Opens the search palette (the same one as the rail's Search and Ctrl/Cmd + K). */
+  protected openSearch(): void {
+    this.palette.open();
   }
 
   protected accountToggled(open: boolean): void {

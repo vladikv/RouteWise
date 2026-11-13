@@ -1,0 +1,89 @@
+<app-modal [open]="open()" title="Search" position="top" (closed)="closed.emit()">
+  <div class="palette">
+    <input
+      data-autofocus
+      type="text"
+      role="combobox"
+      aria-label="Search cities and trips"
+      aria-autocomplete="list"
+      aria-controls="palette-results"
+      autocomplete="off"
+      spellcheck="false"
+      [attr.aria-expanded]="options().length > 0"
+      [attr.aria-activedescendant]="activeOption()?.id ?? null"
+      [placeholder]="loggedIn() ? 'City or trip…' : 'City…'"
+      [value]="query()"
+      (input)="query.set($any($event.target).value)"
+      (keydown)="onKey($event)"
+    />
+
+    <div
+      id="palette-results"
+      role="listbox"
+      aria-label="Results"
+      class="results"
+      [attr.aria-busy]="loading()"
+    >
+      @if (cityOptions().length > 0) {
+        <div role="group" aria-labelledby="palette-cities">
+          <p id="palette-cities" class="group__label">
+            Cities · set as {{ target() === 'from' ? 'From' : 'To' }} on Home
+          </p>
+          @for (option of cityOptions(); track option.id) {
+            @if (option.kind === 'city') {
+              <!-- Focus stays in the combobox input (aria-activedescendant), so options take no focus or keys. -->
+              <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
+              <div
+                role="option"
+                class="option"
+                [id]="option.id"
+                [class.option--active]="option.id === activeOption()?.id"
+                [attr.aria-selected]="option.id === activeOption()?.id"
+                (mousedown)="$event.preventDefault()"
+                (click)="choose(option)"
+                (mouseenter)="highlight(option)"
+              >
+                <span class="option__name">{{ option.city.name }}</span>
+                <span class="option__meta">{{ option.city.country }}</span>
+                <span class="option__hint">{{ target() === 'from' ? 'From' : 'To' }}</span>
+              </div>
+            }
+          }
+        </div>
+      }
+      @if (tripOptions().length > 0) {
+        <div role="group" aria-labelledby="palette-trips">
+          <p id="palette-trips" class="group__label">Your trips</p>
+          @for (option of tripOptions(); track option.id) {
+            @if (option.kind === 'trip') {
+              <!-- Focus stays in the combobox input (aria-activedescendant), so options take no focus or keys. -->
+              <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
+              <div
+                role="option"
+                class="option"
+                [id]="option.id"
+                [class.option--active]="option.id === activeOption()?.id"
+                [attr.aria-selected]="option.id === activeOption()?.id"
+                (mousedown)="$event.preventDefault()"
+                (click)="choose(option)"
+                (mouseenter)="highlight(option)"
+              >
+                <span class="option__name">{{ option.trip.title }}</span>
+                <span class="option__meta">{{
+                  option.trip.departureDate | date: 'mediumDate'
+                }}</span>
+                <span class="option__hint">Open</span>
+              </div>
+            }
+          }
+        </div>
+      }
+    </div>
+
+    @if (results.error(); as error) {
+      <app-error-message [error]="error" (retry)="results.reload()" />
+    }
+    <p class="status" role="status">{{ status() }}</p>
+    <p class="keys" aria-hidden="true">↑ ↓ move · Enter choose · Esc close</p>
+  </div>
+</app-modal>

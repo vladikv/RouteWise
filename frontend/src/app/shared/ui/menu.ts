@@ -2,6 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   Injector,
   TemplateRef,
@@ -41,7 +42,7 @@ const ITEM_SELECTOR = 'a[href], button:not(:disabled), [role="menuitem"]';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '(document:click)': 'closeOnOutsideClick($event)',
-    '(document:keydown.escape)': 'closeWithFocus()',
+    '(document:keydown.escape)': 'onEscape($event)',
     '(click)': 'onClick($event)',
     '(keydown)': 'onKeydown($event)',
   },
@@ -58,6 +59,7 @@ const ITEM_SELECTOR = 'a[href], button:not(:disabled), [role="menuitem"]';
       <div
         class="menu-panel"
         [class.menu-panel--beside]="placement() === 'beside'"
+        [class.menu-panel--end]="placement() === 'end'"
         [id]="panelId()"
       >
         <ng-container [ngTemplateOutlet]="content().template" />
@@ -97,6 +99,15 @@ const ITEM_SELECTOR = 'a[href], button:not(:disabled), [role="menuitem"]';
       max-width: 14rem;
     }
 
+    /* Opened from the icon rail, whose backdrop filter keeps it from blurring the page: opaque. */
+    .menu-panel--end {
+      top: 0;
+      right: auto;
+      left: calc(100% + var(--space-3));
+      background:
+        linear-gradient(var(--glass-bg-strong), var(--glass-bg-strong)), var(--color-surface);
+    }
+
     @keyframes menu-panel-in {
       from {
         opacity: 0;
@@ -115,8 +126,11 @@ export class Menu {
   /** Accessible name of the built-in icon trigger; leave unset to project your own trigger. */
   readonly label = input<string>();
   readonly open = model(false);
-  /** `below`: under the trigger, right-aligned. `beside`: left of the trigger, top-aligned. */
-  readonly placement = input<'below' | 'beside'>('below');
+  /**
+   * `below`: under the trigger, right-aligned. `beside`: left of the trigger, top-aligned.
+   * `end`: right of the trigger, top-aligned (the icon rail at the left edge).
+   */
+  readonly placement = input<'below' | 'beside' | 'end'>('below');
   /** Close (and refocus the trigger) after a link, button or `menuitem` in the panel is activated. */
   readonly closeOnSelect = input(true);
   readonly panelId = input(`menu-${nextId++}`);
@@ -136,10 +150,47 @@ export class Menu {
       custom?.setAttribute('aria-controls', this.panelId());
     });
     afterRenderEffect(() => {
+      this.lateFocus?.disconnect();
+      this.lateFocus = undefined;
       if (this.open() && this.focusOnOpen()) {
-        this.items()[0]?.focus();
+        this.focusFirstItem();
       }
     });
+    inject(DestroyRef).onDestroy(() => this.lateFocus?.disconnect());
+  }
+
+  private lateFocus?: MutationObserver;
+
+  /**
+   * Focuses the first item. A panel whose content arrives later (a loading list) gets it once the
+   * first item renders, as long as focus is still on the trigger (or nowhere).
+   */
+  private focusFirstItem(): void {
+    const first = this.items()[0];
+    if (first) {
+      first.focus();
+      return;
+    }
+    const panel = this.host.nativeElement.querySelector('.menu-panel');
+    if (!panel || typeof MutationObserver === 'undefined') {
+      return;
+    }
+    this.lateFocus = new MutationObserver(() => {
+      const item = this.items()[0];
+      if (!item) {
+        return;
+      }
+      this.lateFocus?.disconnect();
+      const active = document.activeElement;
+      if (
+        active === null ||
+        active === document.body ||
+        this.trigger().nativeElement.contains(active)
+      ) {
+        item.focus();
+      }
+    });
+    this.lateFocus.observe(panel, { childList: true, subtree: true });
   }
 
   protected onClick(event: Event): void {
@@ -149,6 +200,14 @@ export class Menu {
     } else if (this.closeOnSelect() && target.closest(`.menu-panel :is(${ITEM_SELECTOR})`)) {
       this.closeWithFocus();
     }
+  }
+
+  /** Escape that was handled already, or came from a dialog opened over the menu, is not the menu's. */
+  protected onEscape(event: Event): void {
+    if (event.defaultPrevented || (event.target as Element | null)?.closest?.('dialog')) {
+      return;
+    }
+    this.closeWithFocus();
   }
 
   protected closeWithFocus(): void {
