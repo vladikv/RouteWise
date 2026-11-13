@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { TripApi } from '../../core/api/trip-api';
 import { Session } from '../../core/auth/session';
 import { modeSummary, tripEntries } from '../../features/trips/list/trip-figures';
+import { ErrorMessage } from '../../shared/ui/error-message';
 import { ModeIcon } from '../../shared/ui/mode-icon';
 import { Spinner } from '../../shared/ui/spinner';
 import { todayIso } from '../../shared/util/date';
@@ -19,7 +20,7 @@ export const UPCOMING_TRIPS = 5;
  */
 @Component({
   selector: 'app-upcoming-trips',
-  imports: [DatePipe, RouterLink, ModeIcon, Spinner],
+  imports: [DatePipe, RouterLink, ErrorMessage, ModeIcon, Spinner],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <p class="title" id="upcoming-trips-title">Upcoming trips</p>
@@ -27,8 +28,8 @@ export const UPCOMING_TRIPS = 5;
       <a class="more" routerLink="/login">Log in to see your trips</a>
     } @else if (trips.isLoading()) {
       <app-spinner label="Loading trips…" />
-    } @else if (trips.error()) {
-      <p class="note" role="alert">Couldn't load your trips.</p>
+    } @else if (trips.error(); as error) {
+      <app-error-message [error]="error" (retry)="trips.reload()" />
       <a class="more" routerLink="/trips">All trips</a>
     } @else if (entries().length === 0) {
       <p class="note">No upcoming trips</p>

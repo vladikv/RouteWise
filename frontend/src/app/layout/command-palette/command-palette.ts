@@ -5,10 +5,12 @@ import {
   ElementRef,
   afterRenderEffect,
   computed,
+  effect,
   inject,
   input,
   linkedSignal,
   output,
+  untracked,
 } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { Params, Router } from '@angular/router';
@@ -153,7 +155,19 @@ export class CommandPalette {
     return parts.join(', ') + '.';
   });
 
+  /** Enter pressed before the results of the current text arrived; reset by new input and on close. */
+  private readonly pendingEnter = linkedSignal<{ open: boolean; query: string }, boolean>({
+    source: () => ({ open: this.open(), query: this.query() }),
+    computation: () => false,
+  });
+
   constructor() {
+    effect(() => {
+      const option = this.activeOption();
+      if (this.pendingEnter() && this.ready() && option) {
+        untracked(() => this.choose(option));
+      }
+    });
     // Focus stays in the input, so the browser does not scroll the highlighted option into view.
     afterRenderEffect(() => {
       const id = this.activeOption()?.id;
@@ -179,9 +193,11 @@ export class CommandPalette {
     } else if (event.key === 'Enter') {
       event.preventDefault();
       const option = this.activeOption();
-      // Enter waits for the results of the text that is typed now.
       if (option && this.ready()) {
         this.choose(option);
+      } else if (this.trimmed()) {
+        // Enter waits for the results of the text that is typed now, then chooses.
+        this.pendingEnter.set(true);
       }
     }
   }

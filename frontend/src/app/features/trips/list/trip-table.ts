@@ -188,11 +188,12 @@ export class TripTable {
     return direction === 'asc' ? 'ascending' : 'descending';
   }
 
+  /** Sort marker; U+FE0E forces text presentation (Windows draws a bare arrow as a colour emoji). */
   protected arrow(key: SortKey): string {
     const { key: active, direction } = this.sort();
     if (active !== key) {
-      return '↕';
+      return '↕︎';
     }
-    return direction === 'asc' ? '↑' : '↓';
+    return direction === 'asc' ? '↑︎' : '↓︎';
   }
 }

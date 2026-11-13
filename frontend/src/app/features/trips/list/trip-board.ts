@@ -464,7 +464,7 @@ export class TripBoard {
       background: 'var(--color-surface)',
       borderRadius: 'var(--radius-lg)',
       listStyle: 'none',
-      filter: 'drop-shadow(0 12px 24px rgb(0 0 0 / 0.35))',
+      boxShadow: 'var(--shadow-raised)',
     });
     this.document.body.appendChild(ghost);
     return ghost;

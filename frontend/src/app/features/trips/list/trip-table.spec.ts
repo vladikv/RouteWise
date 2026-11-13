@@ -65,6 +65,15 @@ describe('TripTable', () => {
     return event;
   }
 
+  it('draws every sort marker in text presentation, never as a colour emoji', () => {
+    const markers = Array.from(root.querySelectorAll('button.sort span[aria-hidden="true"]'));
+
+    expect(markers).toHaveLength(3);
+    for (const marker of markers) {
+      expect(marker.textContent).toContain('︎');
+    }
+  });
+
   describe('keyboard', () => {
     const stops = () => rows().map((row) => row.querySelector('.toggle')!.getAttribute('tabindex'));
 
