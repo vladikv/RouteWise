@@ -95,23 +95,29 @@ src/
   a view the user moved is kept when the map resizes or a layout switch changes the space; "Reset view" (and
   `0`) goes back to the route or Europe. Keyboard: arrows rotate the globe (or move focus to the nearest
   city when a city has focus), `+`/`-` zoom, `0` resets. Routes are great-circle arcs, one `<path>` per
-  leg, cut at the horizon by the projection. Cities on the far side are not rendered at all (so not
+  leg, cut at the horizon by the projection. A dark dash train (`path.route--flow`, CSS `stroke-dashoffset`
+  animation, starting after the draw-in) runs along each arc from origin to destination; it is only rendered
+  while motion is not reduced (`reducedMotion` signal, plus a `prefers-reduced-motion` rule), leaving the solid
+  line, and costs no per-frame script work while the globe turns. It runs for as long as the route is shown (an idle
+  repaint cost of a few paths) and pauses while the pointer is held down (`.map:active`, i.e. drag and pinch). Cities on the far side are not rendered at all (so not
   focusable); the rest are labelled buttons. Labels are placed by `layoutLabels` (no overlaps) in order of
-  `labelRank` (then capital, then name) and only up to `maxLabelRank(zoom)` (rank 1 always, 2 from 2x, 3
-  from 4x); the selected route's cities are always labelled and a city without a label keeps its
+  `labelRank` (then capital, then name) and only up to `maxLabelRank(zoom)` (rank 1 up to 2.5x, 2 from 2.5x, 3
+  from 5x) and a label padding of 0.4 font sizes (no two labels closer than 0.8 font sizes); the selected route's cities are always labelled and a city without a label keeps its
   `aria-label`. It is presentational and emits the selection (origin/destination), or, with `[stops]`
   (an ordered list of city ids), draws every leg with numbered pins and emits `cityPick` instead. With
   `[wide]="true"` a map at least 720 px wide takes a 16:9 shape instead of the near-square one. `[fill]` makes
   the map take its container's size and centres the globe between the panels. `controls` (`corner` |
   `bottom-end`) places the zoom buttons (`bottom-end`: bottom right, `insetEnd` px in from the edge, clear of
   the panels). A non-interactive map (trip details) is an image of the route cities only. `ComparisonChart` shows one metric at a time (switched with `Tabs`) with the
-  recommended mode as the only accent bar (`--color-highlight`, others
+  recommended mode as the only accent bar (score bars are the score itself, 100 = full track; time, cost and
+  CO₂ bars are relative to the longest) (`--color-highlight`, others
   `--color-bar`). Neither may be the only way to get information: keep a
   text or form equivalent (dropdowns for the map, the table for the chart)
   and state selection in text and `aria-pressed`, not color alone.
   Map details: one city is the tab stop (roving `tabindex`: last focused, else origin, else first; arrows move
-  between cities); click targets are capped at half the distance to the nearest neighbour; low-ranked cities
-  within 2.5 dot widths of a more important one are left out (still in the pickers); in `fill` mode only the
+  between cities); click targets are capped at half the distance to the nearest neighbour; cities above the
+  zoom's label rank are only drawn when `minDotGap(zoom)` away from every drawn city (36 px up to 2.5x, 22 px up
+  to 5x, then 2.5 dot widths), so Europe is not a cloud of unlabelled dots at low zoom (they stay in the pickers); in `fill` mode only the
   space between the docks is drawn and labelled.
   `gestures`: `greedy` (default; the wheel always zooms except at the zoom limits) or `cooperative` for a map in a
   scrolling page (Ctrl/Cmd + wheel zooms, a plain wheel scrolls and shows "Ctrl + scroll to zoom", `touch-action:
@@ -147,6 +153,17 @@ pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in te
   and results. Docks adapt through container queries (route bar, `ComparisonPanel` turns its table into small
   cards below 30rem instead of scrolling sideways). `--header-height` is the measured header height; the stage is `100dvh - var(--chrome-height)`
   (header plus the two shell margins).
+- **Home settings panel:** the date input fills the panel width with the quick dates (Tomorrow / This weekend /
+  Next week, `aria-pressed` plus a check mark) as one full-width row of three equal segments under it; "Describe
+  a trip instead" and "View trips" are two stacked, full-width buttons. In the Map layout the compact spacing
+  keeps the settings at 1440x900 without scrolling.
+- **Modes page** (`features/modes/`, public, `GET /api/transport-modes` through `TransportModeApi`): `ModeCard`
+  per mode (icon, name, average speed, cost per km, CO₂ per km, max distance, API values only; the page text
+  says cost and CO₂ are per traveler, car per vehicle) and `ModeChart`: `Tabs` for speed, cost, CO₂ and max
+  distance, horizontal bars proportional to the largest shown value (presentation only), and a "Show as table"
+  `details` with every parameter as the non-visual equivalent. The DTO has one CO₂ figure per mode (the plane's
+  short- and long-haul factors are not in it). Loading, error with retry and empty states. Home no longer shows
+  the mode comparison.
 - **Trips list** (`features/trips/list/`): `TripToolbar` (row 1: search, Board/List
   `SegmentedToggle`, New trip; row 2: `FilterGroup`s Priority and Mode with the API's facet counts;
   result count "3 of 5 trips" in a `role="status"` and "Clear filters"; below 768 px the groups move
@@ -264,7 +281,7 @@ pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in te
   nothing pending). `IconRail` (`shared/ui/icon-rail.ts`, rendered by `app.ts` only while
   `LayoutBreakpoint.desktop()`, from 1024 px) is a labelled `nav` of round items: links get `aria-current="page"`
   (exact path match, query ignored) and a lime ring, buttons emit `activate`; every item has `aria-label` and a
-  `title` tooltip. `/modes` is a lazy placeholder page until the Modes milestone step.
+  `title` tooltip. `/modes` is the Modes page.
 - **Accessibility:** semantic HTML and landmarks, labels on inputs, visible
   focus, nothing conveyed by color alone, scrollable regions focusable.
   Layouts work down to 375 px.

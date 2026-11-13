@@ -82,11 +82,11 @@ describe('App', () => {
     const fixture = await render(1280);
     const page = (fixture.nativeElement as HTMLElement).querySelector('.page') as HTMLElement;
     const router = TestBed.inject(Router);
-    await router.navigateByUrl('/modes');
+    await router.navigateByUrl('/register');
     await fixture.whenStable();
 
     page.scrollTop = 120;
-    await router.navigateByUrl('/modes?x=1');
+    await router.navigateByUrl('/register?x=1');
     await fixture.whenStable();
     expect(page.scrollTop).toBe(120);
 
@@ -110,7 +110,7 @@ describe('App', () => {
     const router = TestBed.inject(Router);
     shell.querySelector<HTMLElement>('app-icon-rail a')!.focus();
 
-    await router.navigateByUrl('/modes');
+    await router.navigateByUrl('/register');
     await fixture.whenStable();
     expect(document.activeElement).toBe(page);
 

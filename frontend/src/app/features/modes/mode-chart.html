@@ -1,0 +1,59 @@
+<div class="toolbar">
+  <app-tabs
+    #switch
+    ariaLabel="Compare by"
+    [idPrefix]="tabsId"
+    [options]="tabs"
+    [(value)]="metric"
+  />
+  <span id="mode-hint" class="muted hint">{{ definition().hint }}</span>
+</div>
+
+<div
+  role="tabpanel"
+  tabindex="0"
+  [id]="switch.panelId(metric())"
+  [attr.aria-labelledby]="switch.tabId(metric())"
+  aria-describedby="mode-hint"
+>
+  <ol class="bars">
+    @for (row of rows(); track row.mode.code) {
+      <li class="bar">
+        <span class="bar__label">
+          <app-mode-icon [mode]="row.mode.code" />
+          {{ labels[row.mode.code] }}
+        </span>
+        <span class="bar__track" aria-hidden="true">
+          <span class="bar__fill" [style.width.%]="row.percent"></span>
+        </span>
+        <span class="bar__value">{{ row.text }}</span>
+      </li>
+    }
+  </ol>
+</div>
+
+<details class="exact">
+  <summary>Show as table</summary>
+  <div class="table-scroll" role="region" aria-label="Mode parameters table" tabindex="0">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Mode</th>
+          @for (column of columns; track column.id) {
+            <th scope="col" class="numeric">{{ column.label }}</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of table(); track row.mode.code) {
+          <tr>
+            <th scope="row">{{ labels[row.mode.code] }}</th>
+            @for (cell of row.cells; track $index) {
+              <td class="numeric">{{ cell }}</td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</details>

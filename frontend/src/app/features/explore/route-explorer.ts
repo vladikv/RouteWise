@@ -86,7 +86,7 @@ interface ExplorerState {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './route-explorer.html',
-  styleUrls: ['./route-explorer.scss', './explorer-stage.scss'],
+  styleUrls: ['./route-explorer.scss', './route-explorer-results.scss', './explorer-stage.scss'],
 })
 export class RouteExplorer {
   private readonly cityApi = inject(CityApi);

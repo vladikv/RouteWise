@@ -1,21 +1,11 @@
-import { CurrencyPipe, DecimalPipe, TitleCasePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
-import { TransportModeApi } from '../../core/api/transport-mode-api';
-import { ErrorMessage } from '../../shared/ui/error-message';
-import { Spinner } from '../../shared/ui/spinner';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouteExplorer } from '../explore/route-explorer';
 
-/** Landing page: the route explorer, and the mode parameters every comparison uses. */
+/** Landing page: the route explorer. The mode parameters live on the Modes page. */
 @Component({
   selector: 'app-home-page',
-  imports: [CurrencyPipe, DecimalPipe, TitleCasePipe, ErrorMessage, RouteExplorer, Spinner],
+  imports: [RouteExplorer],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: './home-page.html',
-  styleUrl: './home-page.scss',
+  template: '<app-route-explorer class="home-stage" />',
 })
-export class HomePage {
-  private readonly transportModeApi = inject(TransportModeApi);
-
-  protected readonly modes = rxResource({ stream: () => this.transportModeApi.findAll() });
-}
+export class HomePage {}

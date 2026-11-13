@@ -35,6 +35,7 @@ import {
   interpolateView,
   isVisible,
   maxLabelRank,
+  minDotGap,
   rotateBy,
   rotateByDegrees,
 } from './globe';
@@ -79,8 +80,6 @@ const OFFSCREEN_PX = 24;
 /** The click target of a city: as large as the nearest neighbour allows, between these. */
 const HIT_MIN_PX = DOT_PX + 2;
 const HIT_MAX_PX = 17;
-/** Cities above the zoom's label rank are left out when they sit this close to a kept one. */
-const CROWDED_PX = DOT_PX * 2.5;
 /** What the zoom buttons cover (CSS pixels): labels keep clear of it. */
 const ZOOM_ZONE_WIDTH_PX = 68;
 const ZOOM_ZONE_HEIGHT_PX = 176;
@@ -159,7 +158,7 @@ export class RouteMap {
   private readonly renderedHeight = signal(DEFAULT_HEIGHT);
   protected readonly hoveredId = signal<number | null>(null);
   /** Follows the system setting live. */
-  private readonly reducedMotion = signal(false);
+  protected readonly reducedMotion = signal(false);
   /** Land shapes as GeoJSON; loaded on demand (its own chunk), the globe shows only the sea until then. */
   private readonly landShapes = signal<GeoPermissibleObjects | null>(null);
   protected readonly landState = signal<LandState>('loading');
@@ -271,9 +270,9 @@ export class RouteMap {
       {
         point: (item) => item.point,
         rank: (item) => item.city.labelRank,
-        pinned: (item) => pins.has(item.city.id),
+        pinned: (item) => pins.has(item.city.id) || item.city.id === this.lastFocusedId(),
         maxRank: maxLabelRank(this.zoom()),
-        minDistance: CROWDED_PX,
+        minDistance: minDotGap(this.zoom(), DOT_PX),
       },
     );
   });

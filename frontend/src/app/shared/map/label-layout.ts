@@ -44,7 +44,7 @@ const SIDES: LabelSide[] = ['right', 'left', 'top', 'bottom'];
 /** Average glyph width relative to the font size for the UI font; slightly generous. */
 const CHARACTER_WIDTH = 0.6;
 /** Space kept between neighbouring labels, relative to the font size. */
-const LABEL_GAP = 0.15;
+const LABEL_GAP = 0.4;
 
 /**
  * Places a label beside each point, trying the preferred sides, then right, left,

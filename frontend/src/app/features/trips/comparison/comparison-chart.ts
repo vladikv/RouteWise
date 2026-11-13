@@ -18,7 +18,7 @@ interface MetricOption {
 
 interface Row {
   option: ModeOption;
-  /** Bar length as a share of the longest bar, 0–100. */
+  /** Bar length in percent of the track: the score itself (100 = full) or a share of the longest bar. */
   percent: number;
   /** All four metrics in one line, for the hover tooltip. */
   tooltip: string;
@@ -77,12 +77,21 @@ export class ComparisonChart {
       )
       .map((option) => ({
         option,
-        percent: longest > 0 ? (value(option, metric) / longest) * 100 : 0,
+        percent:
+          metric === 'score'
+            ? clampPercent(option.score)
+            : longest > 0
+              ? (value(option, metric) / longest) * 100
+              : 0,
         tooltip: tooltip(option, currency),
       }));
   });
 
   protected readonly unavailable = computed(() => this.comparison().unavailableGroups);
+}
+
+function clampPercent(score: number): number {
+  return Math.min(Math.max(score, 0), 100);
 }
 
 function value(option: ModeOption, metric: Metric): number {

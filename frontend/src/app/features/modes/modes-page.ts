@@ -1,12 +1,21 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
+import { TransportModeApi } from '../../core/api/transport-mode-api';
+import { ErrorMessage } from '../../shared/ui/error-message';
+import { Spinner } from '../../shared/ui/spinner';
+import { ModeCard } from './mode-card';
+import { ModeChart } from './mode-chart';
 
-/** Placeholder for the Modes page; the mode comparison moves here from Home in a later step. */
+/** The transport modes and the parameters every comparison uses: a card per mode and a chart. */
 @Component({
   selector: 'app-modes-page',
+  imports: [ErrorMessage, ModeCard, ModeChart, Spinner],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <h1>Modes</h1>
-    <p class="muted">How train, bus, car, bike and plane compare is coming to this page.</p>
-  `,
+  templateUrl: './modes-page.html',
+  styleUrl: './modes-page.scss',
 })
-export class ModesPage {}
+export class ModesPage {
+  private readonly transportModeApi = inject(TransportModeApi);
+
+  protected readonly modes = rxResource({ stream: () => this.transportModeApi.findAll() });
+}

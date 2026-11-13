@@ -78,14 +78,25 @@ export function isVisible(point: GeoPoint, rotation: GeoPoint): boolean {
 }
 
 /**
- * The highest label rank (1 = most important) shown at this zoom: rank 1 always, rank 2 from 2x,
- * rank 3 from 4x.
+ * The highest label rank (1 = most important) shown at this zoom: rank 1 up to 2.5x, rank 2 from
+ * 2.5x, rank 3 from 5x. Stricter at low zoom so dense areas such as Europe stay readable.
  */
 export function maxLabelRank(zoom: number): number {
-  if (zoom >= 4) {
+  if (zoom >= 5) {
     return 3;
   }
-  return zoom >= 2 ? 2 : 1;
+  return zoom >= 2.5 ? 2 : 1;
+}
+
+/**
+ * The distance in pixels a city above the zoom's label rank must keep from every drawn city to be
+ * drawn itself: 36 px up to 2.5x, 22 px up to 5x, then 11.25 px (2.5 dot widths).
+ */
+export function minDotGap(zoom: number, dotPx: number): number {
+  if (zoom >= 5) {
+    return dotPx * 2.5;
+  }
+  return zoom >= 2.5 ? 22 : 36;
 }
 
 export function clampZoom(zoom: number): number {

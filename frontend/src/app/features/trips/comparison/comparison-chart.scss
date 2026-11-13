@@ -93,7 +93,8 @@
   font-size: 0.875rem;
 }
 
-@media (max-width: 30rem) {
+/* Label and value above a full-width track in a narrow container (the Home docks) or on a phone. */
+@mixin stacked {
   .bar {
     grid-template-columns: 1fr auto;
   }
@@ -102,4 +103,12 @@
     grid-column: 1 / -1;
     grid-row: 2;
   }
+}
+
+@container (max-width: 30rem) {
+  @include stacked;
+}
+
+@media (max-width: 30rem) {
+  @include stacked;
 }

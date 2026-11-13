@@ -253,6 +253,33 @@ describe('RouteExplorer', () => {
     );
   });
 
+  it('lays the quick dates out as one row of three equal segments under the date input', () => {
+    const chips = explorer.querySelector('.chips') as HTMLElement;
+    const labels = Array.from(chips.querySelectorAll('.chip')).map((chip) =>
+      chip.textContent?.trim(),
+    );
+
+    expect(labels).toEqual(['Tomorrow', 'This weekend', 'Next week']);
+    expect(chips.previousElementSibling?.id).toBe('explorer-date');
+    expect(getComputedStyle(chips).display).toBe('grid');
+    expect(getComputedStyle(chips).gridTemplateColumns).toBe('repeat(3, minmax(0, 1fr))');
+  });
+
+  it('stacks the two links as full-width buttons', () => {
+    const links = explorer.querySelector('.links') as HTMLElement;
+    const buttons = Array.from(links.querySelectorAll<HTMLElement>('a.button'));
+
+    expect(buttons.map((link) => link.textContent?.trim())).toEqual([
+      'Describe a trip instead',
+      'View trips',
+    ]);
+    expect(getComputedStyle(links).display).toBe('grid');
+    expect(getComputedStyle(links).gridTemplateColumns).toBe('minmax(0, 1fr)');
+    for (const link of buttons) {
+      expect(getComputedStyle(link).width).toBe('100%');
+    }
+  });
+
   it('writes the selection to the URL, leaving defaults out', async () => {
     const router = TestBed.inject(Router);
     await pickRouteAndAnswer();

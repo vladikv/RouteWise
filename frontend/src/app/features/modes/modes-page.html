@@ -1,0 +1,34 @@
+<header class="head">
+  <h1>Modes</h1>
+  <p class="muted">
+    Typical European averages used for every comparison. Cost and CO₂ are per traveler, except car
+    (per vehicle).
+  </p>
+</header>
+
+@if (modes.isLoading()) {
+  <app-spinner label="Loading transport modes…" />
+} @else if (modes.error(); as error) {
+  <app-error-message [error]="error" (retry)="modes.reload()" />
+} @else if (modes.value(); as list) {
+  @if (list.length === 0) {
+    <div class="empty-state">
+      <h2>No transport modes</h2>
+      <p class="muted">No transport modes are configured.</p>
+    </div>
+  } @else {
+    <section aria-labelledby="cards-heading">
+      <h2 id="cards-heading" class="visually-hidden">Transport modes</h2>
+      <ul class="cards">
+        @for (mode of list; track mode.code) {
+          <li><app-mode-card [mode]="mode" /></li>
+        }
+      </ul>
+    </section>
+
+    <section class="compare" aria-labelledby="modes-heading">
+      <h2 id="modes-heading">How the modes compare</h2>
+      <app-mode-chart [modes]="list" />
+    </section>
+  }
+}

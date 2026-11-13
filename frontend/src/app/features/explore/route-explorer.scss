@@ -23,11 +23,9 @@
   color: var(--color-text);
   font-size: 1.15rem;
   cursor: pointer;
-  transition: transform 0.2s ease;
 
   &:hover:not(:disabled) {
     background: var(--color-text-a14);
-    transform: rotate(180deg);
   }
 
   &:disabled {
@@ -41,10 +39,6 @@
   grid-row: 1 / span 2;
   align-self: center;
   transform: rotate(90deg);
-
-  &:hover:not(:disabled) {
-    transform: rotate(270deg);
-  }
 }
 
 @container (min-width: 34rem) {
@@ -60,10 +54,6 @@
       grid-row: auto;
       align-self: auto;
       transform: none;
-
-      &:hover:not(:disabled) {
-        transform: rotate(180deg);
-      }
     }
   }
 }
@@ -82,52 +72,67 @@
   font-weight: 600;
 }
 
-.when {
-  min-width: 0;
-}
-
 .when__controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  display: grid;
   gap: var(--space-2);
 
   input {
-    width: auto;
+    width: 100%;
   }
 }
 
 .chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg-strong);
 }
 
 .chip {
   min-height: 2.25rem;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-pill);
-  background: var(--glass-bg-strong);
-  box-shadow: var(--glass-highlight);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: 0;
+  background: none;
   color: var(--color-text);
   font: inherit;
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
 
+  & + & {
+    border-left: 1px solid var(--glass-border);
+  }
+
   &:hover {
     background: var(--color-text-a14);
   }
 
   &[aria-pressed='true'] {
-    border-color: var(--color-primary-ink);
     background: var(--color-selected-bg);
   }
 
   &[aria-pressed='true']::before {
-    content: '✓ ';
+    content: '✓ ' / '';
     color: var(--color-primary-ink);
+  }
+
+  &:first-child {
+    border-radius: var(--radius-pill) 0 0 var(--radius-pill);
+  }
+
+  &:last-child {
+    border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+  }
+
+  &:focus-visible {
+    outline-offset: -4px;
+  }
+
+  @media (pointer: coarse) {
+    min-height: 2.75rem;
   }
 }
 
@@ -173,7 +178,13 @@
 }
 
 .links {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   margin-top: var(--space-2);
+
+  .button {
+    width: 100%;
+  }
 }
 
 /* In the Map layout the settings panel has to fit a 900 px high screen without scrolling. */
@@ -195,7 +206,7 @@
   }
 
   .chip {
-    min-height: 2rem;
+    min-height: 1.875rem;
   }
 
   .forecast {
@@ -208,94 +219,15 @@
   }
 
   .links {
-    margin-top: var(--space-1);
+    gap: var(--space-1);
+    margin-top: 0;
 
     .button {
-      padding-inline: var(--space-3);
-      font-size: 0.9375rem;
+      min-height: 2.25rem;
     }
   }
-}
 
-/* Results */
-
-.results {
-  position: relative;
-}
-
-.results__content {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-4);
-  transition: opacity 0.2s ease;
-}
-
-.results--refreshing .results__content {
-  opacity: 0.55;
-}
-
-.results__progress {
-  position: absolute;
-  top: -1px;
-  left: 0;
-  right: 0;
-  height: 3px;
-  overflow: hidden;
-
-  &::after {
-    content: '';
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: 35%;
-    background: var(--color-primary-ink);
-    animation: progress 1s ease-in-out infinite;
-  }
-}
-
-@keyframes progress {
-  from {
-    transform: translateX(-100%);
-  }
-
-  to {
-    transform: translateX(300%);
-  }
-}
-
-.placeholder {
-  padding: var(--space-6);
-  border: 1px dashed var(--glass-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-muted);
-  text-align: center;
-
-  p {
-    margin: 0;
-  }
-}
-
-.placeholder__title {
-  margin-bottom: var(--space-1) !important;
-  color: var(--color-text);
-  font-size: 1.0625rem;
-  font-weight: 700;
-}
-
-.exact summary {
-  padding: var(--space-2) 0;
-  color: var(--color-primary-ink);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .swap,
-  .results__content {
-    transition: none;
-  }
-
-  .results__progress::after {
-    animation: none;
-    width: 100%;
+  .when__controls {
+    gap: var(--space-1);
   }
 }
