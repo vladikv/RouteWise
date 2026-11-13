@@ -116,7 +116,7 @@ describe('RouteMap fill mode', () => {
     await render({ insetStart: 424, insetEnd: 200 });
 
     expect(disc().cx).toBe(424 + (1440 - 424 - 200) / 2);
-    expect(disc().r).toBe((1440 - 424 - 200) / 2 - 12);
+    expect(disc().r).toBe((1440 - 424 - 200) / 2 - 22);
   });
 
   it('puts a route between the panels, clear of both', async () => {

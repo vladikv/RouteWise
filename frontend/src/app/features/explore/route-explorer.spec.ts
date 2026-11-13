@@ -253,6 +253,73 @@ describe('RouteExplorer', () => {
     );
   });
 
+  describe('quick dates', () => {
+    const chip = (label: string) =>
+      Array.from(explorer.querySelectorAll<HTMLButtonElement>('.chip')).find((candidate) =>
+        candidate.textContent?.includes(label),
+      ) as HTMLButtonElement;
+    const pressed = () =>
+      Array.from(explorer.querySelectorAll('.chip')).map((c) => c.getAttribute('aria-pressed'));
+    const dateField = () => explorer.querySelector('#explorer-date') as HTMLInputElement;
+
+    afterEach(() => vi.useRealTimers());
+
+    it('activates only the clicked one, even when another names the same day', async () => {
+      // A Friday: tomorrow and this weekend are both Saturday.
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date(2026, 10, 13, 12));
+      fixture = TestBed.createComponent(RouteExplorer);
+      explorer = fixture.nativeElement as HTMLElement;
+      fixture.detectChanges();
+      httpTesting.expectOne(CITIES_URL).flush(CITIES);
+      await fixture.whenStable();
+
+      chip('This weekend').click();
+      await fixture.whenStable();
+      expect(dateField().value).toBe('2026-11-14');
+      expect(pressed()).toEqual(['false', 'true', 'false']);
+
+      chip('Tomorrow').click();
+      await fixture.whenStable();
+      expect(dateField().value).toBe('2026-11-14');
+      expect(pressed()).toEqual(['true', 'false', 'false']);
+    });
+
+    it('deselects the active one on a second click and clears the date: no comparison, a hint', async () => {
+      await pickRouteAndAnswer();
+      expect(explorer.querySelector('app-weather-card')).not.toBeNull();
+
+      chip('Tomorrow').click();
+      await settle();
+      httpTesting.expectOne(COMPARISONS_URL).flush(COMPARISON);
+      await fixture.whenStable();
+      expect(pressed()).toEqual(['true', 'false', 'false']);
+
+      chip('Tomorrow').click();
+      await settle();
+      await fixture.whenStable();
+
+      httpTesting.expectNone(COMPARISONS_URL);
+      expect(pressed()).toEqual(['false', 'false', 'false']);
+      expect(dateField().value).toBe('');
+      expect(explorer.querySelector('app-weather-card')).toBeNull();
+      expect(explorer.querySelector('.placeholder')?.textContent).toContain('Pick a date');
+      expect(TestBed.inject(Router).url).toBe('/?from=3&to=23');
+    });
+
+    it('ends when a date is typed or picked in the date field', async () => {
+      chip('Next week').click();
+      await fixture.whenStable();
+      expect(pressed()).toEqual(['false', 'false', 'true']);
+
+      dateField().value = addDaysIso(todayIso(), 3);
+      dateField().dispatchEvent(new Event('change'));
+      await fixture.whenStable();
+
+      expect(pressed()).toEqual(['false', 'false', 'false']);
+    });
+  });
+
   it('lays the quick dates out as one row of three equal segments under the date input', () => {
     const chips = explorer.querySelector('.chips') as HTMLElement;
     const labels = Array.from(chips.querySelectorAll('.chip')).map((chip) =>

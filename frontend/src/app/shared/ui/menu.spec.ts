@@ -206,4 +206,90 @@ describe('Menu', () => {
     expect(document.activeElement).toBe(custom);
     root.remove();
   });
+
+  describe('Escape', () => {
+    it('is ignored when it came from a dialog opened over the menu, or was handled already', async () => {
+      const popover = root.querySelector<HTMLButtonElement>('#popover-trigger')!;
+      popover.click();
+      await settle();
+      const dialog = document.createElement('dialog');
+      const field = document.createElement('input');
+      dialog.appendChild(field);
+      root.appendChild(dialog);
+
+      field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await settle();
+      expect(root.querySelector('#popover')).not.toBeNull();
+
+      const handled = new KeyboardEvent('keydown', {
+        key: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      });
+      handled.preventDefault();
+      popover.dispatchEvent(handled);
+      await settle();
+      expect(root.querySelector('#popover')).not.toBeNull();
+
+      popover.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await settle();
+      expect(root.querySelector('#popover')).toBeNull();
+    });
+  });
+});
+
+@Component({
+  imports: [Menu, MenuContent],
+  template: `
+    <app-menu panelId="late" [focusOnOpen]="true">
+      <button type="button" menuTrigger id="late-trigger">Late</button>
+      <ng-template appMenuContent>
+        @if (ready()) {
+          <a href="#late-item" id="late-item">Loaded</a>
+        } @else {
+          <p>Loading…</p>
+        }
+      </ng-template>
+    </app-menu>
+    <button type="button" id="elsewhere">Elsewhere</button>
+  `,
+})
+class LateHost {
+  readonly ready = signal(false);
+}
+
+describe('Menu with content that arrives later', () => {
+  let fixture: ComponentFixture<LateHost>;
+  let root: HTMLElement;
+
+  beforeEach(async () => {
+    fixture = TestBed.createComponent(LateHost);
+    root = fixture.nativeElement as HTMLElement;
+    await fixture.whenStable();
+  });
+
+  async function openAndLoad(moveFocusTo?: string): Promise<void> {
+    const trigger = root.querySelector<HTMLButtonElement>('#late-trigger')!;
+    trigger.focus();
+    trigger.click();
+    await fixture.whenStable();
+    if (moveFocusTo) {
+      root.querySelector<HTMLElement>(moveFocusTo)!.focus();
+    }
+    fixture.componentInstance.ready.set(true);
+    await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve));
+  }
+
+  it('moves focus to the first item once it renders, if focus is still on the trigger', async () => {
+    await openAndLoad();
+
+    expect(document.activeElement?.id).toBe('late-item');
+  });
+
+  it('leaves focus alone when the user has moved on', async () => {
+    await openAndLoad('#elsewhere');
+
+    expect(document.activeElement?.id).toBe('elsewhere');
+  });
 });

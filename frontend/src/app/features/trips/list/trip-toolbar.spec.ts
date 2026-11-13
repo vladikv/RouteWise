@@ -1,6 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Router, provideRouter } from '@angular/router';
-import { SearchFocus } from '../../../shared/util/search-focus';
+import { provideRouter } from '@angular/router';
 import { TripToolbar } from './trip-toolbar';
 
 /** Fakes `matchMedia` for a viewport width (the `min-width` queries of `LayoutBreakpoint`). */
@@ -79,19 +78,6 @@ describe('TripToolbar', () => {
 
   describe('on a wide screen', () => {
     beforeEach(() => create(1280));
-
-    it('takes focus in the search field when the search shortcut asks for it', async () => {
-      const searchFocus = TestBed.inject(SearchFocus);
-      await TestBed.inject(Router).navigateByUrl('/trips');
-
-      searchFocus.open();
-
-      await vi.waitFor(async () => {
-        await fixture.whenStable();
-        expect(document.activeElement).toBe(toolbar.querySelector('input[type="search"]'));
-      });
-      expect(searchFocus.pending()).toBe(false);
-    });
 
     it('shows two labelled groups with the counts from the full list', () => {
       expect(chips(group('Priority'))).toEqual([

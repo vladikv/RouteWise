@@ -1,22 +1,29 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { ChangeDetectionStrategy, Component, TemplateRef, input, output } from '@angular/core';
 import { IsActiveMatchOptions, RouterLink, RouterLinkActive } from '@angular/router';
+import { Menu, MenuContent } from './menu';
 
 export interface RailItem {
   /** Accessible name and tooltip. */
   label: string;
   /** The `d` of one 24 by 24 stroked SVG path. */
   icon: string;
-  /** A page to open; without it the item is a button that emits `activate`. */
+  /** A page to open. */
   link?: string;
+  /** Content of a popover that opens to the right of the item (rendered only while open). */
+  popover?: TemplateRef<unknown>;
+  /** Keyboard shortcut: `label` follows the item's label in the tooltip, `aria` is `aria-keyshortcuts`. */
+  shortcut?: { label: string; aria: string };
 }
 
 /**
- * Vertical glass icon rail. Every item is a labelled link (the current page gets `aria-current`)
- * or, without a `link`, a button that emits `activate`. Icons are decorative.
+ * Vertical glass icon rail. Every item is a labelled link (the current page gets `aria-current`),
+ * a button that opens its `popover` (a `Menu` to the right of the rail), or otherwise a button that
+ * emits `activate`. Icons are decorative; the tooltip is the label plus the item's shortcut.
  */
 @Component({
   selector: 'app-icon-rail',
-  imports: [RouterLink, RouterLinkActive],
+  imports: [NgTemplateOutlet, RouterLink, RouterLinkActive, Menu, MenuContent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <nav [attr.aria-label]="ariaLabel()">
@@ -36,11 +43,28 @@ export interface RailItem {
                   <path [attr.d]="item.icon" />
                 </svg>
               </a>
+            } @else if (item.popover; as popover) {
+              <app-menu placement="end" [focusOnOpen]="true">
+                <button
+                  type="button"
+                  menuTrigger
+                  [attr.aria-label]="item.label"
+                  [attr.title]="tooltip(item)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path [attr.d]="item.icon" />
+                  </svg>
+                </button>
+                <ng-template appMenuContent>
+                  <ng-container [ngTemplateOutlet]="popover" />
+                </ng-template>
+              </app-menu>
             } @else {
               <button
                 type="button"
                 [attr.aria-label]="item.label"
-                [attr.title]="item.label"
+                [attr.aria-keyshortcuts]="item.shortcut?.aria ?? null"
+                [attr.title]="tooltip(item)"
                 (click)="activate.emit(item)"
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -54,7 +78,10 @@ export interface RailItem {
     </nav>
   `,
   styles: `
+    /* Above the page area, so a popover opening to the right covers the page (and the globe). */
     :host {
+      position: relative;
+      z-index: 5;
       align-self: flex-start;
       margin: var(--space-2) 0 var(--space-4) var(--space-4);
     }
@@ -89,9 +116,14 @@ export interface RailItem {
     }
 
     a:hover,
-    button:hover {
+    button:hover,
+    button[aria-expanded='true'] {
       background: var(--glass-bg-strong);
       color: var(--color-text);
+    }
+
+    app-menu {
+      display: block;
     }
 
     a.active {
@@ -115,6 +147,10 @@ export class IconRail {
   readonly items = input.required<RailItem[]>();
   readonly ariaLabel = input('Quick access');
   readonly activate = output<RailItem>();
+
+  protected tooltip(item: RailItem): string {
+    return item.shortcut ? `${item.label} (${item.shortcut.label})` : item.label;
+  }
 
   /** Query parameters are ignored so the explorer's URL state does not matter. */
   protected readonly exactPath: IsActiveMatchOptions = {

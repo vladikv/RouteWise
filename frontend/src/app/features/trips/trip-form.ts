@@ -62,6 +62,8 @@ const MESSAGES: Record<string, string> = {
  * Trip form for create and edit. Presentational: it validates and emits a
  * {@link TripRequest}; the page saves it and passes back server-side field errors.
  * The route is an ordered list of 2–10 stops, edited with city pickers or the map.
+ * It renders two blocks, the globe and the fields card (projected content, such as a save
+ * error, goes at the top of the card); the page lays them out.
  */
 @Component({
   selector: 'app-trip-form',
@@ -82,6 +84,11 @@ export class TripForm {
   /** Field errors returned by the API for the last submit. */
   readonly serverErrors = input<FieldError[]>([]);
   readonly cancelLink = input.required<string>();
+  /**
+   * Layout hook (the page's columns from 1280 px): the globe fills its own column and the
+   * fields card scrolls inside itself. Otherwise the globe keeps its shape above the fields.
+   */
+  readonly columns = input(false);
   readonly submitted = output<TripRequest>();
 
   protected readonly priorities = PRIORITIES;

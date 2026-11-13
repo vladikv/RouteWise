@@ -29,9 +29,10 @@
         <button
           type="button"
           class="round"
-          aria-label="Search trips"
-          title="Search trips"
-          (click)="searchTrips()"
+          aria-label="Search"
+          title="Search (Ctrl+K)"
+          aria-keyshortcuts="Control+K Meta+K"
+          (click)="openSearch()"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM16 16l4.5 4.5" />

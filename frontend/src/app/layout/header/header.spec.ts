@@ -10,7 +10,7 @@ import { Session } from '../../core/auth/session';
 import { HOME_LAYOUT_STORAGE_KEY, HomeLayout } from '../../features/explore/home-layout';
 import { TripStats } from '../../core/api/models';
 import { mockViewport } from '../../shared/util/viewport.testing';
-import { SearchFocus } from '../../shared/util/search-focus';
+import { PaletteState } from '../command-palette/palette-state';
 import { Header } from './header';
 
 const STATS_URL = 'http://api.test/api/trips/stats';
@@ -301,20 +301,19 @@ describe('Header', () => {
   it('has round search and new-trip buttons and no theme menu', async () => {
     await render();
 
-    expect(button('Search trips')).not.toBeNull();
+    expect(button('Search').getAttribute('aria-keyshortcuts')).toBe('Control+K Meta+K');
     expect(header.querySelector('a[aria-label="New trip"]')?.getAttribute('href')).toBe(
       '/trips/new',
     );
     expect(header.querySelector('[aria-label^="Theme"]')).toBeNull();
   });
 
-  it('asks the trips page to focus its search field', async () => {
-    const open = vi.spyOn(TestBed.inject(SearchFocus), 'open').mockImplementation(() => undefined);
+  it('opens the search palette', async () => {
     await render();
 
-    button('Search trips').click();
+    button('Search').click();
 
-    expect(open).toHaveBeenCalledOnce();
+    expect(TestBed.inject(PaletteState).isOpen()).toBe(true);
   });
 });
 

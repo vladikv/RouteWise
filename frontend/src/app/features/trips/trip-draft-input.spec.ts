@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ApiError } from '../../core/api/api-error';
 import { DRAFT } from './comparison/comparison.testing';
-import { TripDraftInput } from './trip-draft-input';
+import { DRAFT_EXAMPLES, TripDraftInput } from './trip-draft-input';
 import { typeInto } from './trip-form.testing';
 
 describe('TripDraftInput', () => {
@@ -75,5 +75,33 @@ describe('TripDraftInput', () => {
 
     expect(element.querySelector('[role="alert"]')?.textContent).toContain('API unreachable');
     expect(element.querySelector('[role="status"]')).toBeNull();
+  });
+
+  it('puts a clicked example into the text field and focuses it, without sending it', async () => {
+    const examples = Array.from(element.querySelectorAll<HTMLButtonElement>('.example'));
+    expect(examples.map((example) => example.textContent?.trim())).toEqual([...DRAFT_EXAMPLES]);
+    expect(element.querySelector('.examples')?.getAttribute('role')).toBe('group');
+
+    examples[1].click();
+    await fixture.whenStable();
+
+    const textarea = element.querySelector('#trip-description') as HTMLTextAreaElement;
+    expect(textarea.value).toBe(DRAFT_EXAMPLES[1]);
+    expect(document.activeElement).toBe(textarea);
+    expect(button().disabled).toBe(false);
+    expect(button().classList).toContain('button--primary');
+    expect(emitted).toEqual([]);
+  });
+
+  it('replaces text that was already written with the example', async () => {
+    const textarea = element.querySelector('#trip-description') as HTMLTextAreaElement;
+    textarea.value = 'Something I wrote';
+    textarea.dispatchEvent(new Event('input'));
+
+    element.querySelector<HTMLButtonElement>('.example')!.click();
+    await fixture.whenStable();
+
+    expect(textarea.value).toBe(DRAFT_EXAMPLES[0]);
+    expect(document.activeElement).toBe(textarea);
   });
 });

@@ -42,8 +42,36 @@ const SCREENS = [
     action: (page) => page.getByRole('radio', { name: 'List' }).first().click(),
   },
   { name: 'trip-details', path: '/trips/{firstTrip}', settle: 2000 },
-  { name: 'trip-form', path: '/trips/new' },
+  { name: 'trip-form', path: '/trips/new', settle: 2000 },
+  { name: 'trip-form-edit', path: '/trips/{firstTrip}/edit', settle: 2500 },
+  {
+    name: 'trip-form-reduced-transparency',
+    path: '/trips/new',
+    reducedTransparency: true,
+    settle: 2000,
+  },
   { name: 'modes', path: '/modes' },
+  {
+    name: 'search-palette',
+    path: '/?from={berlin}',
+    action: async (page) => {
+      await page.keyboard.press('Control+k');
+      await page.getByRole('combobox', { name: 'Search cities and trips' }).fill('ber');
+    },
+    settle: 1500,
+  },
+  {
+    name: 'upcoming-trips',
+    minWidth: 1024,
+    path: '/',
+    action: (page) => page.getByRole('button', { name: 'Upcoming trips' }).click(),
+  },
+  {
+    name: 'shortcuts',
+    minWidth: 1024,
+    path: '/',
+    action: (page) => page.getByRole('button', { name: 'Keyboard shortcuts' }).click(),
+  },
   // With the OS "transparency effects" off: opaque glass, backdrop colours still visible.
   {
     name: 'home-route-reduced-transparency',
