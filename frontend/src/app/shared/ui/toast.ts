@@ -11,6 +11,10 @@ export interface ToastRequest {
   message: string;
   kind: ToastKind;
   action?: ToastAction;
+  /** How long it stays when nobody hovers or focuses it; defaults to {@link TOAST_DURATION_MS}. */
+  durationMs?: number;
+  /** Move keyboard focus to the action button when the toast appears (for a time-limited Undo). */
+  focus?: boolean;
 }
 
 export interface Toast extends ToastRequest {
@@ -38,7 +42,11 @@ export class ToastService {
   show(request: ToastRequest): number {
     const id = this.nextId++;
     this.list.update((current) => [...current, { ...request, id }]);
-    this.timers.set(id, { handle: null, remaining: TOAST_DURATION_MS, startedAt: 0 });
+    this.timers.set(id, {
+      handle: null,
+      remaining: request.durationMs ?? TOAST_DURATION_MS,
+      startedAt: 0,
+    });
     this.resume(id);
     return id;
   }

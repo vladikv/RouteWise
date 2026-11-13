@@ -16,7 +16,7 @@ checkboxes when a milestone is completed.
 - Glass UI: translucent surfaces on a layered background in the existing palette; the Home map
   fills wide screens with floating panels; the Trips page has KPIs, filters and a board/list view
   (before/after screenshots in `docs/screenshots/`)
-- Light, dark and system theme (choice kept in the browser); Home offers a Map and a Split layout;
+- Light, dark and system theme (choice kept in the browser) *(dark only from `feat/ui-reference-style`)*; Home offers a Map and a Split layout;
   trips can be duplicated and moved to another priority from the Trips page
 - Interactive globe map and about 150 cities on every continent; ground modes only between
   cities joined by land, flights with separate short- and long-haul CO₂ factors
@@ -25,6 +25,10 @@ checkboxes when a milestone is completed.
 - Delete with undo: deleted trips can be restored for a short window (default 30 s)
 - Resilient external calls: cached weather with retry and an explicit "weather unavailable" status;
   `/actuator/health`
+- Reference-style UI: one dark theme with a smoky multi-tone background and strong glass, the app in a
+  rounded glass shell with a top bar and a left icon rail; Trips board lanes with tinted cards; an
+  interactive list (inline details, pagination, keyboard); a Modes page; an account popover; delete
+  through a confirm dialog with Undo
 
 Out of scope for v1: social login, password reset, email verification,
 real-time timetables, booking.
@@ -108,6 +112,10 @@ Changing requests need the `X-XSRF-TOKEN` header echoing the `XSRF-TOKEN` cookie
 | GET | `/api/transport-modes` | Mode parameters |
 | GET | `/actuator/health` | Health check, public, no details *(new)* |
 
+`feat/ui-reference-style` changes no endpoint or DTO; it uses the endpoints above (incl. `page`/`size`
+of `GET /api/trips` for the list's pagination and `GET /api/trips/{id}/comparison` when a list row is
+expanded). An optional Preferences endpoint is only added if approved in its own step (see the milestone).
+
 Changes in `feat/backend-depth`:
 - **Breaking:** `GET /api/trips` returns a page object instead of an array (above); the UI changes in the same milestone.
 - Additive: `GET /api/trips/{id}/comparison` and `POST /api/comparisons` get `weatherStatus`, `unavailableGroups`
@@ -151,7 +159,7 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
   - Demo data: the seeder's trips use stops; at least one has 3+ stops
   - Frontend: trip form with a stops list (add, remove, move up/down, city picker, inline validation); trip list and details show the stops; comparison as a leg timeline with the recommended mode per leg and totals vs single-mode alternatives; maps draw every leg; the home explorer stays A → B (2 stops)
   - Done when: tests for the migration (existing rows converted), validation cases, per-leg calculation, totals, ownership, parse with stops, rule-based fallback, UI specs; `./mvnw verify` and `npm test` green; README "Data & assumptions" updated if it exists by then; `docs/AI_WORKFLOW.md` entry
-- [ ] `feat/ui-glass-redesign`: glassmorphism redesign of the Angular UI: map-first Home on wide screens with floating panels, Trips page with KPIs, filters and board/list view, bottom sheet on phones; visual and layout only
+- [x] `feat/ui-glass-redesign`: glassmorphism redesign of the Angular UI: map-first Home on wide screens with floating panels, Trips page with KPIs, filters and board/list view, bottom sheet on phones; visual and layout only
   - Tokens first: the palette stays as defined in `frontend/src/styles.scss` `:root` (bg `#0b0d12`, surface `#141820`, text white / `#b8bfcc`, lime `#b6f23c`, amber `#f5b871`, danger `#ff8a80`, map colours); new tokens only for alpha variants of these, glass surfaces, borders, blur, radii (16–24 px, pill) and spacing; the hard-coded colours in `shared/map/route-map.scss` and `shared/ui/city-picker.scss` move to tokens; no hard-coded colours in components
   - Building blocks in `shared/ui`: glass panel, pill nav, stat chip, tabs / segmented toggle, filter chip, icon button, bottom sheet
   - Shell: fixed layered background with soft blurred lime glows; header with the logo on a lime tile, centred pill nav (Home, Trips) with a lighter active item, round icon buttons and Log in / avatar; the nav collapses into a menu below 768 px
@@ -209,6 +217,20 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
   - Docs: Swagger annotations on every new/changed endpoint and parameter; this file's API table and domain model; README "Data & assumptions" (149 cities without Moscow, list figures without weather, weather cache TTL)
   - Process: `add-rest-endpoint` and `add-flyway-migration` skills; `test-writer` agent for missing tests; `backend-reviewer` agent before committing, every 🔴 finding fixed; commits via the `commit` skill; never push
   - Done when: tests for the specifications (search on title and on a city name, each filter, combinations, deleted trips excluded), sorting (each key and direction, trips without figures last) and pagination (bounds, last page, out-of-range page = empty items), facet counts (own dimension ignored), `priorityTotals`, stats (no trips, deleted trips, trip without car, next trip today/past), soft delete and restore (inside the window, at the boundary, after → 409, not deleted → 200, another user's trip → 404, deleted trip → 404 on get/update/comparison/advice), `UnavailableGrouper` messages, weather cache hit/miss, failure not cached, retry then fallback with `weatherStatus` `UNAVAILABLE` on timeout, advisor timeout → rules, V9 and V10 migrations (a V8 database with a Moscow trip migrated: trip and city gone, others intact, 149 cities; `CityMigrationTest` count 150 → 149, the only changed expectation of an existing test), ArchUnit rules, `/actuator/health` public; frontend specs for the new `TripApi` calls, the Trips page using API figures/facets/stats, undo toast and grouped messages; `./mvnw verify`, `npm test` and `npm run lint` green; `docs/AI_WORKFLOW.md` entry
+- [x] `feat/ui-reference-style`: full visual overhaul in the style of the design reference (`docs/photo.jpg`, look and layout ideas only); visual and interaction changes, no API change
+  - Depends on `feat/backend-depth` (server-side search, facets, stats, pagination, soft delete + restore); no business calculations in the UI
+  - Reference: `docs/photo.jpg` is a design reference only: copy its look and layout ideas, never its content, brand, texts or icons; never commit, move or copy it (git-ignored)
+  - Screenshots (replaces the "no screenshots" rule): new devDependency `@playwright/test` (approved) with `npm run screenshots`, which logs in with the demo account against the running app and captures Home (empty and with a route), Home Map layout, Trips board, Trips list, trip details, trip form, Modes and the account menu at 1920/1280/375 px. Step reviews go to `docs/screenshots/work/` (git-ignored); final `before-*`/`after-*` sets go to `docs/screenshots/` and are committed. First, the missing current screens are captured: `before-trips-list-1920.png`, `before-account-menu.png`
+  - Step 1 (stop for review): smoky multi-tone background (soft grey, olive and warm tones blended with the lime accent, blurred, static under reduced motion); the app inside a large rounded glass shell with a small outer margin; stronger glass tokens (translucent fill, visible blur, 1 px light border, large radii, pill controls); top bar: logo tile left with the Map/Split toggle next to it on Home only (same preference and breakpoints as now), centred pill nav (Home, Trips, Modes), round icon buttons and avatar right; left vertical glass icon rail from 1024 px (search, new trip, trips, modes; tooltips and labels for assistive tech), hidden on phones; dark theme only: `ThemeService`, the theme menu, the inline theme script, light tokens and every `data-theme` rule removed
+  - Step 2 (stop for review): Trips board: each priority is a glass lane with a header (colour dot, name, count badge, total from `priorityTotals`, round "+" that opens New trip with that priority via the existing `priority` query parameter) and cards in a clearly coloured translucent tint per lane (new tint tokens per priority, AA-checked); List styling: glass table, sticky header
+  - Step 3 (stop for review): Modes page (`/modes`, nav item, public): one glass card per mode from `GET /api/transport-modes` (speed, cost, CO₂, max distance) and a comparison chart (metric tabs, table equivalent), moved from Home; Home: animated route along the arc (flowing dash or a moving arrow, static under reduced motion); left panel actions "View trips" and "Describe a trip instead" full width, stacked, equal width; Tomorrow / This weekend / Next week as one full-width row of equal segments; comparison score bars proportional to the score (100 = full width); unavailable modes only as the API's grouped messages; globe labels: fewer at low zoom and no overlaps in dense areas (tighter rank and density rules in `globe.ts`, tested)
+  - Step 4 (stop for review): account popover on the avatar (glass): avatar, name, email (`/api/auth/me`), trips planned and CO₂ saved (`/api/trips/stats`), "My trips" link, Log out with an icon; delete from card, row or trip details through a glass confirm dialog (focus trapped, Escape cancels, focus returns), then a toast "Trip deleted · Undo" shown for less than the restore window (10 s, window 30 s) that calls `POST /api/trips/{id}/restore`, and a clear error toast when the restore fails; interactive List: a row expands inline (legs with mode icons, time, cost and CO₂ per leg and the weather, from that trip's `GET /api/trips/{id}/comparison`, loaded on first expand) with Open on map, Edit and Delete; hover quick actions, server-side sortable columns, inline priority change (optimistic with rollback), pagination (page size 20 with page controls and the result count), keyboard: arrows move between rows, Enter expands, Escape collapses
+  - Optional step 5 (only after its own approval): Preferences (default priority, default travelers, home city) in the account popover; needs a new `GET/PUT /api/me/preferences`, a Flyway migration and tests; planned here, not built unless approved
+  - Building blocks in `shared/ui`: glass shell, icon rail, lane, popover, dialog; existing pill nav, toast, menu, cards reused and restyled; tokens only, no hard-coded colours
+  - Accessibility and performance: WCAG AA on glass (contrast check composites over the brightest background area), visible focus, `prefers-reduced-motion` and `prefers-reduced-transparency`; few stacked `backdrop-filter` layers (shell, top bar, rail, panels, popover, dialog), none per card or row; globe and scrolling stay smooth; layouts at 375/768/1280/1920 px
+  - Unchanged: backend, API contracts, routes other than the new `/modes`, URL state of the explorer
+  - Process: `ui-builder` builds each step, `ui-reviewer` reviews before each commit (all 🔴 fixed); stop after each step with `work/` screenshots; commits via the `commit` skill; never push
+  - Done when: specs updated for changed markup (no test deleted without a stated reason) and new specs for the shell, rail, lanes, Modes page, route animation (reduced motion), label density, account popover, confirm dialog, Undo toast and restore failure, list expansion, pagination and keyboard navigation; `npm run lint`, `npm test` and `./mvnw verify` green; `after-*` screenshots of every screen at 1920/1280/375 in `docs/screenshots/`; `docs/AI_WORKFLOW.md` entry
 - [ ] `docs/readme-demo`: README and demo recording
 
 ## Decisions log
@@ -355,3 +377,24 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
 | 2026-11-13 | The Trips page keeps the previous page visible while a new search loads (`linkedSignal` over the resource) | Without it every keystroke would replace the toolbar with a spinner and drop the search field's focus |
 | 2026-11-13 | Board column counts are the cards shown while the page holds every matching trip, else the API's `priorityTotals` count; totals always come from the API | With the API count only, a card moved optimistically into a column the API counted as empty was hidden until the reload (caught by the test agent) |
 | 2026-11-13 | Clearing the filters applies the empty search at once; the search query is compared by value | The debounced search and a new query object on every view switch sent redundant requests |
+| 2026-11-13 | Screenshots return: `@playwright/test` (devDependency) and `npm run screenshots`; step reviews in `docs/screenshots/work/` (git-ignored), final `before-*`/`after-*` sets in `docs/screenshots/` (committed); only `docs/photo.jpg` and `work/` are ignored | Human decision for `feat/ui-reference-style`: the look is steered visually step by step, which code review cannot do. Supersedes "No screenshots" |
+| 2026-11-13 | Dark theme only again; the light theme, theme menu and their tokens are removed | Human decision: the reference look is dark glass; one theme halves the contrast checks. Supersedes "Light, dark and system themes return" |
+| 2026-11-13 | Deleting a trip uses a glass confirm dialog followed by an Undo toast | Requested with the reference style; Undo makes the dialog the only extra step. Supersedes "Delete needs an inline second confirmation, no modal dialog" |
+| 2026-11-13 | "How the modes compare" moves from Home to its own Modes page (`/modes`) | Home stays focused on the map and the comparison; mode parameters get room for a card per mode and a chart |
+| 2026-11-13 | A list row loads its trip's comparison only when it is first expanded | Legs, per-leg figures and weather already come from `GET /api/trips/{id}/comparison`; no new endpoint and no request per row up front |
+| 2026-11-13 | Preferences in the account menu are an optional step needing its own approval | No endpoint exists; the milestone otherwise changes no backend or API contract |
+| 2026-11-13 | Optional step 5 (Preferences) not built | Human decision when closing `feat/ui-reference-style`; stays a candidate for a later milestone |
+| 2026-11-13 | Glass: a static smoky backdrop (no drift) behind one shell at midnight 50 %; chips, cards and rows have no blur of their own | The drifting glow made the full-viewport shell blur repaint every frame; the reference look comes from the backdrop, not from stacked blurs |
+| 2026-11-13 | Muted text raised to `#e2e6ed` | Keeps 4.5:1 on 12 % controls at the brightest backdrop point; hierarchy now comes more from size and weight than colour |
+| 2026-11-13 | Board cards are tinted per priority lane (blue, rust, olive, grey), no longer per mode; the mode stays written on the card | Matches the reference's coloured columns and ties each card to its lane; colour is never the only signal |
+| 2026-11-13 | Globe labels: rank 2 from 2.5x, rank 3 from 5x, a zoom-dependent minimum gap for low-rank dots, more label padding; route cities and the keyboard-focused city are always drawn | Europe at low zoom was crowded with dots and near-touching labels |
+| 2026-11-13 | Account popover built on the existing `Menu` (new `focusOnOpen`) instead of a separate popover component | Escape, outside click, focus return and ARIA were already there; one disclosure component to maintain |
+| 2026-11-13 | The Undo toast takes keyboard focus; toasts get a per-toast duration (Undo 10 s, default 5 s) | The control that opened the delete dialog disappears with the trip, so without moving focus Undo was out of reach within its time limit (WCAG 2.2.1) |
+| 2026-11-13 | List rows: the expand button is the roving tab stop (arrows, Home/End), Enter/Space expand, Escape collapses; the list pages by 20, the board still loads up to 100 | One tab stop for the table with native button semantics; the board needs every trip of a lane at once |
+| 2026-11-13 | Final screenshots: the previous `after-*` set became this milestone's `before-*` set; the older glass-redesign `before-*` files were replaced (still in git history) | One committed before/after pair per screen instead of three generations |
+
+## Backlog / ideas
+
+Not planned yet; each item becomes a milestone (via `add-milestone`) before any code is written.
+
+- Connecting flights via hubs for very long routes: distance, time and CO₂ calculated per flight segment, hub chosen to minimise detour.

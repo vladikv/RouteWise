@@ -7,7 +7,7 @@ import { apiErrorInterceptor } from '../../core/api/api-error';
 import { mockViewport } from '../../shared/util/viewport.testing';
 import { COMPARISON } from '../trips/comparison/comparison.testing';
 import { CITIES } from '../trips/trip-form.testing';
-import { HOME_LAYOUT_STORAGE_KEY } from './home-layout';
+import { HOME_LAYOUT_STORAGE_KEY, HomeLayout } from './home-layout';
 import { RouteExplorer } from './route-explorer';
 
 const COMPARISONS_URL = 'http://api.test/api/comparisons';
@@ -58,11 +58,6 @@ describe('RouteExplorer layouts', () => {
     Array.from(explorer.querySelectorAll<HTMLButtonElement>('button.toggle')).find((button) =>
       button.textContent?.includes(heading),
     ) as HTMLButtonElement;
-  const layoutRadio = (label: string): HTMLButtonElement =>
-    Array.from(explorer.querySelectorAll<HTMLButtonElement>('.stage__toolbar [role="radio"]')).find(
-      (radio) => radio.textContent?.includes(label),
-    ) as HTMLButtonElement;
-
   async function settle(): Promise<void> {
     for (let i = 0; i < 3; i++) {
       TestBed.tick();
@@ -152,19 +147,12 @@ describe('RouteExplorer layouts', () => {
       expect(button.getAttribute('aria-expanded')).toBe('true');
       expect(body?.hasAttribute('hidden')).toBe(false);
     });
-
-    it('offers the layout toggle with Map selected', () => {
-      expect(layoutRadio('Map').getAttribute('aria-checked')).toBe('true');
-      expect(layoutRadio('Split').getAttribute('aria-checked')).toBe('false');
-      expect(layoutRadio('Map').querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
-    });
   });
 
   describe('Split', () => {
     it('is the default: the map beside one column with the settings and the results', async () => {
       await render(1920);
       expect(arrangement()).toEqual(['stage--split']);
-      expect(layoutRadio('Split').getAttribute('aria-checked')).toBe('true');
       expect(count('button.toggle')).toBe(0);
       expect(explorer.querySelector('h1')).toBe(explorer.querySelector('.dock--form .heading'));
       expect(explorer.querySelector('.dock--results .placeholder')).not.toBeNull();
@@ -182,7 +170,6 @@ describe('RouteExplorer layouts', () => {
       const children = Array.from(stage().children).map((child) => child.className);
       expect(children).toEqual(['stage__map', 'stage__side']);
       expect(explorer.querySelector('.stage__side')?.getAttribute('tabindex')).toBeNull();
-      expect(count('.stage__toolbar')).toBe(0);
     });
 
     it('lets the wheel zoom the map only where the page does not scroll around it', async () => {
@@ -203,7 +190,6 @@ describe('RouteExplorer layouts', () => {
     it('shows Split below 1440 px without offering Map or overwriting the saved choice', async () => {
       await render(1280, 'map');
       expect(arrangement()).toEqual(['stage--split']);
-      expect(count('.stage__toolbar')).toBe(0);
       expect(localStorage.getItem(HOME_LAYOUT_STORAGE_KEY)).toBe('map');
 
       viewport.resize(1600);
@@ -225,7 +211,6 @@ describe('RouteExplorer layouts', () => {
       expect(count('#explorer-date')).toBe(1);
       expect(count('app-city-picker')).toBe(2);
       expect(count('app-glass-panel')).toBe(0);
-      expect(count('.stage__toolbar')).toBe(0);
     });
 
     it('shows a one-line summary in the peek and expands with the handle', async () => {
@@ -243,8 +228,9 @@ describe('RouteExplorer layouts', () => {
   describe('switching between Map and Split', () => {
     beforeEach(() => render(1920, 'map'));
 
-    async function choose(label: string): Promise<void> {
-      layoutRadio(label).click();
+    /** What the header's Map / Split toggle does. */
+    async function choose(label: 'Map' | 'Split'): Promise<void> {
+      TestBed.inject(HomeLayout).set(label === 'Map' ? 'map' : 'split');
       await fixture.whenStable();
     }
 

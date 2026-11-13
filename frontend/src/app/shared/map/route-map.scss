@@ -53,6 +53,10 @@
   cursor: grabbing;
 }
 
+.map:active .route--flow {
+  animation-play-state: paused;
+}
+
 .map:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: -3px;
@@ -170,6 +174,37 @@
   stroke-width: 7px;
   animation: none;
   opacity: 0.8;
+}
+
+/* A dash train runs along each arc from origin to destination once the line has been drawn. A negative
+   offset step moves the dashes forward along the path; the solid line below stays when motion is reduced. */
+.route--flow {
+  stroke: var(--color-on-primary);
+  stroke-width: 3px;
+  stroke-linecap: butt;
+  stroke-dasharray: 5 15;
+  opacity: 0;
+  animation:
+    flow-in 0.3s ease-out 0.7s forwards,
+    flow-route 1s linear 0.7s infinite;
+}
+
+@keyframes flow-in {
+  to {
+    opacity: 0.8;
+  }
+}
+
+@keyframes flow-route {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route--flow {
+    display: none;
+  }
 }
 
 /* Dashes are in screen pixels: grow one dash past any route length and end with no gap, which is a

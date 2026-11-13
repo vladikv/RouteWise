@@ -1,6 +1,7 @@
 import { TripPage } from '../../../core/api/models';
 import {
   DEFAULT_SORT,
+  LIST_PAGE_SIZE,
   PAGE_SIZE,
   activeChipCount,
   hasActiveFilters,
@@ -49,8 +50,19 @@ describe('tripSearch', () => {
       mode: ['TRAIN', 'BUS'],
       sort: 'cost',
       direction: 'desc',
+      page: 0,
       size: PAGE_SIZE,
     });
+  });
+
+  it('asks for the page and size given, zero-based', () => {
+    const query = tripSearch({ search: '', priorities: [], modes: [] }, DEFAULT_SORT, {
+      page: 2,
+      size: LIST_PAGE_SIZE,
+    });
+
+    expect(query.page).toBe(2);
+    expect(query.size).toBe(20);
   });
 
   it('trims the search text and asks for the largest page', () => {

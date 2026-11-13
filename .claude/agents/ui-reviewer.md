@@ -16,7 +16,7 @@ propose precise, ready-to-apply fixes.
    (services, tokens, shared components).
 2. Read frontend/CLAUDE.md and the design tokens to know the rules.
 3. Judge the visual result from templates, styles and tokens (all themes,
-   layouts and widths). Do not take or ask for screenshots (project rule).
+   layouts and widths). Screenshots in `docs/screenshots/work/` (from `npm run screenshots`) may be read when present.
 4. Run in frontend/: `npm run lint`, `npm test`, `npm run build`
    (note bundle size warnings and budget violations).
 5. Review against the checklist, then report.

@@ -12,13 +12,13 @@ import { TripCard } from './trip-card';
   template: `<app-trip-card
     [trip]="trip()"
     [figures]="figures()"
-    (deleted)="deleted = deleted + 1"
+    (deleteRequested)="deleteRequests = deleteRequests + 1"
   />`,
 })
 class Host {
   readonly trip = signal<Trip>(TRIP);
   readonly figures = signal<TripFigures | null>(null);
-  deleted = 0;
+  deleteRequests = 0;
 }
 
 /** Figures as the API delivers them: the car share and percentage derive from the two CO2 values. */
@@ -61,38 +61,30 @@ describe('TripCard', () => {
   });
 
   it.each([
-    ['TRAIN', 'trip--lime'],
-    ['BIKE', 'trip--lime'],
-    ['PLANE', 'trip--amber'],
-  ] as const)('tints a %s trip with %s', async (mode, tintClass) => {
-    const card = await render(ready({ mode, modes: [mode] }));
+    ['FASTEST', 'trip--fastest'],
+    ['CHEAPEST', 'trip--cheapest'],
+    ['GREENEST', 'trip--greenest'],
+    ['BALANCED', 'trip--balanced'],
+  ] as const)('tints a %s trip with %s whatever its mode', async (priority, tintClass) => {
+    const card = await render(ready({ mode: 'PLANE', modes: ['PLANE'] }), { ...TRIP, priority });
 
     expect(card.classList.contains(tintClass)).toBe(true);
+    expect(card.querySelector('.trip__mode')?.textContent).toContain('Plane');
   });
 
-  it.each(['CAR', 'BUS'] as const)('leaves a %s trip untinted', async (mode) => {
-    const card = await render(ready({ mode, modes: [mode] }));
-
-    expect(card.classList.contains('trip--lime')).toBe(false);
-    expect(card.classList.contains('trip--amber')).toBe(false);
-  });
-
-  it('names a mixed plan, lists its modes and leaves it untinted', async () => {
+  it('names a mixed plan and lists its modes', async () => {
     const card = await render(ready({ mode: 'MIXED', modes: ['TRAIN', 'PLANE'] }));
 
     expect(card.querySelector('.trip__mode')?.textContent).toContain('Mixed: train, plane');
     expect(card.querySelectorAll('.trip__mode app-mode-icon')).toHaveLength(2);
-    expect(card.classList.contains('trip--lime')).toBe(false);
-    expect(card.classList.contains('trip--amber')).toBe(false);
   });
 
-  it('says so and leaves the card untinted when no route is available', async () => {
+  it('says so and keeps the priority tint when no route is available', async () => {
     const card = await render(null);
 
     expect(card.textContent).toContain('No available route');
     expect(card.querySelector('.trip__value')).toBeNull();
-    expect(card.classList.contains('trip--lime')).toBe(false);
-    expect(card.classList.contains('trip--amber')).toBe(false);
+    expect(card.classList.contains('trip--' + TRIP.priority.toLowerCase())).toBe(true);
   });
 
   it('opens the trip from the whole card: one link, no other tab stop for it', async () => {
@@ -120,7 +112,7 @@ describe('TripCard', () => {
     expect(card.querySelector('button[aria-label="Actions for Berlin to Vienna"]')).not.toBeNull();
   });
 
-  it('asks before deleting from the quick action and emits only on confirmation', async () => {
+  it('asks the page to delete from the quick action and from the menu, without confirming itself', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
     const fixture = TestBed.createComponent(Host);
     fixture.componentInstance.figures.set(ready());
@@ -128,19 +120,18 @@ describe('TripCard', () => {
     const card = (fixture.nativeElement as HTMLElement).querySelector('article')!;
 
     card.querySelector<HTMLButtonElement>('app-trip-actions button[aria-label^="Delete"]')!.click();
-    await fixture.whenStable();
-    expect(fixture.componentInstance.deleted).toBe(0);
-    expect(card.querySelector('app-trip-actions')?.textContent).toContain('Delete this trip?');
+    expect(fixture.componentInstance.deleteRequests).toBe(1);
+    expect(card.querySelector('.button--danger')).toBeNull();
 
-    const buttons = Array.from(card.querySelectorAll<HTMLButtonElement>('app-trip-actions button'));
-    buttons.find((button) => button.textContent?.includes('Cancel'))!.click();
+    card.querySelector<HTMLButtonElement>('button[aria-label^="Actions for"]')!.click();
     await fixture.whenStable();
-    expect(card.querySelector('app-trip-actions')?.textContent).not.toContain('Delete this trip?');
+    card
+      .querySelector<HTMLButtonElement>('app-trip-menu .menu-panel button[aria-label^="Delete"]')!
+      .click();
+    await fixture.whenStable();
 
-    card.querySelector<HTMLButtonElement>('app-trip-actions button[aria-label^="Delete"]')!.click();
-    await fixture.whenStable();
-    card.querySelector<HTMLButtonElement>('app-trip-actions .button--danger')!.click();
-    expect(fixture.componentInstance.deleted).toBe(1);
+    expect(fixture.componentInstance.deleteRequests).toBe(2);
+    expect(card.querySelector('.menu-panel')).toBeNull();
   });
 
   it('draws a dot per stop and the recommended mode of each leg, hidden from assistive tech', async () => {

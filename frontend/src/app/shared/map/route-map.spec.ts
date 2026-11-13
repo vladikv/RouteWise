@@ -481,6 +481,31 @@ describe('RouteMap', () => {
     });
   });
 
+  describe('route animation', () => {
+    it('adds no moving dashes when motion is reduced, leaving the solid line', async () => {
+      await select(3, 23);
+
+      expect(map.querySelectorAll('path.route:not(.route--halo)')).toHaveLength(1);
+      expect(map.querySelector('path.route--flow')).toBeNull();
+    });
+
+    it('runs a dash flow along each leg, in the direction of travel, unless motion is reduced', async () => {
+      vi.stubGlobal('matchMedia', () => ({ matches: false }));
+      const animated = TestBed.createComponent(RouteMap);
+      animated.componentRef.setInput('cities', [BERLIN, VIENNA, PARIS]);
+      animated.componentRef.setInput('originId', 3);
+      animated.componentRef.setInput('destinationId', 23);
+      await animated.whenStable();
+      const element = animated.nativeElement as HTMLElement;
+
+      const flow = element.querySelectorAll('path.route--flow');
+      const solid = element.querySelector('path.route:not(.route--halo):not(.route--flow)');
+      expect(flow).toHaveLength(1);
+      // Same geometry as the solid line, which starts at the origin (Berlin).
+      expect(flow[0].getAttribute('d')).toBe(solid?.getAttribute('d'));
+    });
+  });
+
   describe('labels', () => {
     const labelled = () =>
       Array.from(map.querySelectorAll('.city__name')).map((t) => t.textContent?.trim());
@@ -489,13 +514,30 @@ describe('RouteMap', () => {
       expect(labelled().sort()).toEqual(['Berlin', 'Paris', 'Vienna']);
       expect(maybeCity('Potsdam')).toBeNull();
 
-      // 1.6^3 = 4.1x
-      for (let i = 0; i < 3; i++) {
+      // Rank 3 from 5x: 1.6^4 = 6.6x
+      for (let i = 0; i < 4; i++) {
         zoomButton('Zoom in').click();
         await fixture.whenStable();
       }
       expect(labelled()).toContain('Potsdam');
       expect(city('Potsdam').getAttribute('role')).toBe('button');
+    });
+
+    it('keeps the focused city drawn when zooming out would thin it out', async () => {
+      for (let i = 0; i < 4; i++) {
+        zoomButton('Zoom in').click();
+        await fixture.whenStable();
+      }
+      city('Potsdam').dispatchEvent(new FocusEvent('focus'));
+      await fixture.whenStable();
+
+      for (let i = 0; i < 4; i++) {
+        zoomButton('Zoom out').click();
+        await fixture.whenStable();
+      }
+
+      expect(maybeCity('Potsdam')).not.toBeNull();
+      expect(city('Potsdam').getAttribute('tabindex')).toBe('0');
     });
 
     it('always labels the cities of the selected route', async () => {

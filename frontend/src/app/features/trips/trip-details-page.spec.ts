@@ -5,6 +5,8 @@ import { Router, provideRouter } from '@angular/router';
 import { apiErrorInterceptor } from '../../core/api/api-error';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { Trip } from '../../core/api/models';
+import { installDialogSupport, pressEscapeIn } from '../../shared/ui/dialog.testing';
+import { ToastService } from '../../shared/ui/toast';
 import { ADVICE, COMPARISON, MULTI_COMPARISON } from './comparison/comparison.testing';
 import { TripDetailsPage } from './trip-details-page';
 import { CITIES, TRIP } from './trip-form.testing';
@@ -212,32 +214,103 @@ describe('TripDetailsPage', () => {
     httpTesting.expectNone(ADVICE_URL);
   });
 
-  it('deletes after confirmation and returns to the list', async () => {
-    await loadAll();
+  describe('deleting', () => {
+    let toasts: ToastService;
 
-    click('Delete');
-    await fixture.whenStable();
-    click('Yes, delete');
-    TestBed.tick();
-    httpTesting.expectOne({ method: 'DELETE', url: TRIP_URL }).flush(null, {
-      status: 204,
-      statusText: 'No Content',
+    beforeEach(() => {
+      installDialogSupport();
+      toasts = TestBed.inject(ToastService);
     });
 
-    expect(navigate).toHaveBeenCalledWith(['/trips']);
-  });
+    afterEach(() => toasts.toasts().forEach((toast) => toasts.dismiss(toast.id)));
 
-  it('stays on the page and shows an error when deleting fails', async () => {
-    await loadAll();
+    const dialog = () => page.querySelector('dialog') as HTMLDialogElement;
+    const dialogButton = (text: string) =>
+      Array.from(dialog().querySelectorAll('button')).find((b) => b.textContent?.includes(text))!;
 
-    click('Delete');
-    await fixture.whenStable();
-    click('Yes, delete');
-    TestBed.tick();
-    httpTesting.expectOne({ method: 'DELETE', url: TRIP_URL }).error(new ProgressEvent('error'));
-    await fixture.whenStable();
+    async function confirmDelete(): Promise<void> {
+      await loadAll();
+      click('Delete');
+      await fixture.whenStable();
+      expect(dialog().hasAttribute('open')).toBe(true);
+      expect(dialog().textContent).toContain('Delete trip?');
+      expect(dialog().textContent).toContain('Berlin to Vienna');
+      httpTesting.expectNone({ method: 'DELETE' });
+      dialogButton('Delete').click();
+      TestBed.tick();
+    }
 
-    expect(page.querySelector('[role="alert"]')?.textContent).toContain('API unreachable');
-    expect(navigate).not.toHaveBeenCalled();
+    function flushDelete(): void {
+      httpTesting.expectOne({ method: 'DELETE', url: TRIP_URL }).flush(null, {
+        status: 204,
+        statusText: 'No Content',
+      });
+    }
+
+    it('deletes after the dialog is confirmed, returns to the list and offers Undo for 10 seconds', async () => {
+      await confirmDelete();
+      flushDelete();
+
+      expect(navigate).toHaveBeenCalledWith(['/trips']);
+      const [toast] = toasts.toasts();
+      expect(toast.message).toBe('Deleted "Berlin to Vienna"');
+      expect(toast.focus).toBe(true);
+      expect(toast.action?.label).toBe('Undo');
+      expect(toast.durationMs).toBe(10_000);
+    });
+
+    it('goes back to the restored trip on Undo', async () => {
+      await confirmDelete();
+      flushDelete();
+      navigate.mockClear();
+
+      toasts.toasts()[0].action?.run();
+      httpTesting.expectOne({ method: 'POST', url: `${TRIP_URL}/restore` }).flush(TRIP);
+
+      expect(navigate).toHaveBeenCalledWith(['/trips', 7]);
+    });
+
+    it('says so in an error toast when the trip can no longer be restored', async () => {
+      await confirmDelete();
+      flushDelete();
+
+      toasts.toasts()[0].action?.run();
+      httpTesting
+        .expectOne({ method: 'POST', url: `${TRIP_URL}/restore` })
+        .flush(
+          { title: 'Conflict', detail: 'The trip can no longer be restored.', status: 409 },
+          { status: 409, statusText: 'Conflict' },
+        );
+
+      const error = toasts.toasts().find((toast) => toast.kind === 'error');
+      expect(error?.message).toBe(
+        `Couldn't restore "Berlin to Vienna". The trip can no longer be restored.`,
+      );
+      expect(navigate).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not delete when the dialog is cancelled', async () => {
+      await loadAll();
+      click('Delete');
+      await fixture.whenStable();
+
+      pressEscapeIn(dialog());
+      await fixture.whenStable();
+
+      expect(dialog().hasAttribute('open')).toBe(false);
+      httpTesting.expectNone({ method: 'DELETE' });
+      expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('stays on the page and shows the error inside the dialog when deleting fails', async () => {
+      await confirmDelete();
+      httpTesting.expectOne({ method: 'DELETE', url: TRIP_URL }).error(new ProgressEvent('error'));
+      await fixture.whenStable();
+
+      expect(dialog().hasAttribute('open')).toBe(true);
+      expect(dialog().querySelector('[role="alert"]')?.textContent).toContain('API unreachable');
+      expect(navigate).not.toHaveBeenCalled();
+      expect(toasts.toasts()).toHaveLength(0);
+    });
   });
 });

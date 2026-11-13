@@ -108,11 +108,20 @@ describe('ComparisonChart', () => {
       'Train instead of car saves 72 kg CO₂.',
     );
     expect(rows()).toEqual(['Train ★ Recommended 87 out of 100', 'Car 52 out of 100']);
-    // Bars are relative to the longest: 87 → 100 %, 52 / 87 = 59.77 %.
-    expect(widths()[0]).toBe('100%');
-    expect(parseFloat(widths()[1])).toBeCloseTo(59.77, 1);
+    // Score bars are the score itself: 100 fills the track.
+    expect(widths()).toEqual(['87%', '52%']);
     expect(chart.querySelector('.bar--recommended .bar__label')?.textContent).toContain('Train');
     expect(chart.querySelector('.hint')?.textContent).toBe('Higher is better');
+  });
+
+  it('fills the whole track for a score of 100', async () => {
+    fixture.componentRef.setInput(
+      'comparison',
+      withOptions([option({ mode: 'TRAIN', score: 100, recommended: true })]),
+    );
+    await fixture.whenStable();
+
+    expect(widths()).toEqual(['100%']);
   });
 
   it('re-sorts and relabels when another metric is chosen', async () => {

@@ -1,0 +1,34 @@
+.head h1 {
+  margin: 0 0 var(--space-2);
+  font-size: clamp(2.25rem, 6vw, 3.25rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.head p {
+  max-width: 60ch;
+  margin: 0 0 var(--space-6);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-4);
+  margin: 0 0 var(--space-8);
+  padding: 0;
+  list-style: none;
+}
+
+.compare {
+  padding: clamp(var(--space-4), 3vw, var(--space-8));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-highlight), var(--shadow-card);
+}
+
+.compare h2 {
+  margin-top: 0;
+}

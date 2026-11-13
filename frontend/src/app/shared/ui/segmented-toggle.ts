@@ -32,7 +32,7 @@ export interface ToggleOption<T extends string = string> {
           (click)="value.set(option.value)"
           (keydown)="onKeydown($event)"
         >
-          @if (option.value === value()) {
+          @if (showCheck() && option.value === value()) {
             <span aria-hidden="true">✓</span>
           }
           @if (option.icon) {
@@ -108,6 +108,8 @@ export class SegmentedToggle<T extends string = string> {
   readonly options = input.required<ToggleOption<T>[]>();
   readonly value = model.required<T>();
   readonly ariaLabel = input.required<string>();
+  /** Show a ✓ before the selected option; turn off where icon, label and fill are enough. */
+  readonly showCheck = input(true);
 
   /** The one option in the tab order: the selected one, else the first. */
   protected focusable(): T | undefined {

@@ -12,17 +12,18 @@ src/
 └── app/
     ├── core/
     │   ├── api/         typed API layer: models, one service per resource, ApiError
-    │   ├── auth/        Session (who is logged in), authGuard, credentialsInterceptor
-    │   └── theme/       ThemeService (light, dark or system preference, `data-theme` on `<html>`)
-    ├── layout/          app chrome: header (full width, same 24 px gutter as the Home panels; 16 px on phones;
-    │                    strict 3-column grid `1fr auto 1fr`: brand, centred nav pill, actions incl. the theme menu)
-    ├── shared/ui/       presentational building blocks: glass panel, pill nav, stat chip, tabs,
-    │                    segmented toggle, filter chip, filter group, menu, toast outlet, icon button, bottom sheet, spinner,
-    │                    error message, confirm action, pickers, mode icon
+    │   └── auth/        Session (who is logged in), authGuard, credentialsInterceptor
+    ├── layout/          app chrome (`header/`: the header, `AccountPanel`): the header inside the shell (strict 3-column grid `1fr auto 1fr`: logo tile
+    │                    plus, on Home from 1440 px, the Map/Split toggle | centred pill nav Home, Trips, Modes |
+    │                    round search and new-trip buttons, account menu; 24 px gutter, 16 px on phones)
+    ├── shared/ui/       presentational building blocks: app shell, icon rail, glass panel, pill nav, stat chip, tabs,
+    │                    segmented toggle, filter chip, filter group, menu (also the popover), toast outlet, icon button, bottom sheet,
+    │                    spinner, error message, dialog, pagination, pickers, mode icon
     ├── shared/map/      interactive globe map (SVG, `d3-geo`) and its pure maths (`globe.ts`)
     ├── shared/util/     pure helpers (dates, labels, `LayoutBreakpoint`)
     ├── features/<name>/ routed pages and their child components
-    ├── app.ts           shell: skip link, header, <router-outlet>, footer
+    ├── app.ts           root: backdrop, skip link, `AppShell` (header, icon rail from 1024 px, scrolling page area
+    │                    with <router-outlet> and footer)
     ├── app.routes.ts    lazy routes (`loadComponent`)
     └── app.config.ts    providers: router, HttpClient + interceptors, session load at start-up
 ```
@@ -94,27 +95,33 @@ src/
   a view the user moved is kept when the map resizes or a layout switch changes the space; "Reset view" (and
   `0`) goes back to the route or Europe. Keyboard: arrows rotate the globe (or move focus to the nearest
   city when a city has focus), `+`/`-` zoom, `0` resets. Routes are great-circle arcs, one `<path>` per
-  leg, cut at the horizon by the projection. Cities on the far side are not rendered at all (so not
+  leg, cut at the horizon by the projection. A dark dash train (`path.route--flow`, CSS `stroke-dashoffset`
+  animation, starting after the draw-in) runs along each arc from origin to destination; it is only rendered
+  while motion is not reduced (`reducedMotion` signal, plus a `prefers-reduced-motion` rule), leaving the solid
+  line, and costs no per-frame script work while the globe turns. It runs for as long as the route is shown (an idle
+  repaint cost of a few paths) and pauses while the pointer is held down (`.map:active`, i.e. drag and pinch). Cities on the far side are not rendered at all (so not
   focusable); the rest are labelled buttons. Labels are placed by `layoutLabels` (no overlaps) in order of
-  `labelRank` (then capital, then name) and only up to `maxLabelRank(zoom)` (rank 1 always, 2 from 2x, 3
-  from 4x); the selected route's cities are always labelled and a city without a label keeps its
+  `labelRank` (then capital, then name) and only up to `maxLabelRank(zoom)` (rank 1 up to 2.5x, 2 from 2.5x, 3
+  from 5x) and a label padding of 0.4 font sizes (no two labels closer than 0.8 font sizes); the selected route's cities are always labelled and a city without a label keeps its
   `aria-label`. It is presentational and emits the selection (origin/destination), or, with `[stops]`
   (an ordered list of city ids), draws every leg with numbered pins and emits `cityPick` instead. With
   `[wide]="true"` a map at least 720 px wide takes a 16:9 shape instead of the near-square one. `[fill]` makes
   the map take its container's size and centres the globe between the panels. `controls` (`corner` |
   `bottom-end`) places the zoom buttons (`bottom-end`: bottom right, `insetEnd` px in from the edge, clear of
   the panels). A non-interactive map (trip details) is an image of the route cities only. `ComparisonChart` shows one metric at a time (switched with `Tabs`) with the
-  recommended mode as the only accent bar (`--color-highlight`, others
+  recommended mode as the only accent bar (score bars are the score itself, 100 = full track; time, cost and
+  CO₂ bars are relative to the longest) (`--color-highlight`, others
   `--color-bar`). Neither may be the only way to get information: keep a
   text or form equivalent (dropdowns for the map, the table for the chart)
   and state selection in text and `aria-pressed`, not color alone.
   Map details: one city is the tab stop (roving `tabindex`: last focused, else origin, else first; arrows move
-  between cities); click targets are capped at half the distance to the nearest neighbour; low-ranked cities
-  within 2.5 dot widths of a more important one are left out (still in the pickers); in `fill` mode only the
-  space between the docks is drawn and labelled, and `topZone` reserves the layout toolbar for labels.
+  between cities); click targets are capped at half the distance to the nearest neighbour; cities above the
+  zoom's label rank are only drawn when `minDotGap(zoom)` away from every drawn city (36 px up to 2.5x, 22 px up
+  to 5x, then 2.5 dot widths), so Europe is not a cloud of unlabelled dots at low zoom (they stay in the pickers); in `fill` mode only the
+  space between the docks is drawn and labelled.
   `gestures`: `greedy` (default; the wheel always zooms except at the zoom limits) or `cooperative` for a map in a
   scrolling page (Ctrl/Cmd + wheel zooms, a plain wheel scrolls and shows "Ctrl + scroll to zoom", `touch-action:
-  pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in tests); failure shows a note.
+pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in tests); failure shows a note.
   Unavailable modes are shown muted with a ⊘ icon: each row says only "Not available", and the API's grouped
   sentences (`unavailableGroups` on each leg and on the comparison, e.g. "Not reachable by land between Dublin
   and Madrid: train, bus, car, bike") are shown once per leg (chart, itinerary timeline) and once for the
@@ -132,8 +139,9 @@ src/
   holds the preference (`'map' | 'split'`, default Split, `localStorage` key `routewise.homeLayout`, every
   access in try/catch, invalid or failing storage = Split) and `effective()`: Map only while the viewport is
   at least 1440 px (live `matchMedia`), otherwise Split; falling back never overwrites the saved choice.
-  `sideBySide()` is true from 1024 px. A `SegmentedToggle` (icon + label, `stage__toolbar`, floating over the
-  map) offers the choice only from 1440 px. `RouteExplorer` renders **one template once**: the map, the
+  `sideBySide()` is true from 1024 px. A `SegmentedToggle` (icon + label) offers the choice only from 1440 px,
+  only on Home, and lives in the **header next to the logo** (`Header` reads `HomeLayout`; the explorer only reads
+  `effective()`). `RouteExplorer` renders **one template once**: the map, the
   settings dock and the results dock are the same elements in both layouts and `explorer-stage.scss` only moves
   them (class `stage--map` / `stage--split` / `stage--sheet`), so switching keeps cities, priority, date,
   travelers, results and the map view and issues no request. Never put the form or results in two `@if`
@@ -143,8 +151,19 @@ src/
   descriptions, compact spacing); the empty results dock is a hint chip ("Pick two cities to compare") until a
   comparison is requested. Phones (< 768 px, `LayoutBreakpoint` `narrow`): map plus `BottomSheet` with settings
   and results. Docks adapt through container queries (route bar, `ComparisonPanel` turns its table into small
-  cards below 30rem instead of scrolling sideways). `--header-height` is the measured header height (the stage is
-  `100dvh - header`).
+  cards below 30rem instead of scrolling sideways). `--header-height` is the measured header height; the stage is `100dvh - var(--chrome-height)`
+  (header plus the two shell margins).
+- **Home settings panel:** the date input fills the panel width with the quick dates (Tomorrow / This weekend /
+  Next week, `aria-pressed` plus a check mark) as one full-width row of three equal segments under it; "Describe
+  a trip instead" and "View trips" are two stacked, full-width buttons. In the Map layout the compact spacing
+  keeps the settings at 1440x900 without scrolling.
+- **Modes page** (`features/modes/`, public, `GET /api/transport-modes` through `TransportModeApi`): `ModeCard`
+  per mode (icon, name, average speed, cost per km, CO₂ per km, max distance, API values only; the page text
+  says cost and CO₂ are per traveler, car per vehicle) and `ModeChart`: `Tabs` for speed, cost, CO₂ and max
+  distance, horizontal bars proportional to the largest shown value (presentation only), and a "Show as table"
+  `details` with every parameter as the non-visual equivalent. The DTO has one CO₂ figure per mode (the plane's
+  short- and long-haul factors are not in it). Loading, error with retry and empty states. Home no longer shows
+  the mode comparison.
 - **Trips list** (`features/trips/list/`): `TripToolbar` (row 1: search, Board/List
   `SegmentedToggle`, New trip; row 2: `FilterGroup`s Priority and Mode with the API's facet counts;
   result count "3 of 5 trips" in a `role="status"` and "Clear filters"; below 768 px the groups move
@@ -152,51 +171,98 @@ src/
   `TripCard`, `TripMenu` (built on `Menu`). The API does the work: `GET /api/trips` (`TripApi.search`) searches,
   filters, sorts and returns each trip's `figures` (computed without weather), the chip counts (`facets`) and the
   board column totals (`priorityTotals`); `GET /api/trips/stats` the KPIs. The page keeps only the query
-  (search debounced 300 ms, chips, the table's sort, which applies only in the list view; `PAGE_SIZE` 100, no
-  paging controls yet) and keeps the previous page visible while the next loads (`linkedSignal`).
+  (search debounced 300 ms, chips, the table's sort, which applies only in the list view, and the list's page)
+  and keeps the previous page visible while the next loads (`linkedSignal`). The board loads up to `PAGE_SIZE`
+  (100) trips and has no paging controls; the list pages by `LIST_PAGE_SIZE` (20), see Pagination below.
   `trip-figures.ts` maps the page to entries (`tripEntries`) and board columns (`boardColumns`) and holds the
   wording helpers (`modeSummary`, `tintFor`); `trip-filters.ts` builds the query (`tripSearch`), reads the
   facets and keeps `toggleSort`/`resultSummary`. No business maths in the UI.
-  Cards and rows open the trip as a whole: the title link carries an `::after` stretched over the card/row
-  (one tab stop; the focus ring is drawn on the card via `:has(a:focus-visible)`), the "⋯" menu and
-  `TripActions` (quick icon buttons Open, Edit, Duplicate, Delete) sit above it with a higher z-index. Quick
-  actions show on hover and on focus within, never under `(hover: none)`; Delete swaps them for the inline
-  `ConfirmAction` (`asking`, `showTrigger`). Hover/focus lifts the card 2 px with an edge in its tint
-  (`--color-highlight-edge`, `--color-accent-edge`) and no motion under reduced motion. `TripRoute` is the
+  Cards open the trip as a whole: the title link carries an `::after` stretched over the card (one tab stop;
+  the focus ring is drawn on the card via `:has(a:focus-visible)`), the "⋯" menu and `TripActions` (quick icon
+  buttons Open, Edit, Duplicate, Delete) sit above it with a higher z-index. A list row is different: a click on
+  it expands it (see List view) and only the title link opens the trip. Quick actions show on hover and on focus
+  within, never under `(hover: none)`; Delete only asks the page to delete (`deleteRequested`). Hover/focus lifts the card 2 px with an edge in its tint
+  (`--color-highlight-edge`) and no motion under reduced motion. `TripRoute` is the
   decorative (`aria-hidden`) mini route line: a dot per stop, the leg's mode icon between them (`legModes`).
   The CO₂ bar shows the plan against the car (car = 100 %, from `co2ShareOfCar`/`co2VsCarPercent`) with text.
   `TripTable` shows the rows in API order; its Date, Cost and CO₂ header buttons (`aria-sort` on the `<th>`)
   change the page's sort, which goes to the API.
-  **Delete** is a soft delete: after the confirmed DELETE an info toast "Deleted …" offers Undo
-  (`TripApi.restore`, possible for 30 s), then list and stats reload.
+  **Delete** is a soft delete and always goes through the glass confirm `Dialog` (card quick action, "⋯" menu,
+  list row, expanded row, trip details). Each of them emits `deleteRequested`; the page keeps a `TripDeletion`
+  (`features/trips/trip-deletion.ts`, provided per page: `pending`, `busy`, `error`, `request`, `cancel`,
+  `confirm(hooks)`) and renders `<app-trip-delete-dialog>` ("Delete trip?", the trip title, Cancel and a danger
+  Delete). A failed DELETE stays in the dialog as an error message. On success the dialog closes, the page's
+  `deleted` hook runs (Trips: the trip leaves the list, a page that became empty steps back one page, list and
+  stats reload; details: navigate to `/trips`) and an info toast
+  `Deleted "<title>"` with Undo shows for `UNDO_TOAST_MS` (10 s, shorter than the API's 30 s restore window) and
+  takes focus on its Undo button (`ToastRequest.focus`), because the deleted trip's own button is gone. The
+  dialog also returns focus to `fallbackFocus` (the Trips heading, `tabindex="-1"`) when its opener was removed. Undo calls `TripApi.restore` and then the
+  `restored` hook (Trips: announce, reload list and stats; details: navigate to `/trips/:id`); if the restore
+  fails (e.g. 409) an error toast says "Couldn't restore "<title>". <API message>". The toast and the restore
+  outlive the page that deleted.
   **Duplicate** is a link to `/trips/new` with router navigation state `{ draft }` (`duplicateState`);
   `TripFormPage` reads it once (`presetFromState`: invalid fields dropped, ignored when editing) and the
   user still saves.
+- **List view** (`TripTable`, `TripRowDetails`, `TripPrioritySelect`, `Pagination`): a click on a row, Enter or
+  Space on a focused row, or its disclosure button expands it inline (one row at a time, `expandedId`; the button
+  has `aria-expanded`, and `aria-controls` while open). The page loads that trip's `TripApi.compare(id)` on the
+  first expand only, keeps the result in `details` (`RowDetail`: loading, error with retry, ready) for its
+  lifetime and reloads it after a priority change. `TripRowDetails` shows each leg's recommended option side by
+  side (mode icon and name, time, cost, CO₂), the weather lines and Open on map (`/trips/:id`), Edit and Delete;
+  the buttons are there while loading or after an error; API values only, no maths. The Priority column is a
+  native `<select>` (`TripPrioritySelect`) that reports the choice; the page's `move` applies it optimistically
+  and rolls it back with an error toast and Retry. Below 768 px the Date, Mode, Priority and CO₂ columns fold
+  into the second line under the title (priority is changed in the "⋯" menu there) and the expanded row stacks.
+  **Keyboard model:** a table with a disclosure button per row and a roving tabindex on those buttons. The
+  table body is one tab stop: the `.toggle` button of the active row (last focused, else the first) has
+  `tabindex="0"`, the others `-1`, and so do the links, buttons and selects inside the other rows (an
+  `afterRenderEffect` re-applies this when rows, details or the active row change; controls that appear in the
+  active row, such as an opened menu panel, are tabbable as usual). Tab from the active toggle goes through its
+  own row's controls and then leaves the table. ArrowUp/ArrowDown, Home and End move focus between the toggles
+  (also from a title link, not from a select); Enter and Space are the native button's, with `aria-expanded`;
+  Escape collapses the expanded row (from the toggle or from inside its details) and keeps focus on the toggle,
+  unless one of its menus is open (Escape closes that first). Focus entering any control of a row makes that row
+  the tab stop. A click on the row's own cells expands it; clicks inside links, buttons, the priority select or a
+  menu panel do not. The title link keeps working. An expanded row hides its hover quick actions (its details
+  have Open on map, Edit and Delete); the "⋯" menu stays. Under `(pointer: coarse)` the toggle, priority select
+  and quick actions are 44 px.
+- **Pagination:** the board loads up to 100 trips; the list asks the API for 20 per page (`page`, `size`) and
+  `Pagination` (`shared/ui/`: zero-based `page`, `totalPages`, `totalItems`, `pageSize`, `itemCount`) shows
+  "21–40 of 45 trips", Previous, "Page 2 of 3" and Next (wraps on phones, hidden for one page; at an end the
+  button is `aria-disabled`, not `disabled`, so focus stays). A change of search, chips, sort or view goes back to
+  page 0 (`pageIndex` is a `linkedSignal` over those); the previous page stays visible while the next loads.
 - **Changing a trip's priority** (Trips page): `TripListPage.move` builds the existing update request from the
   trip in the list (`moveRequest`, `list/trip-move.ts`: all fields, stops as city ids, date unchanged) and calls
   `TripApi.update`. It is optimistic (`withPriority` in place, so the order is kept; `aria-busy` on the card/row
   while pending), merges the response into the item and reloads the list and stats (the priority weights
   the recommendation), and on failure restores the priority and shows an error `ToastService` toast with Retry.
-  Two ways in: the "Move to …" items of `TripMenu` (keyboard, touch) and dragging on `TripBoard`, which is
+  Three ways in: the list row's priority select, the "Move to …" items of `TripMenu` (keyboard, touch) and dragging on `TripBoard`, which is
   hand-written with pointer events (no CDK): a mouse/pen drag starts after `DRAG_THRESHOLD_PX`, a finger after a
   `LONG_PRESS_MS` press (moving earlier means scrolling); `board-drag.ts` holds the pure hit test (`columnAt`
   over the columns' rects). The ghost is a clone of the card on `<body>`; the original stays as a dashed
   placeholder, the column under the pointer gets `column--target`; Escape or a drop outside cancels, a drop on
   the own column is ignored, and the click after a drag is swallowed. A polite live region on the page announces
   "Moved "<title>" to …".
-- **Menu, filter group, toast** (`shared/ui/`): `Menu` is a disclosure (built-in `IconButton` trigger via
+- **Menu, popover, dialog, filter group, toast** (`shared/ui/`): `Menu` is a disclosure (built-in `IconButton` trigger via
   `label` + `menuIcon`, or your own `menuTrigger` button; panel content in `<ng-template appMenuContent>`,
-  rendered only while open; Escape and outside click close, an item click closes unless
-  `closeOnSelect` is off; arrow keys move between items). `FilterGroup` is a `role="group"` of
+  rendered only while open; Escape and outside click close (Escape returns focus to the trigger), an item
+  click closes unless `closeOnSelect` is off; arrow keys move between items; `aria-expanded` and `aria-controls`
+  on the trigger). `Menu` is also the **popover** building block: with `focusOnOpen` focus moves to the first
+  item when it opens, the panel may hold any content (the account panel) and `(openChange)` tells the owner
+  when to load data. `Dialog` is a modal confirmation on a native `<dialog>` with `showModal()` (the browser traps
+  focus and makes the page inert; Escape and a backdrop click ask to cancel; focus starts on Cancel and returns
+  to the element that had it, else `fallbackFocus`; while `busy` it cannot be dismissed and reopens if the browser closes it): inputs `open`, `title`, `confirmLabel`,
+  `busyLabel`, `busy`, projected text, outputs `confirmed` and `cancelled`; the parent owns `open`. jsdom has no
+  `showModal()`: specs call `installDialogSupport()` (`dialog.testing.ts`). `FilterGroup` is a `role="group"` of
   `aria-pressed` chips with `options`, a `selected` model and an optional `appFilterIcon` template.
-  `ToastService.show({ message, kind, action? })` plus one `<app-toast-outlet>` in `app.ts`
-  (auto-dismiss after 5 s, paused on hover and focus; errors in `role="alert"`, info in `role="status"`).
+  `ToastService.show({ message, kind, action?, durationMs?, focus? })` plus one `<app-toast-outlet>` in `app.ts`
+  (auto-dismiss after `durationMs`, default 5 s, the Undo toast uses 10 s; paused on hover and focus; errors in `role="alert"`, info in `role="status"`).
 - **Explorer state** is mirrored in the URL (`from`, `to`, `date`, `travelers`,
   `priority`; defaults left out).
 - **Query parameters** also arrive as component inputs; `/trips/new` accepts
   `from`, `to`, `date`, `travelers`, `priority` and ignores invalid values.
-- **Destructive actions:** `<app-confirm-action>` (inline two-step confirm),
-  never a one-click delete.
+- **Destructive actions:** never a one-click delete: confirm in `<app-dialog>` (trip delete, see Trips list) and
+  offer Undo where the API can restore.
 - **Async views:** load with `rxResource` and render all states: loading
   (`<app-spinner>`, `role="status"`), error with retry (`<app-error-message>`, `role="alert"`), empty
   (`.empty-state`: centered glass panel with heading, hint and action) and data.
@@ -211,27 +277,35 @@ src/
   (`--color-danger`) and amber (`--color-accent`, weather) are semantic only.
   `--color-border-strong` for control borders. Every text pair meets 4.5:1 and
   every meaningful mark 3:1; check a new or changed pair before using it.
-  Glass look: a fixed `.glow-layer` element in `app.ts` (`aria-hidden`, three
-  large lime radial glows at 16/12/12% centre alpha, `--glow-1..3`, drifting
-  over 26-38 s with `transform` only, static under reduced motion) sits behind
-  all content, so no ancestor of a glass surface may have an opaque background.
-  Glass = `background: var(--glass-bg)` (white 6%) or `--glass-bg-strong` (white
-  10%, controls and active items) or `--glass-bg-menu` (surface 85%, dropdowns and
-  listboxes over arbitrary content), plus `backdrop-filter: var(--glass-filter)`
-  (+ `-webkit-`; blur 20 px and saturate 160%), `border: 1px solid var(--glass-border)`
-  and `box-shadow: var(--glass-highlight)` (inner top highlight; combine it with
-  any other shadow). Alpha variants are written as `--color-*-aNN` (NN = percent;
-  same hues, add one only when used). `backdrop-filter` goes on the few top-level
-  surfaces (header bar via `:host::before` so dropdowns are not inside its
-  backdrop root, panels, sheet, menus, toolbar search, chips); never on list
-  cards or table rows (fill, border and highlight only), and not on elements
-  nested in a glass panel (a backdrop-filter ancestor limits what they can blur).
-  Contrast rule: white, muted and lime text must stay 4.5:1 and control borders
-  3:1 on the fill over the brightest glow (peak 16% lime over `--color-bg`);
-  re-run the check when raising a glow, a fill or a tint (card tints are 8%).
-  Under `prefers-reduced-transparency` the glass tokens become solid surfaces
-  with `--glass-filter: none`, so never hard-code a blur or a translucent fill.
-  The light theme overrides the tokens under `:root[data-theme='light']` (see Theme). Radii: `--radius-lg`
+  Glass look: a fixed `.glow-layer` element in `app.ts` (`aria-hidden`, four large radial blobs: soft grey, olive,
+  warm at 55/55/50% centre alpha and a little lime at 16%, tokens `--color-smoke|olive|warm-aNN`; static, because the
+  shell's full-viewport blur would be recomputed every frame if they moved; hidden under reduced transparency) sits behind all
+  content, so no ancestor of a glass surface may have an opaque background. The whole app lives in one `AppShell`
+  (`shared/ui/app-shell.ts`): a rounded glass shell (`--shell-radius` 32 px, 20 px on phones) with a small outer
+  margin (`--shell-margin` 16 px, 6 px on phones). Its glass is a `::before` sibling layer (`--glass-bg-shell`:
+  midnight black 50%, blur, border), never the shell itself, so panels, menus and the rail blur the real backdrop
+  and the globe never sits inside a backdrop root. The page area (`.page` in `app.ts`, `tabindex="-1"`, focused on first render and on route changes unless focus is inside it or in an open menu, so Space/PageDown scroll it; the skip link focuses `#main` itself because of `<base href>`) scrolls, not the window
+  (`body` is `overflow: hidden`) and returns to the top when the route path changes (not for query changes).
+  Glass = `background: var(--glass-bg)` (white 8%) or `--glass-bg-strong` (white 12%, controls and active items) or
+  `--glass-bg-menu` (surface 85%, dropdowns and listboxes over arbitrary content), plus
+  `backdrop-filter: var(--glass-filter)` (+ `-webkit-`; blur 28 px and saturate 180%),
+  `border: 1px solid var(--glass-border)` (white 18%) and `box-shadow: var(--glass-highlight)` (inner top
+  highlight; combine it with any other shadow). Alpha variants are written as `--color-*-aNN` (NN = percent;
+  same hues, add one only when used). `backdrop-filter` goes on the few top-level surfaces (shell layer, icon rail,
+  panels, sheet, menus, toolbar search; not chips or icon buttons); never on list cards or table rows (fill, border and highlight
+  only), not on the header bar (the shell is its glass) and not on elements nested in a glass panel (a
+  backdrop-filter ancestor limits what they can blur).
+  Contrast rule: white, muted and lime text must stay 4.5:1 and control borders (`--color-border-strong`, white
+  60%) 3:1 on the fills over the brightest backdrop point. Budget: the backdrop under the shell tint peaks at
+  L about 0.03 (two blobs overlapping count as one peak plus half the other), then panel (+8% white) and control
+  (+12% white) fills stack. Text colours: `--color-text-muted` is #e2e6ed and styles every placeholder (global `::placeholder`). Numbers at
+  the brightest point (olive plus half of grey, shell 50%): on panels white 8.6:1, muted 6.8:1, lime 6.4:1; on
+  12% controls white 6.1:1, muted 4.9:1, lime 4.6:1; control borders 3.4:1. Re-run the check (a small script over
+  the blob alphas, the shell tint and the fill stack) when raising a blob, the tint or a fill.
+  Under `prefers-reduced-transparency` the glass tokens become solid surfaces with `--glass-filter: none` and the
+  backdrop is hidden, so never hard-code a blur or a translucent fill. Headless Chromium reports reduced
+  transparency, so `npm run screenshots` emulates `no-preference` to show the glass.
+  Dark theme only (see Theme). Radii: `--radius-lg`
   (cards), `--radius-md`, `--radius-pill` (buttons, inputs, badges). Type: 17 px body, Manrope (loaded in
   `index.html`, weights 400-800) is the only font (`--font-sans`; `--font-display`
   is an alias). Shared classes: `.card`, `.button` (`--primary`,
@@ -242,24 +316,24 @@ src/
   metric switch), `SegmentedToggle`, `FilterChip`, `IconButton`, `BottomSheet`; prefer them over new
   one-off controls. Blur only on a few top-level panels, never per list row. Component styles stay
   small (4 kB budget).
-- **Theme:** light, dark and system. `ThemeService` (`core/theme/theme.ts`) holds the
-  preference (`'light' | 'dark' | 'system'`, default system, saved in `localStorage` key
-  `routewise.theme`; every storage access is in try/catch and falls back to system), follows
-  `prefers-color-scheme` live while on system, and sets `data-theme` and `color-scheme` on
-  `<html>`. An inline script in `index.html` does the same before first paint (keep the key and
-  values in sync with the service). The header's theme menu (disclosure with three `aria-pressed`
-  buttons, current one also marked with a ✓) changes it. Dark tokens live in `:root`; light tokens
-  redefine them from the same palette (midnight black as ink, white and ink alphas as surfaces).
-  **Lime is a fill only in light mode** (primary buttons, badges, selected tints, glows, the map
-  route over a dark halo): anything that is lime text, a link, a thin line, a stroke or the focus
-  ring uses `--color-primary-ink` (lime in dark, ink in light), selected backgrounds use
-  `--color-selected-bg`, recommended stripes, bar outlines and primary-button borders use
-  `--color-highlight-edge`, and red/amber text uses `--color-danger-text`/`--color-accent-text`
-  (red and amber are borders and fills with ink text in light). Never write `color: var(--color-primary)`.
-  Map tokens (`--map-sea`, `--map-land`, `--map-border`, `--map-city`) have light variants and
-  `--map-route-halo` is the outline under the route and pins. Use only tokens in components so both
-  themes work; check any new pair in light and dark. `prefers-reduced-transparency` makes the glass
-  solid in both themes.
+- **Theme:** dark only (`color-scheme: dark` in `:root`, `<meta name="color-scheme" content="dark">`). There is
+  no theme service, menu or `data-theme`. The semantic aliases (`--color-primary-ink`, `--color-selected-bg`,
+  `--color-highlight-edge`, `--color-danger-text` …) remain and currently equal their dark values; use them for
+  the roles they name (lime text, selected background, recommended edge) so a future theme has one place to change.
+- **Shell, header and rail:** `AppShell` projects `shellHeader`, an optional `shellRail` and the page area. `Header`
+  is the top bar (logo tile, centred `PillNav` Home / Trips / Modes, round search and new-trip buttons (only below 1024 px, where there is no rail), avatar popover
+  or "Log in"; below 768 px the collapsed navigation menu). **Account popover:** the avatar is the trigger of a
+  `Menu` (`focusOnOpen`, id `account-menu`) holding `AccountPanel`: initials, display name and email (from
+  `Session`), trips planned and CO₂ saved from `TripApi.stats()` (requested each time a panel opens, never at
+  start-up; while loading or after a failure a short note replaces the figures and the links stay usable), a
+  "My trips" link and Log out with an icon (through `Session`). Below 768 px the same `AccountPanel` sits in the
+  collapsed navigation menu under the links. "Search trips" (header button and first rail item)
+  calls `SearchFocus.open()` (`shared/util/search-focus.ts`): navigate to `/trips`, then the `TripToolbar` takes
+  focus in its search field (the request stays pending until the field exists; a refused navigation leaves
+  nothing pending). `IconRail` (`shared/ui/icon-rail.ts`, rendered by `app.ts` only while
+  `LayoutBreakpoint.desktop()`, from 1024 px) is a labelled `nav` of round items: links get `aria-current="page"`
+  (exact path match, query ignored) and a lime ring, buttons emit `activate`; every item has `aria-label` and a
+  `title` tooltip. `/modes` is the Modes page.
 - **Accessibility:** semantic HTML and landmarks, labels on inputs, visible
   focus, nothing conveyed by color alone, scrollable regions focusable.
   Layouts work down to 375 px.

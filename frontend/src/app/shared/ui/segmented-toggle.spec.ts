@@ -51,6 +51,26 @@ describe('SegmentedToggle', () => {
     element.remove();
   });
 
+  it('marks the selected option with a check unless showCheck is off', async () => {
+    const fixture = TestBed.createComponent(Host);
+    document.body.appendChild(fixture.nativeElement);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('[aria-checked="true"]')?.textContent).toContain('✓');
+
+    element.remove();
+    const plain = TestBed.createComponent(SegmentedToggle<View>);
+    plain.componentRef.setInput('ariaLabel', 'View');
+    plain.componentRef.setInput('options', fixture.componentInstance.options);
+    plain.componentRef.setInput('value', 'board');
+    plain.componentRef.setInput('showCheck', false);
+    await plain.whenStable();
+
+    expect(plain.nativeElement.querySelector('[aria-checked="true"]').textContent).not.toContain(
+      '✓',
+    );
+  });
+
   it('selects on click', async () => {
     const { fixture, element, radios } = await setup();
     radios()[1].click();

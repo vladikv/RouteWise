@@ -13,6 +13,7 @@ import {
   interpolateView,
   isVisible,
   maxLabelRank,
+  minDotGap,
   rotateBy,
   rotateByDegrees,
 } from './globe';
@@ -53,13 +54,27 @@ describe('isVisible', () => {
 describe('maxLabelRank', () => {
   it.each([
     [1, 1],
-    [1.99, 1],
-    [2, 2],
-    [3.99, 2],
-    [4, 3],
+    [2, 1],
+    [2.49, 1],
+    [2.5, 2],
+    [4.99, 2],
+    [5, 3],
     [8, 3],
   ])('at zoom %f labels up to rank %i', (zoom, rank) => {
     expect(maxLabelRank(zoom)).toBe(rank);
+  });
+});
+
+describe('minDotGap', () => {
+  it.each([
+    [1, 36],
+    [2.49, 36],
+    [2.5, 22],
+    [4.99, 22],
+    [5, 11.25],
+    [8, 11.25],
+  ])('at zoom %f keeps low-ranked dots %f px from drawn cities (dot 4.5 px)', (zoom, gap) => {
+    expect(minDotGap(zoom, 4.5)).toBe(gap);
   });
 });
 

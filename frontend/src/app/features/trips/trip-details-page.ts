@@ -1,15 +1,16 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { CityApi } from '../../core/api/city-api';
-import { Comparison } from '../../core/api/models';
+import { Comparison, Trip } from '../../core/api/models';
 import { TripApi } from '../../core/api/trip-api';
 import { RouteMap } from '../../shared/map/route-map';
-import { ConfirmAction } from '../../shared/ui/confirm-action';
 import { ErrorMessage } from '../../shared/ui/error-message';
 import { Spinner } from '../../shared/ui/spinner';
 import { PRIORITY_LABELS, travelersLabel } from '../../shared/util/labels';
+import { TripDeleteDialog } from './trip-delete-dialog';
+import { DeletionHooks, TripDeletion } from './trip-deletion';
 import { AdvicePanel } from './comparison/advice-panel';
 import { ComparisonChart } from './comparison/comparison-chart';
 import { ComparisonPanel } from './comparison/comparison-panel';
@@ -25,15 +26,16 @@ import { LegComparison, legComparison } from './comparison/leg-comparison';
     AdvicePanel,
     ComparisonChart,
     ComparisonPanel,
-    ConfirmAction,
     ErrorMessage,
     ItineraryView,
     RouteMap,
     Spinner,
+    TripDeleteDialog,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './trip-details-page.html',
   styleUrl: './trip-details-page.scss',
+  providers: [TripDeletion],
 })
 export class TripDetailsPage {
   /** Route parameter. */
@@ -58,8 +60,7 @@ export class TripDetailsPage {
   });
   /** For the route map; the page works without it, so its failure is not shown. */
   protected readonly cities = rxResource({ stream: () => this.cityApi.findAll() });
-  protected readonly deleting = signal(false);
-  protected readonly deleteError = signal<unknown>(null);
+  protected readonly deletion = inject(TripDeletion);
   protected readonly priorityLabels = PRIORITY_LABELS;
   protected readonly travelersLabel = travelersLabel;
   /** The stop cities in order, for the map. */
@@ -71,15 +72,13 @@ export class TripDetailsPage {
     return legComparison(comparison, 0);
   }
 
-  protected delete(): void {
-    this.deleting.set(true);
-    this.deleteError.set(null);
-    this.tripApi.delete(Number(this.id())).subscribe({
-      next: () => void this.router.navigate(['/trips']),
-      error: (error: unknown) => {
-        this.deleting.set(false);
-        this.deleteError.set(error);
-      },
-    });
+  /** After the delete the page leaves for the list; Undo brings the user back to the restored trip. */
+  private readonly deletionHooks: DeletionHooks = {
+    deleted: () => void this.router.navigate(['/trips']),
+    restored: (trip: Trip) => void this.router.navigate(['/trips', trip.id]),
+  };
+
+  protected confirmDelete(): void {
+    this.deletion.confirm(this.deletionHooks);
   }
 }

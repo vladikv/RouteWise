@@ -1,0 +1,73 @@
+<div class="details">
+  @if (comparison(); as comparison) {
+    <section class="legs" aria-label="Legs and recommended modes">
+      <h3 class="heading">Recommended mode per leg</h3>
+      <ol class="legs__list">
+        @for (item of legs(); track item.leg.index) {
+          @let leg = item.leg;
+          @let best = item.best;
+          <li class="leg">
+            <p class="leg__route">
+              {{ leg.from.name }} <span aria-hidden="true">→</span>
+              <span class="visually-hidden">to</span> {{ leg.to.name }}
+            </p>
+            @if (best) {
+              <dl class="facts">
+                <div>
+                  <dt>Mode</dt>
+                  <dd>
+                    <app-mode-icon [mode]="best.mode" />
+                    {{ modeLabels[best.mode] }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Time</dt>
+                  <dd>
+                    {{ best.durationMinutes === null ? '–' : durationLabel(best.durationMinutes) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Cost</dt>
+                  <dd>{{ best.totalCost | currency: comparison.currency : 'symbol' : '1.0-0' }}</dd>
+                </div>
+                <div>
+                  <dt>CO₂</dt>
+                  <dd>{{ best.co2Kg | number: '1.0-0' }} kg</dd>
+                </div>
+              </dl>
+            } @else {
+              <p class="muted">No available mode on this leg.</p>
+            }
+          </li>
+        }
+      </ol>
+    </section>
+    <section class="weather" aria-label="Weather">
+      <h3 class="heading">Weather on {{ comparison.departureDate | date: 'mediumDate' }}</h3>
+      @if (comparison.weather.length === 0) {
+        <p class="muted">No forecast for this date yet.</p>
+      } @else {
+        <ul class="weather__list">
+          @for (item of comparison.weather; track item.city) {
+            <li>
+              <strong>{{ item.city }}</strong
+              >: {{ weatherLine(item) }}
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  } @else if (failure(); as failed) {
+    <app-error-message [error]="failed.error" (retry)="retry.emit()" />
+  } @else {
+    <app-spinner label="Loading legs and weather…" />
+  }
+
+  <div class="buttons">
+    <a class="button button--primary" [routerLink]="['/trips', trip().id]">Open on map</a>
+    <a class="button" [routerLink]="['/trips', trip().id, 'edit']">Edit</a>
+    <button type="button" class="button button--danger" (click)="deleteRequested.emit()">
+      Delete
+    </button>
+  </div>
+</div>

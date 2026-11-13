@@ -35,8 +35,6 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       border: 1px solid var(--glass-border);
       border-radius: var(--radius-pill);
       background: var(--glass-bg-strong);
-      -webkit-backdrop-filter: var(--glass-filter);
-      backdrop-filter: var(--glass-filter);
       box-shadow: var(--glass-highlight);
       color: var(--color-text);
       cursor: pointer;

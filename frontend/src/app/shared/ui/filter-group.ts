@@ -131,7 +131,7 @@ export class FilterIcon {
       min-width: 1.5rem;
       padding: 0 var(--space-2);
       border-radius: var(--radius-pill);
-      background: var(--color-text-a10);
+      background: var(--glass-bg-strong);
       color: var(--color-text-muted);
       font-size: 0.8125rem;
       line-height: 1.5rem;

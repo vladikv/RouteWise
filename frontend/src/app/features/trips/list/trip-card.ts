@@ -5,16 +5,17 @@ import { Trip, TripPriority } from '../../../core/api/models';
 import { ModeIcon } from '../../../shared/ui/mode-icon';
 import { daysBetween, todayIso } from '../../../shared/util/date';
 import { countdownLabel, travelersLabel } from '../../../shared/util/labels';
-import { modeSummary, tintFor, TripFigures } from './trip-figures';
+import { modeSummary, TripFigures } from './trip-figures';
 import { TripActions } from './trip-actions';
 import { TripMenu } from './trip-menu';
 import { TripRoute } from './trip-route';
 
 /**
  * A trip on the board: date with a countdown, route (stops as text plus a mini route line),
- * the recommended plan's cost, CO₂ against going by car, and its mode. Tinted by mode (see
- * `tintFor`); the mode is always named in text. The whole card opens the trip: the title link
- * is stretched over it, the quick actions and the menu sit above that link.
+ * the recommended plan's cost, CO₂ against going by car, and its mode. Tinted by the priority
+ * of its lane (`trip--fastest` …); the lane header names the priority, the card names the mode.
+ * The whole card opens the trip: the title link is stretched over it, the quick actions and the
+ * menu sit above that link.
  */
 @Component({
   selector: 'app-trip-card',
@@ -36,18 +37,14 @@ export class TripCard {
   readonly trip = input.required<Trip>();
   /** From the API; null when no route is available. */
   readonly figures = input.required<TripFigures | null>();
-  readonly deleting = input(false);
   /** A priority change is waiting for the API. */
   readonly moving = input(false);
-  readonly deleted = output<void>();
+  readonly deleteRequested = output<void>();
   readonly moved = output<TripPriority>();
 
   protected readonly travelersLabel = travelersLabel;
   protected readonly modeSummary = modeSummary;
-  protected readonly tint = computed(() => {
-    const figures = this.figures();
-    return figures ? tintFor(figures.mode) : 'none';
-  });
+  protected readonly lane = computed(() => this.trip().priority.toLowerCase());
   private readonly daysUntil = computed(() => daysBetween(todayIso(), this.trip().departureDate));
   protected readonly countdown = computed(() => countdownLabel(this.daysUntil()));
   protected readonly past = computed(() => this.daysUntil() < 0);

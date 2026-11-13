@@ -225,18 +225,6 @@ describe('RouteMap interaction', () => {
     });
   });
 
-  describe('toolbar zone', () => {
-    it('keeps labels out of a box reserved at the top', async () => {
-      await render();
-      expect(labelled()).toContain('Berlin');
-
-      fixture.componentRef.setInput('topZone', { width: 640, height: 340, align: 'start' });
-      await fixture.whenStable();
-
-      expect(labelled()).not.toContain('Berlin');
-    });
-  });
-
   describe('gestures', () => {
     it('greedy: the wheel zooms and is kept from scrolling the page, except at the limits', async () => {
       await render();
