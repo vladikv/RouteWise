@@ -24,6 +24,7 @@ import java.util.stream.IntStream;
 
 import com.routewise.common.config.SecurityConfig;
 import com.routewise.common.exception.FieldValidationException;
+import com.routewise.common.exception.ConflictException;
 import com.routewise.common.exception.ResourceNotFoundException;
 import com.routewise.trip.domain.TripPriority;
 import com.routewise.trip.dto.TripRequest;
@@ -212,6 +213,41 @@ class TripControllerTest {
 
         mockMvc.perform(delete("/api/trips/42"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void restore_returns200WithTrip() throws Exception {
+        when(tripService.restore(1L, TestUsers.ALICE_ID)).thenReturn(response(1L));
+
+        mockMvc.perform(post("/api/trips/1/restore"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1));
+    }
+
+    @Test
+    void restore_afterTheWindow_returns409ProblemDetails() throws Exception {
+        when(tripService.restore(1L, TestUsers.ALICE_ID))
+                .thenThrow(new ConflictException("Trip 1 can no longer be restored"));
+
+        mockMvc.perform(post("/api/trips/1/restore"))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.detail").value("Trip 1 can no longer be restored"));
+    }
+
+    @Test
+    void restore_whenMissing_returns404() throws Exception {
+        when(tripService.restore(42L, TestUsers.ALICE_ID)).thenThrow(new ResourceNotFoundException("Trip", 42L));
+
+        mockMvc.perform(post("/api/trips/42/restore"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void restore_whenLoggedOut_returns401() throws Exception {
+        TestUsers.anonymousMockMvc(context).perform(post("/api/trips/1/restore"))
+                .andExpect(status().isUnauthorized());
     }
 
     private static String validBody() {

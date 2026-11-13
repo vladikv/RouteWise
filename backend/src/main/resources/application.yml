@@ -42,6 +42,9 @@ routewise:
     effort: ${ROUTEWISE_ADVISOR_EFFORT:low}
     timeout: 20s
     max-retries: 1
+  trips:
+    # How long a deleted trip can be restored (undo).
+    restore-window: ${ROUTEWISE_TRIPS_RESTORE_WINDOW:30s}
   demo:
     # A public demo account with sample trips, shown on the login page and in the README.
     # Set ROUTEWISE_DEMO_ENABLED=false for any real deployment.

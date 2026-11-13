@@ -3,6 +3,7 @@ package com.routewise.trip.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
@@ -88,10 +89,27 @@ class TripRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<Trip> trips = tripRepository.findAllByOwnerIdOrderByDepartureDateAscIdAsc(alice.getId());
+        List<Trip> trips = tripRepository.findAllByOwnerIdAndDeletedAtIsNullOrderByDepartureDateAscIdAsc(alice.getId());
 
         assertThat(trips).extracting(trip -> trip.stopCities().getFirst().getName())
                 .containsExactly("Berlin", "Paris");
+    }
+
+    @Test
+    void deletedTrips_areLeftOutOfActiveQueries_butFoundForRestore() {
+        Trip kept = tripRepository.save(trip(LocalDate.now().plusDays(3), "Berlin", "Vienna"));
+        Trip deleted = trip(LocalDate.now().plusDays(4), "Paris", "Rome");
+        deleted.markDeleted(Instant.parse("2026-11-13T10:00:00Z"));
+        deleted = tripRepository.save(deleted);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(tripRepository.findAllByOwnerIdAndDeletedAtIsNullOrderByDepartureDateAscIdAsc(alice.getId()))
+                .extracting(Trip::getId).containsExactly(kept.getId());
+        assertThat(tripRepository.findActiveWithStopsByIdAndOwnerIdAndDeletedAtIsNull(deleted.getId(), alice.getId()))
+                .isEmpty();
+        assertThat(tripRepository.findWithStopsByIdAndOwnerId(deleted.getId(), alice.getId()))
+                .get().extracting(Trip::getDeletedAt).isNotNull();
     }
 
     @Test

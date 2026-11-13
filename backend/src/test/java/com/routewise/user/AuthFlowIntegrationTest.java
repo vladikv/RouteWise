@@ -90,6 +90,36 @@ class AuthFlowIntegrationTest {
     }
 
     @Test
+    void deletedTrip_isHiddenEverywhere_andOnlyItsOwnerCanRestoreIt() throws Exception {
+        Client alice = register("alice.undo@example.com");
+        Client bob = register("bob.undo@example.com");
+        MvcResult created = mockMvc.perform(alice.send(post("/api/trips"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(tripJson("Undo me")))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String trip = "/api/trips/" + JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(alice.send(delete(trip))).andExpect(status().isNoContent());
+
+        mockMvc.perform(alice.send(get(trip))).andExpect(status().isNotFound());
+        mockMvc.perform(alice.send(get(trip + "/comparison"))).andExpect(status().isNotFound());
+        mockMvc.perform(alice.send(get(trip + "/advice"))).andExpect(status().isNotFound());
+        mockMvc.perform(alice.send(put(trip))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(tripJson("Edited while deleted")))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(alice.send(delete(trip))).andExpect(status().isNotFound());
+        mockMvc.perform(bob.send(post(trip + "/restore"))).andExpect(status().isNotFound());
+
+        mockMvc.perform(alice.send(post(trip + "/restore")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Undo me"));
+        mockMvc.perform(alice.send(get(trip))).andExpect(status().isOk());
+        mockMvc.perform(alice.send(post(trip + "/restore"))).andExpect(status().isOk());
+    }
+
+    @Test
     void register_takenEmail_returns409() throws Exception {
         register("dave.flow@example.com");
 

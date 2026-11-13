@@ -11,9 +11,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface TripRepository extends JpaRepository<Trip, Long> {
 
     @EntityGraph(attributePaths = {"stops", "stops.city"})
-    List<Trip> findAllByOwnerIdOrderByDepartureDateAscIdAsc(Long ownerId);
+    List<Trip> findAllByOwnerIdAndDeletedAtIsNullOrderByDepartureDateAscIdAsc(Long ownerId);
 
-    /** Empty for someone else's trip, so callers answer 404 and reveal nothing. */
+    /**
+     * An active (not deleted) trip of the owner. Empty for someone else's or a deleted trip,
+     * so callers answer 404 and reveal nothing.
+     */
+    @EntityGraph(attributePaths = {"stops", "stops.city"})
+    Optional<Trip> findActiveWithStopsByIdAndOwnerIdAndDeletedAtIsNull(Long id, Long ownerId);
+
+    /** The owner's trip, deleted or not; only restore needs to see deleted trips. */
     @EntityGraph(attributePaths = {"stops", "stops.city"})
     Optional<Trip> findWithStopsByIdAndOwnerId(Long id, Long ownerId);
 }

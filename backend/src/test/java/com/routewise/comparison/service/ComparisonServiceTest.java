@@ -92,7 +92,7 @@ class ComparisonServiceTest {
 
     @Test
     void compare_threeStops_returnsTwoLegsWithOneRecommendationEach() {
-        when(tripRepository.findWithStopsByIdAndOwnerId(1L, TestUsers.ALICE_ID))
+        when(tripRepository.findActiveWithStopsByIdAndOwnerIdAndDeletedAtIsNull(1L, TestUsers.ALICE_ID))
                 .thenReturn(Optional.of(trip(berlin, prague, vienna)));
         when(transportModeRepository.findAll()).thenReturn(seededModes());
         when(weatherService.forecasts(anyList(), eq(DEPARTURE))).thenReturn(List.of());
@@ -117,7 +117,7 @@ class ComparisonServiceTest {
 
     @Test
     void compare_itineraryTotalsAreTheSumOfEachLegsRecommendation() {
-        when(tripRepository.findWithStopsByIdAndOwnerId(1L, TestUsers.ALICE_ID))
+        when(tripRepository.findActiveWithStopsByIdAndOwnerIdAndDeletedAtIsNull(1L, TestUsers.ALICE_ID))
                 .thenReturn(Optional.of(trip(berlin, prague, vienna)));
         when(transportModeRepository.findAll()).thenReturn(seededModes());
         when(weatherService.forecasts(anyList(), eq(DEPARTURE))).thenReturn(List.of());
@@ -145,7 +145,7 @@ class ComparisonServiceTest {
 
     @Test
     void compare_appliesEachLegsOwnWeather() {
-        when(tripRepository.findWithStopsByIdAndOwnerId(1L, TestUsers.ALICE_ID))
+        when(tripRepository.findActiveWithStopsByIdAndOwnerIdAndDeletedAtIsNull(1L, TestUsers.ALICE_ID))
                 .thenReturn(Optional.of(trip(berlin, prague, vienna)));
         when(transportModeRepository.findAll()).thenReturn(seededModes());
         LocationForecast viennaSnow = new LocationForecast(new Location("Vienna", 48.2082, 16.3738),
@@ -162,7 +162,7 @@ class ComparisonServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void compare_roundTrip_requestsWeatherOncePerCityOnTheDepartureDate() {
-        when(tripRepository.findWithStopsByIdAndOwnerId(1L, TestUsers.ALICE_ID))
+        when(tripRepository.findActiveWithStopsByIdAndOwnerIdAndDeletedAtIsNull(1L, TestUsers.ALICE_ID))
                 .thenReturn(Optional.of(trip(berlin, vienna, berlin)));
         when(transportModeRepository.findAll()).thenReturn(seededModes());
         when(weatherService.forecasts(anyList(), any())).thenReturn(List.of());
@@ -177,7 +177,7 @@ class ComparisonServiceTest {
 
     @Test
     void compare_whenTripMissing_throwsNotFoundWithoutCallingWeather() {
-        when(tripRepository.findWithStopsByIdAndOwnerId(42L, TestUsers.ALICE_ID)).thenReturn(Optional.empty());
+        when(tripRepository.findActiveWithStopsByIdAndOwnerIdAndDeletedAtIsNull(42L, TestUsers.ALICE_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> comparisonService.compare(42L, TestUsers.ALICE_ID))
                 .isInstanceOf(ResourceNotFoundException.class)

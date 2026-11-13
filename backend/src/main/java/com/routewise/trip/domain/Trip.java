@@ -74,6 +74,11 @@ public class Trip {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    /** When the trip was deleted; {@code null} while it is active. */
+    @Column(name = "deleted_at")
+    @Setter(AccessLevel.NONE)
+    private Instant deletedAt;
+
     /**
      * Sets the ordered stops. Existing stop rows are reused position by position
      * (only their city changes), extra ones are added and surplus ones removed,
@@ -94,6 +99,18 @@ public class Trip {
         while (stops.size() > cities.size()) {
             stops.removeLast();
         }
+    }
+
+    public void markDeleted(Instant at) {
+        deletedAt = at;
+    }
+
+    public void restore() {
+        deletedAt = null;
+    }
+
+    public boolean isDeleted() {
+        return deletedAt != null;
     }
 
     /** The stops' cities in order. */

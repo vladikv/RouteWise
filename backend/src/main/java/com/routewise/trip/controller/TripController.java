@@ -9,6 +9,7 @@ import com.routewise.trip.service.TripService;
 import com.routewise.user.domain.AuthUser;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
@@ -68,8 +69,21 @@ public class TripController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Operation(summary = "Delete a trip")
+    @Operation(summary = "Delete a trip",
+            description = "Soft delete: the trip is hidden everywhere and can be restored within the restore window "
+                    + "(routewise.trips.restore-window, default 30 s). A deleted trip answers 404.")
     public void delete(@PathVariable Long id, @AuthenticationPrincipal AuthUser user) {
         tripService.delete(id, user.id());
+    }
+
+    @PostMapping("/{id}/restore")
+    @Operation(summary = "Restore a deleted trip (undo)",
+            description = "200 with the trip, also when it is not deleted. 409 after the restore window; "
+                    + "404 for an unknown or another user's trip.")
+    @ApiResponse(responseCode = "200", description = "Trip restored or already active")
+    @ApiResponse(responseCode = "404", description = "Unknown trip or another user's trip")
+    @ApiResponse(responseCode = "409", description = "The restore window has passed")
+    public TripResponse restore(@PathVariable Long id, @AuthenticationPrincipal AuthUser user) {
+        return tripService.restore(id, user.id());
     }
 }
