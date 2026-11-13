@@ -4,6 +4,7 @@ import java.time.Duration;
 
 import jakarta.validation.constraints.NotNull;
 
+import org.hibernate.validator.constraints.time.DurationMin;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.validation.annotation.Validated;
@@ -15,5 +16,5 @@ import org.springframework.validation.annotation.Validated;
  */
 @Validated
 @ConfigurationProperties("routewise.trips")
-public record TripProperties(@DefaultValue("30s") @NotNull Duration restoreWindow) {
+public record TripProperties(@DefaultValue("30s") @NotNull @DurationMin(seconds = 1) Duration restoreWindow) {
 }

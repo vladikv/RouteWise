@@ -111,7 +111,7 @@ public class TripService {
 
     /** Someone else's or a deleted trip is "not found", like a missing one. */
     private Trip getTrip(Long id, Long ownerId) {
-        return tripRepository.findActiveWithStopsByIdAndOwnerIdAndDeletedAtIsNull(id, ownerId)
+        return tripRepository.findActiveByIdAndOwnerId(id, ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException(RESOURCE, id));
     }
 

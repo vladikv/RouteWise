@@ -7,6 +7,7 @@ import com.routewise.trip.domain.Trip;
 
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 public interface TripRepository extends JpaRepository<Trip, Long> {
 
@@ -18,7 +19,8 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
      * so callers answer 404 and reveal nothing.
      */
     @EntityGraph(attributePaths = {"stops", "stops.city"})
-    Optional<Trip> findActiveWithStopsByIdAndOwnerIdAndDeletedAtIsNull(Long id, Long ownerId);
+    @Query("SELECT t FROM Trip t WHERE t.id = :id AND t.ownerId = :ownerId AND t.deletedAt IS NULL")
+    Optional<Trip> findActiveByIdAndOwnerId(Long id, Long ownerId);
 
     /** The owner's trip, deleted or not; only restore needs to see deleted trips. */
     @EntityGraph(attributePaths = {"stops", "stops.city"})

@@ -59,7 +59,7 @@ public class ComparisonService {
 
     /** Someone else's or a deleted trip is "not found", like a missing one. */
     public ComparisonResponse compare(Long tripId, Long ownerId) {
-        Trip trip = tripRepository.findActiveWithStopsByIdAndOwnerIdAndDeletedAtIsNull(tripId, ownerId)
+        Trip trip = tripRepository.findActiveByIdAndOwnerId(tripId, ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Trip", tripId));
         return compare(trip.getId(), trip.stopCities(), trip.getDepartureDate(), trip.getTravelers(),
                 trip.getPriority());

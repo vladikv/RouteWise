@@ -26,6 +26,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class UnavailableGrouper {
 
+    /** Earlier legs first; on the same leg, reasons in {@link UnavailableCode} order. */
+    private static final Comparator<Blocker> BLOCKER_ORDER =
+            Comparator.comparingInt(Blocker::legIndex).thenComparing(Blocker::code);
+
     /** One group per reason on this leg, in {@link UnavailableCode} order; empty when all modes are available. */
     public List<UnavailableGroup> forLeg(Leg leg) {
         Map<UnavailableCode, List<TransportModeCode>> byCode = leg.options().stream()
@@ -51,8 +55,7 @@ public class UnavailableGrouper {
                 .forEach(modeTotals -> firstBlocker(modeTotals.mode(), legs).ifPresent(blocker ->
                         byBlocker.computeIfAbsent(blocker, key -> new ArrayList<>()).add(modeTotals.mode())));
         return byBlocker.entrySet().stream()
-                .sorted(Comparator.comparing((Map.Entry<Blocker, List<TransportModeCode>> entry) -> entry.getKey().legIndex())
-                        .thenComparing(entry -> entry.getKey().code()))
+                .sorted(Map.Entry.comparingByKey(BLOCKER_ORDER))
                 .map(entry -> new UnavailableGroup(entry.getKey().code(), entry.getValue(),
                         "Not possible for the whole trip: %s (%s)".formatted(modeList(entry.getValue()),
                                 totalsReason(entry.getKey().code(), legs.get(entry.getKey().legIndex())))))

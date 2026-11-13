@@ -49,7 +49,8 @@ class ComparisonMapperTest {
                 new BigDecimal("301.56"), new BigDecimal("88.0"));
 
         UnavailableGroup landmass = new UnavailableGroup(UnavailableCode.DIFFERENT_LANDMASS,
-                List.of(TransportModeCode.BIKE), "Not possible for the whole trip: bike (no land route between Berlin and Vienna)");
+                List.of(TransportModeCode.BIKE),
+                "Not possible for the whole trip: bike (no land route between Berlin and Vienna)");
         RoutePlan routePlan = new RoutePlan(List.of(there, back), plan,
                 List.of(new ModeTotals(TransportModeCode.TRAIN, plan, null, null),
                         new ModeTotals(TransportModeCode.BIKE, null, UnavailableCode.DIFFERENT_LANDMASS,

@@ -71,7 +71,8 @@ class MoscowRemovalMigrationTest {
         for (int position = 0; position < cities.length; position++) {
             statement.execute("""
                     INSERT INTO trip_stop (trip_id, city_id, stop_position)
-                    VALUES (%d, (SELECT id FROM city WHERE name = '%s'), %d)""".formatted(id, cities[position], position));
+                    VALUES (%d, (SELECT id FROM city WHERE name = '%s'), %d)"""
+                    .formatted(id, cities[position], position));
         }
     }
 

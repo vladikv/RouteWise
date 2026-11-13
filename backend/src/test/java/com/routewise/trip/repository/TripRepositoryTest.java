@@ -9,9 +9,9 @@ import java.util.Arrays;
 import java.util.List;
 
 import com.routewise.city.domain.City;
+import com.routewise.city.repository.CityRepository;
 import com.routewise.common.config.ClockConfig;
 import com.routewise.common.config.JpaAuditingConfig;
-import com.routewise.city.repository.CityRepository;
 import com.routewise.transportmode.domain.TransportMode;
 import com.routewise.transportmode.domain.TransportModeCode;
 import com.routewise.transportmode.repository.TransportModeRepository;
@@ -106,7 +106,7 @@ class TripRepositoryTest {
 
         assertThat(tripRepository.findAllByOwnerIdAndDeletedAtIsNullOrderByDepartureDateAscIdAsc(alice.getId()))
                 .extracting(Trip::getId).containsExactly(kept.getId());
-        assertThat(tripRepository.findActiveWithStopsByIdAndOwnerIdAndDeletedAtIsNull(deleted.getId(), alice.getId()))
+        assertThat(tripRepository.findActiveByIdAndOwnerId(deleted.getId(), alice.getId()))
                 .isEmpty();
         assertThat(tripRepository.findWithStopsByIdAndOwnerId(deleted.getId(), alice.getId()))
                 .get().extracting(Trip::getDeletedAt).isNotNull();

@@ -39,6 +39,12 @@ class ArchitectureTest {
             .because("services must not know the web layer");
 
     @ArchTest
+    static final ArchRule repositoriesDependOnNoUpperLayer = noClasses()
+            .that().resideInAPackage("..repository..")
+            .should().dependOnClassesThat().resideInAnyPackage("..service..", "..controller..")
+            .because("repositories are the bottom layer");
+
+    @ArchTest
     static final ArchRule controllerSignaturesUseNoEntities = methods()
             .that().areDeclaredInClassesThat().areAnnotatedWith(RestController.class)
             .and().arePublic()

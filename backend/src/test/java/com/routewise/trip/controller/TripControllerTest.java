@@ -23,8 +23,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import com.routewise.common.config.SecurityConfig;
-import com.routewise.common.exception.FieldValidationException;
 import com.routewise.common.exception.ConflictException;
+import com.routewise.common.exception.FieldValidationException;
 import com.routewise.common.exception.ResourceNotFoundException;
 import com.routewise.trip.domain.TripPriority;
 import com.routewise.trip.dto.TripRequest;
