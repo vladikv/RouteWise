@@ -43,4 +43,8 @@ public class TransportMode {
 
     @Column(name = "max_distance_km", nullable = false)
     private int maxDistanceKm;
+
+    /** PLANE only: CO2 above the long-haul threshold; {@code co2GramsPerKm} is then short-haul. */
+    @Column(name = "long_haul_co2_grams_per_km")
+    private Integer longHaulCo2GramsPerKm;
 }
