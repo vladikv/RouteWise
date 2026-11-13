@@ -10,6 +10,7 @@ import com.routewise.comparison.domain.ItineraryTotals;
 import com.routewise.comparison.domain.Leg;
 import com.routewise.comparison.domain.ModeOption;
 import com.routewise.comparison.domain.ModeTotals;
+import com.routewise.comparison.domain.UnavailableCode;
 import com.routewise.transportmode.domain.TransportModeCode;
 
 import org.springframework.stereotype.Component;
@@ -40,8 +41,8 @@ public class ItineraryCalculator {
 
     /**
      * One entry per transport mode, in {@link TransportModeCode} order. A mode is only
-     * available if it is available on every leg; otherwise the reason names the first
-     * leg (1-based) where it is not.
+     * available if it is available on every leg; otherwise the code and reason describe the
+     * first leg (1-based) where it is not.
      */
     public List<ModeTotals> singleModeTotals(List<Leg> legs) {
         return Arrays.stream(TransportModeCode.values())
@@ -56,12 +57,13 @@ public class ItineraryCalculator {
             Optional<ModeOption> option = leg.options().stream().filter(o -> o.mode() == mode).findFirst();
             if (option.isEmpty() || !option.get().available()) {
                 String why = option.map(ModeOption::unavailableReason).orElse("mode not offered");
-                return new ModeTotals(mode, null, "Leg %d (%s to %s): %s"
+                UnavailableCode code = option.map(ModeOption::unavailableCode).orElse(null);
+                return new ModeTotals(mode, null, code, "Leg %d (%s to %s): %s"
                         .formatted(i + 1, leg.from().name(), leg.to().name(), why));
             }
             chosen.add(option.get());
         }
-        return new ModeTotals(mode, sum(chosen), null);
+        return new ModeTotals(mode, sum(chosen), null, null);
     }
 
     private static ItineraryTotals sum(List<ModeOption> options) {

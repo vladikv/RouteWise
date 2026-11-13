@@ -16,6 +16,7 @@ import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 
+import com.routewise.city.domain.Continent;
 import com.routewise.city.dto.CityResponse;
 import com.routewise.city.service.CityService;
 import com.routewise.demo.config.DemoProperties;
@@ -94,7 +95,7 @@ class DemoDataSeederTest {
     }
 
     private static CityResponse city(long id, String name) {
-        return new CityResponse(id, name, "XX", 0, 0);
+        return new CityResponse(id, name, "XX", 0, 0, Continent.EUROPE, "EURASIA", false, 3);
     }
 
     private static List<TripStopRequest> stops(Long... cityIds) {

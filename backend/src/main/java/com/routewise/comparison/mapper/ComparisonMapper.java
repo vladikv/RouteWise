@@ -31,7 +31,8 @@ public class ComparisonMapper {
 
     public ModeParameters toParameters(TransportMode mode) {
         return new ModeParameters(mode.getCode(), mode.getAvgSpeedKmh(), mode.getCostPerKm(),
-                mode.getCo2GramsPerKm(), mode.getFixedOverheadMinutes(), mode.getMaxDistanceKm());
+                mode.getCo2GramsPerKm(), mode.getFixedOverheadMinutes(), mode.getMaxDistanceKm(),
+                mode.getLongHaulCo2GramsPerKm());
     }
 
     /**
@@ -72,8 +73,9 @@ public class ComparisonMapper {
     private static ModeTotalsResponse toResponse(ModeTotals modeTotals) {
         ItineraryTotals totals = modeTotals.totals();
         return totals == null
-                ? new ModeTotalsResponse(modeTotals.mode(), false, modeTotals.unavailableReason(), null, null, null)
-                : new ModeTotalsResponse(modeTotals.mode(), true, null, totals.durationMinutes(),
+                ? new ModeTotalsResponse(modeTotals.mode(), false, modeTotals.unavailableCode(),
+                        modeTotals.unavailableReason(), null, null, null)
+                : new ModeTotalsResponse(modeTotals.mode(), true, null, null, totals.durationMinutes(),
                         totals.totalCost(), totals.co2Kg());
     }
 
@@ -94,6 +96,7 @@ public class ComparisonMapper {
         return new ModeOptionResponse(
                 option.mode(),
                 option.available(),
+                option.unavailableCode(),
                 option.unavailableReason(),
                 oneDecimal(option.routeKm()),
                 option.durationMinutes(),

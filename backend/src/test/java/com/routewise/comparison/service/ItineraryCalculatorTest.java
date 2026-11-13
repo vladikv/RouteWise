@@ -10,6 +10,7 @@ import com.routewise.comparison.domain.ItineraryTotals;
 import com.routewise.comparison.domain.Leg;
 import com.routewise.comparison.domain.ModeOption;
 import com.routewise.comparison.domain.ModeTotals;
+import com.routewise.comparison.domain.UnavailableCode;
 import com.routewise.transportmode.domain.TransportModeCode;
 
 import org.junit.jupiter.api.Test;
@@ -80,17 +81,62 @@ class ItineraryCalculatorTest {
                 .isEqualTo("Leg 1 (Berlin to Prague): mode not offered");
     }
 
+    @Test
+    void recommendedItinerary_legWithOnlyPlane_usesPlaneThereAndGroundElsewhere() {
+        Leg transatlantic = new Leg(PRAGUE, VIENNA, 5500, List.of(
+                option(TransportModeCode.PLANE, 600, "500.00", "250.0", true),
+                unavailable(TransportModeCode.TRAIN, UnavailableCode.DIFFERENT_LANDMASS,
+                        "No land route between the cities for TRAIN")));
+
+        ItineraryTotals plan = calculator.recommendedItinerary(List.of(BERLIN_PRAGUE, transatlantic)).orElseThrow();
+
+        // 60 + 600 min, 20.00 + 500.00, 5.0 + 250.0 kg
+        assertThat(plan.modes()).containsExactly(TransportModeCode.TRAIN, TransportModeCode.PLANE);
+        assertThat(plan.durationMinutes()).isEqualTo(660);
+        assertThat(plan.totalCost()).isEqualByComparingTo("520.00");
+        assertThat(plan.co2Kg()).isEqualByComparingTo("255.0");
+    }
+
+    @Test
+    void singleModeTotals_modeUnavailableOnSecondLeg_carriesCodeAndNamesLeg() {
+        Leg transatlantic = new Leg(PRAGUE, VIENNA, 5500, List.of(
+                option(TransportModeCode.PLANE, 600, "500.00", "250.0", true),
+                unavailable(TransportModeCode.TRAIN, UnavailableCode.DIFFERENT_LANDMASS,
+                        "No land route between the cities for TRAIN")));
+
+        List<ModeTotals> totals = calculator.singleModeTotals(List.of(BERLIN_PRAGUE, transatlantic));
+
+        ModeTotals train = totalsFor(totals, TransportModeCode.TRAIN);
+        assertThat(train.available()).isFalse();
+        assertThat(train.unavailableCode()).isEqualTo(UnavailableCode.DIFFERENT_LANDMASS);
+        assertThat(train.unavailableReason())
+                .isEqualTo("Leg 2 (Prague to Vienna): No land route between the cities for TRAIN");
+    }
+
+    @Test
+    void singleModeTotals_modeNotOfferedOnALeg_hasNoCode() {
+        List<ModeTotals> totals = calculator.singleModeTotals(List.of(BERLIN_PRAGUE));
+
+        assertThat(totalsFor(totals, TransportModeCode.PLANE).unavailableCode()).isNull();
+        assertThat(totalsFor(totals, TransportModeCode.TRAIN).unavailableCode()).isNull();
+        assertThat(totalsFor(totals, TransportModeCode.BIKE).unavailableCode()).isEqualTo(UnavailableCode.TOO_FAR);
+    }
+
     private static ModeTotals totalsFor(List<ModeTotals> totals, TransportModeCode mode) {
         return totals.stream().filter(t -> t.mode() == mode).findFirst().orElseThrow();
     }
 
     private static ModeOption option(TransportModeCode mode, int minutes, String cost, String co2,
                                      boolean recommended) {
-        return new ModeOption(mode, true, null, 100, minutes, new BigDecimal(cost), new BigDecimal(co2), 50,
+        return new ModeOption(mode, true, null, null, 100, minutes, new BigDecimal(cost), new BigDecimal(co2), 50,
                 recommended, List.of());
     }
 
     private static ModeOption unavailable(TransportModeCode mode, String reason) {
-        return new ModeOption(mode, false, reason, 400, null, null, null, 0, false, List.of());
+        return unavailable(mode, UnavailableCode.TOO_FAR, reason);
+    }
+
+    private static ModeOption unavailable(TransportModeCode mode, UnavailableCode code, String reason) {
+        return new ModeOption(mode, false, code, reason, 400, null, null, null, 0, false, List.of());
     }
 }

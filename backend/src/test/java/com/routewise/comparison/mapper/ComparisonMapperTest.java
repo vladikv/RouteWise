@@ -11,6 +11,7 @@ import com.routewise.comparison.domain.ItineraryTotals;
 import com.routewise.comparison.domain.Leg;
 import com.routewise.comparison.domain.ModeOption;
 import com.routewise.comparison.domain.ModeTotals;
+import com.routewise.comparison.domain.UnavailableCode;
 import com.routewise.comparison.dto.ComparisonResponse;
 import com.routewise.comparison.dto.LegResponse;
 import com.routewise.comparison.dto.ModeOptionResponse;
@@ -32,7 +33,7 @@ class ComparisonMapperTest {
 
     private final ComparisonMapper mapper = new ComparisonMapper();
 
-    private static final ModeOption TRAIN = new ModeOption(TransportModeCode.TRAIN, true, null, 628.25, 373,
+    private static final ModeOption TRAIN = new ModeOption(TransportModeCode.TRAIN, true, null, null, 628.25, 373,
             new BigDecimal("150.78"), new BigDecimal("44.0"), 87, true, List.of("note"));
 
     @Test
@@ -45,8 +46,9 @@ class ComparisonMapperTest {
                 new BigDecimal("301.56"), new BigDecimal("88.0"));
 
         ComparisonResponse response = mapper.toResponse(1L, DEPARTURE, 3, TripPriority.FASTEST, List.of(vienna),
-                List.of(there, back), plan, List.of(new ModeTotals(TransportModeCode.TRAIN, plan, null),
-                        new ModeTotals(TransportModeCode.BIKE, null, "Leg 1 (Berlin to Vienna): too far")));
+                List.of(there, back), plan, List.of(new ModeTotals(TransportModeCode.TRAIN, plan, null, null),
+                        new ModeTotals(TransportModeCode.BIKE, null, UnavailableCode.DIFFERENT_LANDMASS,
+                                "Leg 1 (Berlin to Vienna): too far")));
 
         assertThat(response.tripId()).isEqualTo(1L);
         assertThat(response.departureDate()).isEqualTo(DEPARTURE);
@@ -74,15 +76,15 @@ class ComparisonMapperTest {
         assertThat(option.notes()).containsExactly("note");
         assertThat(response.recommendedItinerary().durationMinutes()).isEqualTo(746);
         assertThat(response.singleModeTotals()).containsExactly(
-                new ModeTotalsResponse(TransportModeCode.TRAIN, true, null, 746, new BigDecimal("301.56"),
+                new ModeTotalsResponse(TransportModeCode.TRAIN, true, null, null, 746, new BigDecimal("301.56"),
                         new BigDecimal("88.0")),
-                new ModeTotalsResponse(TransportModeCode.BIKE, false, "Leg 1 (Berlin to Vienna): too far", null,
-                        null, null));
+                new ModeTotalsResponse(TransportModeCode.BIKE, false, UnavailableCode.DIFFERENT_LANDMASS,
+                        "Leg 1 (Berlin to Vienna): too far", null, null, null));
     }
 
     @Test
     void toResponse_withoutAPlan_hasNullItineraryAndLegWithoutRecommendation() {
-        ModeOption bike = new ModeOption(TransportModeCode.BIKE, false, "too far", 680, null, null, null, 0, false,
+        ModeOption bike = new ModeOption(TransportModeCode.BIKE, false, UnavailableCode.TOO_FAR, "too far", 680, null, null, null, 0, false,
                 List.of());
 
         ComparisonResponse response = mapper.toResponse(null, DEPARTURE, 1, TripPriority.BALANCED, List.of(),
@@ -91,5 +93,7 @@ class ComparisonMapperTest {
         assertThat(response.tripId()).isNull();
         assertThat(response.recommendedItinerary()).isNull();
         assertThat(response.legs().getFirst().recommendedMode()).isNull();
+        assertThat(response.legs().getFirst().options().getFirst().unavailableCode())
+                .isEqualTo(UnavailableCode.TOO_FAR);
     }
 }

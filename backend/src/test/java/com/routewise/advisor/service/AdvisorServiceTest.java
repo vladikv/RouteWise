@@ -28,6 +28,7 @@ import com.routewise.advisor.domain.AdvisorSource;
 import com.routewise.advisor.domain.TripExtraction;
 import com.routewise.advisor.dto.AdviceResponse;
 import com.routewise.advisor.dto.TripDraftResponse;
+import com.routewise.city.domain.Continent;
 import com.routewise.city.dto.CityResponse;
 import com.routewise.city.dto.CitySummary;
 import com.routewise.city.service.CityService;
@@ -202,8 +203,8 @@ class AdvisorServiceTest {
 
     private void lenientCities() {
         lenient().when(cityService.findAll(null)).thenReturn(List.of(
-                new CityResponse(1L, "Berlin", "DE", 52.52, 13.405),
-                new CityResponse(2L, "Vienna", "AT", 48.2082, 16.3738)));
+                new CityResponse(1L, "Berlin", "DE", 52.52, 13.405, Continent.EUROPE, "EURASIA", true, 1),
+                new CityResponse(2L, "Vienna", "AT", 48.2082, 16.3738, Continent.EUROPE, "EURASIA", true, 1)));
     }
 
     private void stubTrip() {

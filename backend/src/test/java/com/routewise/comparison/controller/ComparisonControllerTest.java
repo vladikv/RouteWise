@@ -18,6 +18,7 @@ import com.routewise.city.dto.CitySummary;
 import com.routewise.common.config.SecurityConfig;
 import com.routewise.common.exception.FieldValidationException;
 import com.routewise.common.exception.ResourceNotFoundException;
+import com.routewise.comparison.domain.UnavailableCode;
 import com.routewise.comparison.dto.ComparisonRequest;
 import com.routewise.comparison.dto.ComparisonResponse;
 import com.routewise.comparison.dto.ItineraryTotalsResponse;
@@ -82,12 +83,15 @@ class ComparisonControllerTest {
                 .andExpect(jsonPath("$.legs[0].options[0].totalCost").value(150.80))
                 .andExpect(jsonPath("$.legs[0].options[1].available").value(false))
                 .andExpect(jsonPath("$.legs[0].options[1].durationMinutes").doesNotExist())
+                .andExpect(jsonPath("$.legs[0].options[1].unavailableCode").value("TOO_FAR"))
+                .andExpect(jsonPath("$.legs[0].options[0].unavailableCode").doesNotExist())
                 .andExpect(jsonPath("$.legs[0].options[1].unavailableReason")
                         .value("Route of 681 km exceeds the BIKE limit of 150 km"))
                 .andExpect(jsonPath("$.recommendedItinerary.modes[0]").value("TRAIN"))
                 .andExpect(jsonPath("$.recommendedItinerary.durationMinutes").value(373))
                 .andExpect(jsonPath("$.singleModeTotals[0].mode").value("TRAIN"))
                 .andExpect(jsonPath("$.singleModeTotals[1].available").value(false))
+                .andExpect(jsonPath("$.singleModeTotals[1].unavailableCode").value("TOO_FAR"))
                 .andExpect(jsonPath("$.singleModeTotals[1].totalCost").doesNotExist());
     }
 
@@ -164,10 +168,10 @@ class ComparisonControllerTest {
 
     /** One leg Berlin to Vienna: train recommended, bike unavailable. */
     private static ComparisonResponse response(Long tripId, List<WeatherSummary> weather) {
-        ModeOptionResponse train = new ModeOptionResponse(TransportModeCode.TRAIN, true, null,
+        ModeOptionResponse train = new ModeOptionResponse(TransportModeCode.TRAIN, true, null, null,
                 new BigDecimal("628.3"), 373, new BigDecimal("150.80"), new BigDecimal("44.0"), 87, true, List.of());
         ModeOptionResponse bike = new ModeOptionResponse(TransportModeCode.BIKE, false,
-                "Route of 681 km exceeds the BIKE limit of 150 km", new BigDecimal("680.7"), null, null, null, 0,
+                UnavailableCode.TOO_FAR, "Route of 681 km exceeds the BIKE limit of 150 km", new BigDecimal("680.7"), null, null, null, 0,
                 false, List.of());
         LegResponse leg = new LegResponse(0, new CitySummary(1L, "Berlin", "DE"), new CitySummary(2L, "Vienna", "AT"),
                 new BigDecimal("523.6"), List.of(train, bike), TransportModeCode.TRAIN);
@@ -175,9 +179,10 @@ class ComparisonControllerTest {
                 weather, List.of(leg),
                 new ItineraryTotalsResponse(List.of(TransportModeCode.TRAIN), 373, new BigDecimal("150.80"),
                         new BigDecimal("44.0")),
-                List.of(new ModeTotalsResponse(TransportModeCode.TRAIN, true, null, 373, new BigDecimal("150.80"),
+                List.of(new ModeTotalsResponse(TransportModeCode.TRAIN, true, null, null, 373, new BigDecimal("150.80"),
                                 new BigDecimal("44.0")),
-                        new ModeTotalsResponse(TransportModeCode.BIKE, false, "Leg 1 (Berlin to Vienna): too far",
+                        new ModeTotalsResponse(TransportModeCode.BIKE, false, UnavailableCode.TOO_FAR,
+                                "Leg 1 (Berlin to Vienna): too far",
                                 null, null, null)));
     }
 }
