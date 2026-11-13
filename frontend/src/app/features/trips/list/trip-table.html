@@ -46,6 +46,7 @@
             }
           </span>
           <span class="trip__line muted">
+            <span class="lane-dot" [attr.data-lane]="trip.priority" aria-hidden="true"></span>
             {{ priorityLabels[trip.priority] }}
             <span class="narrow-only">
               · {{ trip.departureDate | date: 'mediumDate' }}

@@ -41,8 +41,6 @@
   --color-on-highlight: var(--color-primary);
   /* Edge of recommended marks (stripe, bar outline, primary button border). */
   --color-highlight-edge: var(--color-highlight);
-  /* Edge of amber-tinted marks. */
-  --color-accent-edge: var(--color-accent);
   --color-success: var(--color-primary);
   /* Weather warnings. */
   --color-accent: #f5b871;
@@ -65,7 +63,6 @@
   --color-text-a18: rgb(255 255 255 / 18%);
   --color-text-a50: rgb(255 255 255 / 50%);
   --color-text-a60: rgb(255 255 255 / 60%);
-  --color-primary-a08: rgb(182 242 60 / 8%);
   --color-primary-a12: rgb(182 242 60 / 12%);
   --color-primary-a16: rgb(182 242 60 / 16%);
   --color-primary-a20: rgb(182 242 60 / 20%);
@@ -73,9 +70,16 @@
   --color-olive-a55: rgb(154 171 69 / 55%);
   --color-warm-a50: rgb(194 130 90 / 50%);
   --color-danger-bg-a70: rgb(58 27 30 / 70%);
-  --color-accent-a08: rgb(245 184 113 / 8%);
+  /* Trip lanes (one per priority): the dot and edge hue, and the translucent card tint over the lane (white 7.8:1 or better, lime 5.9:1 at the brightest backdrop point). */
+  --lane-fastest: #6fa3ee;
+  --lane-cheapest: #e08a63;
+  --lane-greenest: #9ccc5a;
+  --lane-balanced: #c3c9d4;
+  --lane-fastest-a55: rgb(60 105 170 / 55%);
+  --lane-cheapest-a55: rgb(170 85 55 / 55%);
+  --lane-greenest-a55: rgb(90 130 35 / 55%);
+  --lane-balanced-a50: rgb(120 128 142 / 50%);
   --color-accent-a12: rgb(245 184 113 / 12%);
-  --color-accent-a20: rgb(245 184 113 / 20%);
   /* Glass surfaces: the shell is a dark tint over the backdrop, panels (white 8%) sit on it, controls and active items (12%) are the lightest. */
   --glass-bg-shell: var(--color-bg-a50);
   --glass-bg: var(--color-text-a08);
@@ -144,6 +148,10 @@
     --glass-blur: 0px;
     --glass-filter: none;
     --glass-highlight: inset 0 0 0 0 transparent;
+    --lane-fastest-a55: #2a456c;
+    --lane-cheapest-a55: #673a2d;
+    --lane-greenest-a55: #3a5222;
+    --lane-balanced-a50: #464c57;
   }
 }
 
@@ -576,6 +584,28 @@ textarea[aria-invalid='true'] {
     :focus-visible {
       outline-offset: -2px;
     }
+  }
+}
+
+/* Colour dot of a priority lane (board lane header, list rows); the name always sits next to it. */
+.lane-dot {
+  display: inline-block;
+  flex: none;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: var(--radius-pill);
+  background: var(--lane-balanced);
+
+  &[data-lane='FASTEST'] {
+    background: var(--lane-fastest);
+  }
+
+  &[data-lane='CHEAPEST'] {
+    background: var(--lane-cheapest);
+  }
+
+  &[data-lane='GREENEST'] {
+    background: var(--lane-greenest);
   }
 }
 

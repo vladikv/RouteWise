@@ -439,9 +439,9 @@ describe('TripListPage', () => {
       h.textContent?.replace(/\s+/g, ' ').trim(),
     );
     expect(headings).toEqual([
-      'Fastest 1 trips',
+      'Fastest 1 trip',
       'Cheapest 0 trips',
-      'Greenest 1 trips',
+      'Greenest 1 trip',
       'Balanced 0 trips',
     ]);
     expect(board.textContent).toContain('€151 total');

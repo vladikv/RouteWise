@@ -10,6 +10,7 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { Trip, TripPriority } from '../../../core/api/models';
 import { PRIORITY_LABELS } from '../../../shared/util/labels';
 import { ColumnBox, LONG_PRESS_MS, columnAt, pastThreshold } from './board-drag';
@@ -39,8 +40,9 @@ interface Press {
 const NO_DRAG_START = 'button, app-trip-menu, app-trip-actions, input, select, textarea';
 
 /**
- * Trips as one column per priority, cards stacked. On narrow screens the columns
- * scroll sideways in a focusable region.
+ * Trips as one glass lane per priority, cards stacked, equal width from 1024 px (below that they scroll sideways in a focusable region). The lane header
+ * has the priority's colour dot, name, count, total cost and a "+" link that opens New trip with
+ * that priority.
  *
  * A card can be dragged to another column (hand-written pointer events, no library): after a few
  * pixels of travel with a mouse or pen, after a short press with a finger (so the page still
@@ -51,7 +53,7 @@ const NO_DRAG_START = 'button, app-trip-menu, app-trip-actions, input, select, t
  */
 @Component({
   selector: 'app-trip-board',
-  imports: [CurrencyPipe, TripCard],
+  imports: [CurrencyPipe, RouterLink, TripCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <p id="board-hint" class="visually-hidden">
@@ -74,17 +76,32 @@ const NO_DRAG_START = 'button, app-trip-menu, app-trip-actions, input, select, t
           [attr.data-priority]="column.priority"
           [attr.aria-labelledby]="'column-' + column.priority"
         >
-          <h2 class="column__title" [id]="'column-' + column.priority">
-            {{ priorityLabels[column.priority] }}
-            <span class="column__count">
-              {{ column.count }}<span class="visually-hidden"> trips</span>
-            </span>
-          </h2>
-          @if (column.currency) {
-            <p class="column__total muted">
-              {{ column.totalCost | currency: column.currency : 'symbol' : '1.0-0' }} total
-            </p>
-          }
+          <header class="column__head">
+            <h2 class="column__title" [id]="'column-' + column.priority">
+              <span class="lane-dot" [attr.data-lane]="column.priority" aria-hidden="true"></span>
+              {{ priorityLabels[column.priority] }}
+              <span class="column__count">
+                {{ column.count
+                }}<span class="visually-hidden">{{ column.count === 1 ? ' trip' : ' trips' }}</span>
+              </span>
+            </h2>
+            <a
+              class="column__add"
+              routerLink="/trips/new"
+              [queryParams]="{ priority: column.priority }"
+              [attr.aria-label]="'New ' + priorityLabels[column.priority] + ' trip'"
+              [attr.title]="'New ' + priorityLabels[column.priority] + ' trip'"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </a>
+            @if (column.currency) {
+              <p class="column__total muted">
+                {{ column.totalCost | currency: column.currency : 'symbol' : '1.0-0' }} total
+              </p>
+            }
+          </header>
           @if (column.entries.length === 0) {
             <p class="column__empty muted">No trips</p>
           } @else {
@@ -112,25 +129,34 @@ const NO_DRAG_START = 'button, app-trip-menu, app-trip-actions, input, select, t
     </div>
   `,
   styles: `
+    /* Lanes side by side; they scroll sideways inside this focusable region when they do not fit. */
     .board {
       display: grid;
       grid-auto-flow: column;
       grid-auto-columns: minmax(16rem, 82%);
-      gap: var(--space-1);
+      gap: var(--space-3);
+      align-items: stretch;
       padding-bottom: var(--space-2);
       overflow-x: auto;
       scroll-snap-type: x proximity;
     }
 
+    .board:focus-visible {
+      outline-offset: -2px;
+    }
+
+    /* A lane: a dark glass tray (fill, border and highlight only; no blur layer inside the shell). */
     .column {
       min-width: 0;
-      padding: var(--space-2);
-      border: 1px solid transparent;
-      border-radius: var(--radius-lg);
+      padding: var(--space-3);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-xl);
+      background: var(--glass-bg-shell);
+      box-shadow: var(--glass-highlight);
       scroll-snap-align: start;
     }
 
-    /* The column a dropped card would land in: glass fill and an edge in the highlight tint. */
+    /* The lane a dropped card would land in: lighter fill and an edge in the highlight tint. */
     .column--target {
       border-color: var(--color-highlight-edge);
       background: var(--glass-bg-strong);
@@ -165,6 +191,15 @@ const NO_DRAG_START = 'button, app-trip-menu, app-trip-actions, input, select, t
       opacity: 0.35;
     }
 
+    .column__head {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 0 var(--space-2);
+      min-height: 3.25rem;
+      margin-bottom: var(--space-3);
+    }
+
     .column__title {
       display: flex;
       align-items: center;
@@ -182,10 +217,47 @@ const NO_DRAG_START = 'button, app-trip-menu, app-trip-actions, input, select, t
       font-size: 0.875rem;
     }
 
-    .column__total,
-    .column__empty {
-      margin: 0 0 var(--space-3);
+    .column__add {
+      display: inline-flex;
+      grid-row: 1 / span 2;
+      grid-column: 2;
+      align-items: center;
+      justify-content: center;
+      width: 2.75rem;
+      height: 2.75rem;
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-pill);
+      background: var(--glass-bg-strong);
+      box-shadow: var(--glass-highlight);
+      color: var(--color-text);
+    }
+
+    .column__add:hover {
+      border-color: var(--color-border-strong);
+      background: var(--color-text-a14);
+    }
+
+    .column__add svg {
+      width: 1.25rem;
+      height: 1.25rem;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+    }
+
+    .column__total {
+      margin: 0;
       font-size: 0.875rem;
+    }
+
+    .column__empty {
+      margin: 0;
+      padding: var(--space-6) var(--space-3);
+      border: 1px dashed var(--glass-border);
+      border-radius: var(--radius-lg);
+      font-size: 0.875rem;
+      text-align: center;
     }
 
     .column__list {
@@ -196,11 +268,10 @@ const NO_DRAG_START = 'button, app-trip-menu, app-trip-actions, input, select, t
       list-style: none;
     }
 
+    /* Lanes fit side by side: no scroll container, so a card menu on a lane's last card is never clipped. */
     @media (min-width: 64rem) {
       .board {
         grid-auto-columns: minmax(0, 1fr);
-        /* The columns have padding for their drop highlight: keep their contents on the page grid. */
-        margin-inline: calc(var(--space-2) * -1);
         overflow-x: visible;
       }
     }

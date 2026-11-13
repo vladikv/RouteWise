@@ -39,8 +39,6 @@ export interface PriorityColumn {
   currency: string | null;
 }
 
-export type Tint = 'lime' | 'amber' | 'none';
-
 export const BOARD_PRIORITIES: readonly TripPriority[] = [
   'FASTEST',
   'CHEAPEST',
@@ -91,14 +89,6 @@ export function boardColumns(
       currency: inColumn.some(({ figures }) => figures !== null) ? page.currency : null,
     };
   });
-}
-
-/** Card tint: lime for train and bike, amber for plane, none for car, bus and mixed plans. */
-export function tintFor(mode: TripMode): Tint {
-  if (mode === 'TRAIN' || mode === 'BIKE') {
-    return 'lime';
-  }
-  return mode === 'PLANE' ? 'amber' : 'none';
 }
 
 /** E.g. "Train", "Mixed: train, plane". */

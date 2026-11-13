@@ -1,14 +1,14 @@
 /* No backdrop-filter here: a long list of blurred cards is slow to paint. The translucent
    fill, border and highlight still read as glass over the glow layer. */
 .trip {
-  --edge: var(--color-border-strong);
-  --glow: transparent;
+  --edge: var(--lane-balanced);
+  --tint: var(--lane-balanced-a50);
   position: relative;
   min-height: 9.5rem;
   padding: var(--space-4);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
-  background-color: var(--glass-bg);
+  background-color: var(--tint);
   box-shadow: var(--glass-highlight), var(--shadow-card);
   cursor: pointer;
   transition:
@@ -17,18 +17,21 @@
     box-shadow 0.15s ease;
 }
 
-/* Tints stay at 8% alpha so white and muted text keep their contrast. The hover edge is
-   the tint's own edge token: lime in dark, ink in light, so it stays visible on white glass. */
-.trip--lime {
-  --edge: var(--color-highlight-edge);
-  --glow: var(--color-primary-a20);
-  background-image: linear-gradient(var(--color-primary-a08), var(--color-primary-a08));
+/* One tint per priority lane. Over the lane's dark fill white text stays above 7:1 and the lime bar above 4:1;
+   the hue is also the hover edge. */
+.trip--fastest {
+  --edge: var(--lane-fastest);
+  --tint: var(--lane-fastest-a55);
 }
 
-.trip--amber {
-  --edge: var(--color-accent-edge);
-  --glow: var(--color-accent-a20);
-  background-image: linear-gradient(var(--color-accent-a08), var(--color-accent-a08));
+.trip--cheapest {
+  --edge: var(--lane-cheapest);
+  --tint: var(--lane-cheapest-a55);
+}
+
+.trip--greenest {
+  --edge: var(--lane-greenest);
+  --tint: var(--lane-greenest-a55);
 }
 
 .trip:hover,
@@ -39,7 +42,7 @@
   border-color: var(--edge);
   box-shadow:
     var(--glass-highlight),
-    0 8px 24px var(--glow),
+    0 8px 24px var(--tint),
     var(--shadow-raised);
 }
 
@@ -85,7 +88,7 @@ p {
   padding: 0 var(--space-2);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-pill);
-  background: var(--glass-bg-strong);
+  background: var(--color-bg-a50);
   color: var(--color-text);
   font-size: 0.8125rem;
   font-weight: 700;

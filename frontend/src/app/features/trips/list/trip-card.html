@@ -1,7 +1,5 @@
 <article
-  class="trip"
-  [class.trip--lime]="tint() === 'lime'"
-  [class.trip--amber]="tint() === 'amber'"
+  class="trip trip--{{ lane() }}"
   [class.trip--moving]="moving()"
   [attr.aria-busy]="moving() ? 'true' : null"
 >

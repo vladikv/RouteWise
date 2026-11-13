@@ -1,6 +1,6 @@
 import { TripListItem, TripPage, TripPriority } from '../../../core/api/models';
 import { TRIP } from '../trip-form.testing';
-import { TripFigures, boardColumns, modeSummary, tintFor, tripEntries } from './trip-figures';
+import { TripFigures, boardColumns, modeSummary, tripEntries } from './trip-figures';
 
 function item(id: number, overrides: Partial<TripListItem> = {}): TripListItem {
   return {
@@ -165,17 +165,6 @@ describe('boardColumns', () => {
     const columns = boardColumns(entries, data, ['GREENEST', 'FASTEST']);
 
     expect(columns.map((column) => column.priority)).toEqual(['FASTEST', 'GREENEST']);
-  });
-});
-
-describe('tintFor', () => {
-  it('tints train and bike lime, plane amber, the rest none', () => {
-    expect(tintFor('TRAIN')).toBe('lime');
-    expect(tintFor('BIKE')).toBe('lime');
-    expect(tintFor('PLANE')).toBe('amber');
-    expect(tintFor('CAR')).toBe('none');
-    expect(tintFor('BUS')).toBe('none');
-    expect(tintFor('MIXED')).toBe('none');
   });
 });
 
