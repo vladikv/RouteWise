@@ -67,8 +67,8 @@ UI: http://localhost:4200
 - One logical change per commit. Commit messages describe *why* when not obvious.
 - Claude creates the milestone branch from an up-to-date `main`
   at the start of each milestone (name taken from docs/PLAN.md;
-  use the `start-milestone` skill), stages and commits changes. Pushing, PRs and merging are done
-  by a human.
+  use the `start-milestone` skill), stages and commits changes. Claude pushes, opens the PR
+  and merges only when the human asks for it in the conversation; otherwise a human does it.
 
 ## Working rules for Claude
 
