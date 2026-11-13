@@ -83,7 +83,7 @@ src/
 - **Map and charts:** `RouteMap` is an interactive orthographic globe drawn as SVG with `d3-geo` (the only
   map dependency: projection, horizon clipping, great-circle interpolation; no 3D, zoom or drag library).
   Pure maths lives in `globe.ts` (projection, `isVisible`, `maxLabelRank`, `rotateBy`, `fitRoute`,
-  `interpolateView`, and the lifted arcs: `arcPeak`, `projectLifted`, `arcSamples`, `arcPrefix`, `arcSegments`) and is unit-tested. The view is `{ longitude, latitude, zoom }` (centre of
+  `interpolateView`, `idleTurn`, and the lifted arcs: `arcPeak`, `projectLifted`, `arcSamples`, `arcPrefix`, `arcSegments`) and is unit-tested. The view is `{ longitude, latitude, zoom }` (centre of
   the disc and 1-8x the globe fitted into the free space) in one signal; drag (pointer capture, touch too),
   wheel, pinch, the +/- buttons and keys change it, and every change re-projects land, graticule, route and
   cities from that signal (no layout reads while turning; drag, wheel and pinch apply at once, the buttons,
@@ -106,9 +106,9 @@ src/
   a view the user moved is kept when the map resizes or a layout switch changes the space; "Reset view" (and
   `0`) goes back to the route or Europe. Keyboard: arrows rotate the globe (or move focus to the nearest
   city when a city has focus), `+`/`-` zoom, `0` resets. **Routes are lifted arcs:** each leg still follows the
-  great-circle path (so it matches the calculated distance) but is drawn above the surface, `h` = clamp(0.5 x the
-  leg's angle in radians, 0.02, 0.3) of the globe radius at the peak (Berlin to Vienna 0.041, anything over
-  0.6 rad 0.3), with a parabolic profile `4t(1-t)` (0 at both pins). `projectLifted` puts a point `1 + h` times
+  great-circle path (so it matches the calculated distance) but is drawn above the surface, `h` = clamp(0.25 x the
+  leg's angle in radians, 0.01, 0.15) of the globe radius at the peak (`ARC_LIFT_PER_RADIAN`, `ARC_LIFT_MIN`,
+  `ARC_LIFT_MAX`; Berlin to Vienna 0.021, anything over 0.6 rad 0.15; the "My trips" arcs use the same), with a parabolic profile `4t(1-t)` (0 at both pins). `projectLifted` puts a point `1 + h` times
   the radius from the middle of the disc and moves it up the screen by `h x z` (`ARC_LIFT_TILT` 1; without that
   an arc in the middle of the disc would not lift at all); it is hidden only when it is on the far side AND
   inside the disc, so an arc just behind the horizon shows against the sky. `arcSamples` samples each leg once
@@ -150,6 +150,37 @@ pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in te
   and Madrid: train, bus, car, bike") are shown once per leg (chart, itinerary timeline) and once for the
   whole-trip totals. Never word reasons in the UI.
   Mode icons (`ModeIcon`) are decorative and always sit next to the name.
+  **Idle rotation** (`[autoRotate]`, set by Home and the trip form): with no route (`route()` null), an interactive map
+  and no reduced motion, the globe turns once round in `IDLE_TURN_MS` (2 min, east; `idleTurn` in `globe.ts` is the
+  pure step, clamped to 250 ms per update) from one `requestAnimationFrame` loop that writes `view` like a drag does
+  (no layout reads). It updates every 50 ms (about 1 px a step) and, when the frame after an update is slow, backs off to
+  at most every 200 ms. Any interaction calls `interrupt()`: hover over the map (host `pointerenter`/`pointerleave`),
+  `pointerdown`, wheel and pinch, any key, focus moving in, the zoom buttons, Reset, and an animated move (a new route);
+  rotation stops at once and resumes `IDLE_RESUME_MS` (10 s) after the last interaction, never while the pointer is over
+  the map or keyboard focus is inside it (`focusInside`: set on `focusin`, cleared on `focusout` when `relatedTarget` is
+  outside the host; otherwise a focused city would turn behind the globe and lose focus). **Adaptive:** the loop watches
+  the frame after each update; 5 of them above 32 ms within 10 s switch idle rotation off until the page is reloaded
+  (drag and zoom are unaffected). The cause is the shell's full-viewport `backdrop-filter`, which Chromium re-blurs when
+  the globe repaints (software rendering feels it most; compositing layers do not help). **Pause control (WCAG 2.2.2):** a
+  round `app-icon-button` in the `.toggles` column left of the zoom buttons (fixed label "Pause globe rotation", the state only in
+  `aria-pressed`, so screen readers do not announce it twice), shown where `autoRotate` is set and motion is not reduced; the state is
+  `IdleRotationPreference` (`shared/map/idle-rotation-preference.ts`, key `routewise.globePaused`, try/catch, invalid or
+  failing storage = rotating, default rotating) and a pause is never auto-resumed. Labels keep clear of the `.toggles`
+  column (`TOGGLE_ZONE_*` in `cornerZones`/`endZones`). A selected route stops it, and when the route is cleared it waits the 10 s too. `visibilitychange`
+  pauses it while `document.hidden`; a live `prefers-reduced-motion` change stops it. It never sets `adjusted`, so a
+  resize still refits the home view. **"My trips" layer** (Home, logged in only): `RouteExplorer` loads
+  `TripApi.search({ from: <today ISO>, sort: 'date', direction: 'asc', size: 20 })` when `Session.loggedIn()` (a
+  failure, loading or no trips draws nothing and shows no toggle: the layer is decoration) and passes `MapTrip`s
+  (`id`, `title`, `date`, city ids) as `[trips]` with the cities Home already loaded. The map draws one thin
+  (1.5 px, `--map-trip`, white 50%) lifted arc per leg, sampled once and re-projected per frame with the view, no
+  animation, in `g.trip-arcs` (`aria-hidden`: the same trips are reachable through Upcoming trips and the Trips page)
+  under the route; the group fades to 35 % opacity while a route is selected. A 14 px transparent
+  `path.trip-hit` per arc (`pointer-events: stroke`) is the hover and click target: hover shows the glass `card-tip`
+  with title and date, a click emits `tripOpen` (not at the end of a drag) and Home navigates to `/trips/:id`. The
+  toggle is an `app-icon-button` "Show my trips" (`aria-pressed`, tooltip = label) next to the zoom buttons, shown only
+  when there are trips; the state is the `showTrips` model, kept by `MyTripsLayer` (`features/explore/my-trips-layer.ts`,
+  `localStorage` key `routewise.myTripsLayer`, every access in try/catch, invalid or failing storage = on, default on).
+  The stylesheet is split in `route-map.scss`, `route-map-card.scss` and `route-map-trips.scss` (4 kB budget each).
 - **City choice:** `CityPicker` (ARIA combobox) next to every interactive map;
   priorities with `PriorityPicker`.
 - **Comparisons are per leg:** the API returns `legs`, `recommendedItinerary`
@@ -189,11 +220,17 @@ pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in te
   keeps the settings within about 60 px of fitting at 1440x900 (they scroll inside the dock).
 - **Modes page** (`features/modes/`, public, `GET /api/transport-modes` through `TransportModeApi`): `ModeCard`
   per mode (icon, name, average speed, cost per km, CO₂ per km, max distance, API values only; the page text
-  says cost and CO₂ are per traveler, car per vehicle) and `ModeChart`: `Tabs` for speed, cost, CO₂ and max
-  distance, horizontal bars proportional to the largest shown value (presentation only), and a "Show as table"
+  says cost and CO₂ are per traveler, car per vehicle; each row is the label at the left and the value, 1.125 rem and
+  bold, at the right on one line, never wrapped) and `ModeChart`: `Tabs` for speed, cost, CO₂ and max
+  distance, horizontal bars proportional to the largest shown value (presentation only), the best mode for the shown
+  metric (fastest, cheapest, lowest CO₂, longest range; ties all count) as the only accent bar (`--color-highlight`,
+  the others `--color-bar`) and named in text ("Best: Plane is the fastest", "Best: Plane has the longest range", also a visually hidden "(best)" in the
+  row and in the panel's `aria-describedby`), and a "Show as table"
   `details` with every parameter as the non-visual equivalent. The DTO has one CO₂ figure per mode (the plane's
   short- and long-haul factors are not in it). Loading, error with retry and empty states. Home no longer shows
-  the mode comparison.
+  the mode comparison. The page uses the Trips width (`#main` 84 rem via `#main:has(app-modes-page)`); the cards sit in
+  a container-query grid by the section's width: 5 in a row from 76 rem, 3 + 2 from 48 rem, 2 from 32 rem, 1 below; the
+  chart takes the full width of its panel.
 - **Trips list** (`features/trips/list/`): `TripToolbar` (row 1: search, Board/List
   `SegmentedToggle`, New trip; row 2: `FilterGroup`s Priority and Mode with the API's facet counts;
   result count "3 of 5 trips" in a `role="status"` and "Clear filters"; below 768 px the groups move
@@ -232,13 +269,22 @@ pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in te
   outlive the page that deleted.
   **New / edit trip page** (`TripFormPage`): from 1280 px three columns that fill the page area
   (`calc(var(--stage-height) - 2 * var(--space-8))`, `#main` up to 100rem): "Describe your trip" (`TripDraftInput`:
-  hint, 5-row textarea, three example chips from `DRAFT_EXAMPLES` that fill the text field and focus it without
-  sending, full-width primary "Fill in the form") | the globe | the fields; editing drops the description column.
+  hint, a textarea that grows into the free height (min 8 rem), then the three example chips from `DRAFT_EXAMPLES`
+  that fill the text field and focus it without sending, full-width primary "Fill in the form" and the result note,
+  which stay below it) | the globe | the fields; editing drops the description column.
   `TripForm` renders two blocks, a `.map-panel` with the `RouteMap` and a `.fields` card (`aria-label="Trip
 details"`, projected content such as the save error at its top), and its host is `display: contents`, so both
   are items of the page's grid. Its `columns` input (the page passes `LayoutBreakpoint` `wide`) makes the globe
-  `fill` its glass panel with `greedy` gestures and turns the description and fields cards into focusable
-  regions that scroll inside themselves (the page does not scroll). The Create / Cancel bar is sticky at the bottom of the fields card (opaque glass), so the primary action is always visible; spacing is tighter and date and travelers share a row.
+  `fill` its glass panel with `greedy` gestures (it idles with `autoRotate` until two stops are chosen) and turns
+  the description card and `.fields__scroll` into focusable regions that scroll inside themselves (the page does not
+  scroll). The three columns are cells of one grid row (equal height; the form column is up to 30 rem). The fields card
+  is a flex column with no padding of its own: `.fields__scroll` (padded, scrolls only when the viewport is too short)
+  holds the fields, the Notes field (`.notes`) takes the free height and its textarea grows (min 3.5 rem), and the
+  Create / Cancel bar (`.actions`) is the last row of the same glass panel, clipped to its rounded corners and reaching
+  its edges, so the primary action is always visible; spacing is tighter and date and travelers share a row. "What
+  matters most?" is a container-query grid (`.priority__box`): one row when the box is at least 26 rem wide, otherwise
+  2x2, so no option is ever alone on a line (also on phones). At 1920x1080 the fields just fit; at 1440x900 they scroll
+  inside the card.
   Below 1280 px the blocks stack (describe, globe, form, max 44rem), the globe keeps its shape with `cooperative`
   gestures and the page scrolls.
   **Duplicate** is a link to `/trips/new` with router navigation state `{ draft }` (`duplicateState`);

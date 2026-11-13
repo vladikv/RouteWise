@@ -602,3 +602,28 @@ corrected manually, and why.
 - Steering the look needs pictures. Code review alone could not judge "smoky" or "clearly visible glass", so each step stopped on screenshots.
 - The most serious defects were accessibility timing and focus problems that only showed when a real browser removed the element that had focus. The probes against the running app found them; jsdom specs alone would not have.
 
+## feat/living-globe
+
+**Delegated to AI**
+- Planning (main session) with three human decisions up front: the best mode gets the accent in the Modes chart, the milestones start from main, and "next week" means next Monday (parser milestone).
+- Implementation by `ui-builder`:
+  - idle rotation, with an adaptive switch-off and a pause toggle
+  - the "My trips" layer
+  - flatter arcs
+  - full-height New trip panels
+  - the wider Modes page
+- Measurements: page scroll and frame-time probes at 1920 and 1440.
+- Review: `ui-reviewer` (two 🔴, fixed). Final checks: 695 UI tests, lint and build green.
+
+**Corrected manually / human decisions**
+- The frame-time requirement ("no frame drops while rotating") was not met in headless Chromium: about 40 % of frames over 32 ms.
+  - The builder traced the cost to the existing full-shell `backdrop-filter`. Isolating the map or moving the blur layer did not help; turning the blur off did.
+  - Human decision: keep the glass and make idle rotation switch itself off after repeated slow frames.
+- The ui-reviewer found that rotation resumed under a keyboard-focused city, which then spun away and lost focus. Focus inside the map now blocks rotation.
+- The ui-reviewer also found that WCAG 2.2.2 needs a visible pause control. Human decision: a saved "Pause globe rotation" toggle.
+- Main session: the pause toggle first switched its label between Pause and Resume while also using `aria-pressed`, so screen readers announced the state twice. It now has a fixed label and the state lives only in `aria-pressed`.
+- One `styles.scss` hunk per concern was staged separately (`git apply --cached`), so the globe token and the Modes width landed in their own commits.
+
+**Why**
+- The frame budget was set by a design choice (full-shell glass) that a single feature cannot fix. Measuring before accepting made the trade-off visible and gave the human a real choice instead of a silent compromise.
+
