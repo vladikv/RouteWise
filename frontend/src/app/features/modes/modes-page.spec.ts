@@ -124,6 +124,57 @@ describe('ModesPage', () => {
     );
   });
 
+  describe('best mode', () => {
+    const best = (): string[] =>
+      Array.from(page.querySelectorAll('.bar--best .bar__label')).map((label) =>
+        text(label).replace(' (best)', ''),
+      );
+    const bestLine = (): string => text(page.querySelector('.best'));
+
+    it('gets the accent bar for the shown metric: the fastest, the cheapest, the lowest CO₂, the longest range', async () => {
+      await load([TRAIN, PLANE]);
+
+      expect(best()).toEqual(['Plane']);
+      expect(bestLine()).toBe('Best: Plane is the fastest');
+
+      await chooseMetric('Cost');
+      expect(best()).toEqual(['Train']);
+      expect(bestLine()).toBe('Best: Train is the cheapest per km');
+
+      await chooseMetric('CO₂');
+      expect(best()).toEqual(['Train']);
+      expect(bestLine()).toBe('Best: Train has the lowest CO₂ per km');
+
+      await chooseMetric('Max. distance');
+      expect(best()).toEqual(['Plane']);
+      expect(bestLine()).toBe('Best: Plane has the longest range');
+    });
+
+    it('leaves every other bar without the accent', async () => {
+      await load([TRAIN, PLANE]);
+
+      expect(page.querySelectorAll('.bar')).toHaveLength(2);
+      expect(page.querySelectorAll('.bar--best')).toHaveLength(1);
+      expect(page.querySelector('.bar:not(.bar--best) .bar__fill')).not.toBeNull();
+    });
+
+    it('names the best mode in text for assistive technology too, not by colour alone', async () => {
+      await load([TRAIN, PLANE]);
+
+      expect(page.querySelector('.bar--best .visually-hidden')?.textContent).toBe('(best)');
+      expect(page.querySelector('[role="tabpanel"]')?.getAttribute('aria-describedby')).toContain(
+        'mode-best',
+      );
+    });
+
+    it('marks every mode that shares the best value and says so', async () => {
+      await load([TRAIN, { ...PLANE, avgSpeedKmh: 110 }]);
+
+      expect(best()).toEqual(['Train', 'Plane']);
+      expect(bestLine()).toBe('Best: Train and Plane are the fastest');
+    });
+  });
+
   it('offers every parameter as a table', async () => {
     await load([TRAIN]);
 

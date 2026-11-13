@@ -651,8 +651,9 @@ textarea[aria-invalid='true'] {
   }
 }
 
-/* The Trips page uses more width for its four-column board. */
-#main:has(.trips-page) {
+/* The Trips page uses more width for its four-column board, the Modes page for its five cards. */
+#main:has(.trips-page),
+#main:has(app-modes-page) {
   max-width: 84rem;
 }
 

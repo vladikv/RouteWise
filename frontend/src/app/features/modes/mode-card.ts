@@ -74,11 +74,12 @@ import { MODE_LABELS } from '../../shared/util/labels';
       margin: 0;
     }
 
+    /* Label left, value right, always on one line. */
     dl > div {
       display: flex;
-      flex-wrap: wrap;
+      align-items: baseline;
       justify-content: space-between;
-      gap: 0 var(--space-3);
+      gap: var(--space-2);
       padding-bottom: var(--space-2);
       border-bottom: 1px solid var(--color-border);
     }
@@ -94,10 +95,10 @@ import { MODE_LABELS } from '../../shared/util/labels';
     }
 
     dd {
-      margin: 0;
+      margin: 0 0 0 auto;
+      font-size: 1.125rem;
       font-weight: 700;
       font-variant-numeric: tabular-nums;
-      margin-left: auto;
       white-space: nowrap;
     }
   `,
