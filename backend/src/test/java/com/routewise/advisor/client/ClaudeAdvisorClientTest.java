@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +42,7 @@ class ClaudeAdvisorClientTest {
     private HttpServer server;
     private volatile int status = 200;
     private volatile String responseBody;
+    private volatile Duration responseDelay = Duration.ZERO;
     private volatile JsonNode lastRequest;
     private volatile Map<String, List<String>> lastHeaders;
     private AnthropicClient anthropicClient;
@@ -51,6 +53,7 @@ class ClaudeAdvisorClientTest {
         server.createContext("/v1/messages", exchange -> {
             lastHeaders = Map.copyOf(exchange.getRequestHeaders());
             lastRequest = JSON.readTree(exchange.getRequestBody());
+            sleep(responseDelay);
             byte[] body = responseBody.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.sendResponseHeaders(status, body.length);
@@ -210,13 +213,38 @@ class ClaudeAdvisorClientTest {
                 .hasMessageContaining("request failed");
     }
 
+    @Test
+    void extractTrip_slowerThanTheTimeout_throwsSoTheServiceFallsBackToRules() throws Exception {
+        respondWithText("end_turn", "{}");
+        responseDelay = Duration.ofSeconds(3);
+        ClaudeAdvisorClient client = client(Duration.ofMillis(300));
+
+        long start = System.nanoTime();
+        assertThatThrownBy(() -> client.extractTrip("x", List.of("Berlin"), TODAY))
+                .isInstanceOf(AdvisorClientException.class);
+        assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThan(Duration.ofSeconds(2));
+    }
+
     private ClaudeAdvisorClient client() {
+        return client(Duration.ofSeconds(10));
+    }
+
+    private ClaudeAdvisorClient client(Duration timeout) {
         anthropicClient = AnthropicOkHttpClient.builder()
                 .apiKey("test-key")
                 .baseUrl("http://127.0.0.1:" + server.getAddress().getPort())
                 .maxRetries(0)
+                .timeout(timeout)
                 .build();
         return new ClaudeAdvisorClient(anthropicClient, "claude-opus-5-5", OutputConfig.Effort.LOW, 16000);
+    }
+
+    private static void sleep(Duration duration) {
+        try {
+            Thread.sleep(duration);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private void respondWithText(String stopReason, String text) throws Exception {
