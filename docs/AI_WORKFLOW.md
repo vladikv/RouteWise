@@ -570,3 +570,35 @@ corrected manually, and why.
 - Moving business logic to the backend touched every layer at once. Splitting it into domain-sized commits, each with its own tests, and running reviews and test agents in parallel kept each step verifiable.
 - The retry bug only showed up in a test that wires the real Spring proxies. A unit test of the client alone would have passed.
 
+## feat/ui-reference-style
+
+**Delegated to AI**
+- Planning in docs/PLAN.md (main session), with human decisions asked up front: Playwright for screenshots, the screenshot rules and folders, and Preferences as an optional step.
+- Tooling: `npm run screenshots` (Playwright 1.64.1, demo login, all screens at 1920/1280/375), written in the main session.
+- Four review steps, each built by `ui-builder`, reviewed by `ui-reviewer`, fixed by the builder, then stopped for human review with screenshots before the commit:
+  1. Smoky backdrop, glass shell, top bar, icon rail, dark only.
+  2. Board lanes and tinted cards, glass list.
+  3. Modes page, animated route, Home panel, label density.
+  4. Account popover, delete dialog with Undo, interactive list.
+- Final checks and screenshots (main session): `./mvnw verify`, `npm run lint`, `npm test`, `npm run build`, and 24 `after-*` screenshots.
+
+**Corrected manually / human decisions**
+- Human decisions: approved each step's look from the screenshots without changes; skipped step 5 (Preferences); added a backlog item for connecting flights via hubs.
+- Headless Chromium reports a light colour scheme and reduced transparency, so the first captures showed the old light theme and solid glass. The script now forces dark mode and emulates no reduced transparency.
+- The reviewer's 🔴 findings, all fixed before each commit:
+  - Step 1: a removed token was still used, and muted text failed AA on 12 % controls.
+  - Step 2: card menus were clipped because the board became a scroll box.
+  - Step 3: a keyboard-focused city could vanish on zoom out.
+  - Step 4: focus was lost after delete, so Undo was unreachable in time, and stale comparison responses could overwrite fresh ones.
+- From the screenshots (main session):
+  - The confirm dialog was see-through.
+  - A stray space before a comma in the weather line.
+  - An expanded row showed three sets of actions.
+  - Modes cards wrapped as 4 + 1.
+- Deviations from a reviewer: the route animation is not limited to a few loops, because the user asked for an animated route; it pauses while dragging instead. The Home explorer's styles were split into two files to stay under the per-file budget, which the human accepted as a known compromise.
+- A builder left a scratch edit script in the repo, and it was deleted before the step-1 commit.
+
+**Why**
+- Steering the look needs pictures. Code review alone could not judge "smoky" or "clearly visible glass", so each step stopped on screenshots.
+- The most serious defects were accessibility timing and focus problems that only showed when a real browser removed the element that had focus. The probes against the running app found them; jsdom specs alone would not have.
+
