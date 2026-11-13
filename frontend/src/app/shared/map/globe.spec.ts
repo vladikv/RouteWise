@@ -3,6 +3,7 @@ import {
   GlobeFrame,
   GlobeGeometry,
   GlobeView,
+  IDLE_TURN_MS,
   MAX_ZOOM,
   MIN_ZOOM,
   arcPeak,
@@ -14,6 +15,7 @@ import {
   fitRoute,
   globeGeometry,
   haversineKm,
+  idleTurn,
   interpolateView,
   isVisible,
   maxLabelRank,
@@ -261,13 +263,35 @@ describe('interpolateView', () => {
   });
 });
 
+describe('idleTurn', () => {
+  const view: GlobeView = { longitude: 10, latitude: 50, zoom: 2 };
+
+  it('makes one full turn in two minutes, to the east, keeping latitude and zoom', () => {
+    expect(IDLE_TURN_MS).toBe(120_000);
+    const turned = idleTurn(view, 100);
+
+    expect(turned.longitude).toBeCloseTo(10 - 0.3, 9);
+    expect(turned.latitude).toBe(50);
+    expect(turned.zoom).toBe(2);
+  });
+
+  it('wraps the longitude into -180 to 180', () => {
+    expect(idleTurn({ ...view, longitude: -179.9 }, 100).longitude).toBeGreaterThan(170);
+  });
+
+  it('counts a long gap between frames (a throttled tab) as a short step', () => {
+    expect(idleTurn(view, 60_000).longitude).toBeCloseTo(idleTurn(view, 250).longitude, 9);
+    expect(idleTurn(view, -5).longitude).toBe(10);
+  });
+});
+
 describe('arcPeak', () => {
   it('is proportional to the angle of the leg, between a minimum and a maximum', () => {
     expect(arcPeak(0)).toBe(0);
-    expect(arcPeak(0.01)).toBe(0.02);
-    expect(arcPeak(0.0822)).toBeCloseTo(0.0411, 4); // Berlin to Vienna
-    expect(arcPeak(0.4)).toBeCloseTo(0.2, 6);
-    expect(arcPeak(1.7)).toBe(0.3); // across an ocean
+    expect(arcPeak(0.01)).toBe(0.01);
+    expect(arcPeak(0.0822)).toBeCloseTo(0.0206, 3); // Berlin to Vienna
+    expect(arcPeak(0.4)).toBeCloseTo(0.1, 6);
+    expect(arcPeak(1.7)).toBe(0.15); // across an ocean
   });
 });
 
@@ -340,7 +364,7 @@ describe('arcSamples', () => {
   it('lifts nothing at the ends and the arc peak in the middle', () => {
     expect(arc[0].lift).toBe(0);
     expect(arc[48].lift).toBeCloseTo(0, 12);
-    expect(arc[24].lift).toBeCloseTo(0.0411, 3);
+    expect(arc[24].lift).toBeCloseTo(0.0206, 3);
     expect(Math.max(...arc.map((sample) => sample.lift))).toBeCloseTo(arc[24].lift, 12);
   });
 
@@ -363,7 +387,7 @@ describe('arcSamples', () => {
     const long = arcSamples(BERLIN, SYDNEY);
 
     expect(long.length).toBeGreaterThan(48);
-    expect(Math.max(...long.map((sample) => sample.lift))).toBeCloseTo(0.3, 3);
+    expect(Math.max(...long.map((sample) => sample.lift))).toBeCloseTo(0.15, 3);
   });
 });
 
@@ -385,7 +409,7 @@ describe('arcSegments', () => {
     expect(segment[48].y).toBeCloseTo(by, 6);
   });
 
-  it('lifts the middle of the arc about 41 px above its great-circle path on a 1000 px globe', () => {
+  it('lifts the middle of the arc about 21 px above its great-circle path on a 1000 px globe', () => {
     const [segment] = arcSegments(arcSamples(BERLIN, VIENNA), europe, geometry);
     const middle = arcSamples(BERLIN, VIENNA)[24];
     const [x, y] = createGlobeProjection(europe, geometry)([middle.longitude, middle.latitude]) as [
@@ -394,8 +418,8 @@ describe('arcSegments', () => {
     ];
 
     expect(segment[24].x).toBeCloseTo(x, 0);
-    expect(y - segment[24].y).toBeGreaterThan(40);
-    expect(y - segment[24].y).toBeLessThan(42.5);
+    expect(y - segment[24].y).toBeGreaterThan(20);
+    expect(y - segment[24].y).toBeLessThan(21.25);
   });
 
   it('cuts off the part behind the globe, keeping what is lifted clear of the edge', () => {

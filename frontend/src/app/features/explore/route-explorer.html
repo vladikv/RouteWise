@@ -169,6 +169,11 @@
         [gestures]="mapGestures()"
         [insetStart]="insetStart()"
         [insetEnd]="insetEnd()"
+        [autoRotate]="true"
+        [trips]="myTrips()"
+        [showTrips]="tripsLayer.visible()"
+        (showTripsChange)="tripsLayer.set($event)"
+        (tripOpen)="openTrip($event)"
         (selectionChange)="select($event)"
       />
     </div>

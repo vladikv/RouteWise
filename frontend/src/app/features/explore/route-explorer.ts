@@ -11,9 +11,11 @@ import {
 import { rxResource, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { CityApi } from '../../core/api/city-api';
+import { Session } from '../../core/auth/session';
+import { TripApi } from '../../core/api/trip-api';
 import { ComparisonApi } from '../../core/api/comparison-api';
 import { City, Comparison, ComparisonRequest, TripPriority } from '../../core/api/models';
-import { RouteMap, RouteSelection } from '../../shared/map/route-map';
+import { MapTrip, RouteMap, RouteSelection } from '../../shared/map/route-map';
 import { BottomSheet, SheetState } from '../../shared/ui/bottom-sheet';
 import { CityPicker } from '../../shared/ui/city-picker';
 import { GlassPanel } from '../../shared/ui/glass-panel';
@@ -34,12 +36,15 @@ import { ComparisonChart } from '../trips/comparison/comparison-chart';
 import { ComparisonPanel } from '../trips/comparison/comparison-panel';
 import { LegComparison, legComparison } from '../trips/comparison/leg-comparison';
 import { HomeLayout } from './home-layout';
+import { MyTripsLayer } from './my-trips-layer';
 import { WeatherCard } from './weather-card';
 
 const MIN_TRAVELERS = 1;
 const MAX_TRAVELERS = 9;
 const DEFAULT_PRIORITY: TripPriority = 'BALANCED';
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** How many upcoming trips the globe's "My trips" layer shows. */
+const UPCOMING_TRIPS = 20;
 /** Width of a floating panel in the Map layout, its distance from the map edge and the air beside it (rem). */
 const DOCK_WIDTH = 24;
 const DOCK_COLLAPSED_WIDTH = 14;
@@ -91,6 +96,8 @@ interface ExplorerState {
 export class RouteExplorer {
   private readonly cityApi = inject(CityApi);
   private readonly comparisonApi = inject(ComparisonApi);
+  private readonly tripApi = inject(TripApi);
+  private readonly session = inject(Session);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
@@ -138,6 +145,27 @@ export class RouteExplorer {
   ];
 
   protected readonly cities = rxResource({ stream: () => this.cityApi.findAll() });
+
+  /**
+   * The next 20 upcoming trips for the "My trips" layer, only for a logged-in user. The layer is a
+   * decoration: while loading, after a failure or without trips the globe simply shows none.
+   */
+  protected readonly upcomingTrips = rxResource({
+    params: () => (this.session.loggedIn() ? this.today : undefined),
+    stream: ({ params: from }) =>
+      this.tripApi.search({ from, sort: 'date', direction: 'asc', size: UPCOMING_TRIPS }),
+  });
+  protected readonly myTrips = computed<MapTrip[]>(() =>
+    this.upcomingTrips.hasValue()
+      ? this.upcomingTrips.value().items.map((trip) => ({
+          id: trip.id,
+          title: trip.title,
+          date: trip.departureDate,
+          stops: trip.stops.map((stop) => stop.cityId),
+        }))
+      : [],
+  );
+  protected readonly tripsLayer = inject(MyTripsLayer);
 
   protected readonly originId = signal<number | null>(null);
   protected readonly destinationId = signal<number | null>(null);
@@ -276,6 +304,10 @@ export class RouteExplorer {
   protected select(selection: RouteSelection): void {
     this.originId.set(selection.originId);
     this.destinationId.set(selection.destinationId);
+  }
+
+  protected openTrip(id: number): void {
+    void this.router.navigate(['/trips', id]);
   }
 
   protected setOrigin(id: number | null): void {

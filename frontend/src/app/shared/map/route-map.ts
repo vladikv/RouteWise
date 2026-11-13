@@ -9,14 +9,17 @@ import {
   effect,
   inject,
   input,
+  model,
   output,
   signal,
   untracked,
   viewChild,
 } from '@angular/core';
-import { DOCUMENT } from '@angular/common';
+import { DOCUMENT, DatePipe } from '@angular/common';
 import { GeoPermissibleObjects, geoGraticule, geoPath } from 'd3-geo';
 import { City } from '../../core/api/models';
+import { IconButton } from '../ui/icon-button';
+import { IdleRotationPreference } from './idle-rotation-preference';
 import { hitRadii, thinOut } from './city-density';
 import { Box, LabelRequest, LabelSide, PlacedLabel, layoutLabels } from './label-layout';
 import {
@@ -34,6 +37,7 @@ import {
   fitRoute,
   globeGeometry,
   haversineKm,
+  idleTurn,
   interpolateView,
   isVisible,
   maxLabelRank,
@@ -50,6 +54,15 @@ export const LAND_LOADER = new InjectionToken<
 export interface RouteSelection {
   originId: number | null;
   destinationId: number | null;
+}
+
+/** An upcoming trip drawn as faint arcs ("My trips" layer): its stops are city ids in travel order. */
+export interface MapTrip {
+  id: number;
+  title: string;
+  /** ISO date of the departure. */
+  date: string;
+  stops: number[];
 }
 
 interface CityMarker {
@@ -87,6 +100,13 @@ const HIT_MAX_PX = 17;
 /** What the zoom buttons cover (CSS pixels): labels keep clear of it. */
 const ZOOM_ZONE_WIDTH_PX = 68;
 const ZOOM_ZONE_HEIGHT_PX = 176;
+/** The column of round toggles left of the zoom buttons: one button and the gap above it. */
+const TOGGLE_ZONE_WIDTH_PX = 52;
+const TOGGLE_ZONE_STEP_PX = 52;
+/** After this many slow update frames within the window, idle rotation stays off for the session. */
+const IDLE_SLOW_FRAME_MS = 32;
+const IDLE_SLOW_FRAMES_LIMIT = 5;
+const IDLE_SLOW_WINDOW_MS = 10_000;
 const SCROLL_HINT_MS = 1600;
 const ZOOM_STEP = 1.6;
 const KEY_ROTATE_DEGREES = 20;
@@ -97,6 +117,11 @@ const ANIMATION_MS = 700;
 const DRAW_DELAY_MS = 350;
 const DRAW_MS_PER_LEG = 700;
 const DRAW_MAX_MS = 1800;
+/** With nothing selected, the globe turns by itself; it stops at every interaction and resumes after this long without one. */
+const IDLE_RESUME_MS = 10_000;
+/** The turn is slow (about 1 px per update at this rate), so the globe is re-projected 20 times a second, not 60. */
+const IDLE_UPDATE_MS = 50;
+const IDLE_SLOW_UPDATE_MS = 200;
 
 let nextMapId = 0;
 
@@ -118,9 +143,19 @@ type LandState = 'loading' | 'ready' | 'failed';
 @Component({
   selector: 'app-route-map',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[class.fill]': 'fill()', '(document:keydown.escape)': 'dismissCard()' },
+  imports: [DatePipe, IconButton],
+  host: {
+    '[class.fill]': 'fill()',
+    '(document:keydown.escape)': 'dismissCard()',
+    '(document:visibilitychange)': 'syncIdle()',
+    '(pointerenter)': 'enter()',
+    '(pointerleave)': 'leave()',
+    '(keydown)': 'interrupt()',
+    '(focusin)': 'onFocusIn()',
+    '(focusout)': 'onFocusOut($event)',
+  },
   templateUrl: './route-map.html',
-  styleUrls: ['./route-map.scss', './route-map-card.scss'],
+  styleUrls: ['./route-map.scss', './route-map-card.scss', './route-map-trips.scss'],
 })
 export class RouteMap {
   readonly cities = input.required<City[]>();
@@ -151,6 +186,17 @@ export class RouteMap {
   readonly gestures = input<'greedy' | 'cooperative'>('greedy');
   /** An ordered route of city ids (2+ stops); replaces origin/destination when given. */
   readonly stops = input<number[] | null>(null);
+  /**
+   * With no route selected the globe turns once round in about two minutes. Any interaction (hover,
+   * drag, wheel, keys, a selected route) stops it at once; it resumes after 10 s without one. Off
+   * under reduced motion and while the tab is hidden.
+   */
+  readonly autoRotate = input(false);
+  /** Upcoming trips drawn as faint lifted arcs under the route; each opens through `tripOpen`. Empty: no layer, no toggle. */
+  readonly trips = input<MapTrip[]>([]);
+  /** Whether the trips layer is drawn (the toggle next to the zoom buttons). */
+  readonly showTrips = model(true);
+  readonly tripOpen = output<number>();
   /** In stops mode: a city the user picked on the map. */
   readonly cityPick = output<number>();
   readonly selectionChange = output<RouteSelection>();
@@ -160,6 +206,7 @@ export class RouteMap {
   private readonly destroyRef = inject(DestroyRef);
   private readonly document = inject(DOCUMENT);
   private readonly loadLand = inject(LAND_LOADER);
+  private readonly idlePreference = inject(IdleRotationPreference);
 
   /** What the globe shows: the point in the middle of the disc and the zoom. Changes every frame while turning. */
   protected readonly view = signal<GlobeView>({ ...DEFAULT_VIEW });
@@ -167,6 +214,8 @@ export class RouteMap {
   private readonly renderedWidth = signal(DEFAULT_WIDTH);
   private readonly renderedHeight = signal(DEFAULT_HEIGHT);
   protected readonly hoveredId = signal<number | null>(null);
+  /** The trip arc under the pointer, and where (CSS pixels inside the map). */
+  protected readonly hoveredTrip = signal<{ id: number; x: number; y: number } | null>(null);
   /** Share of the route drawn so far, 0 to 1, across all legs in order; 1 when nothing animates. */
   protected readonly drawn = signal(1);
   /** Prefix of the ids of the gradients this globe defines (several maps can share a page). */
@@ -344,17 +393,78 @@ export class RouteMap {
     const progress = this.drawn() * route.legs.length;
     return route.legs.map((leg, index) => ({
       key: `${key}:${index}`,
-      d: arcSegments(
-        arcPrefix(leg.samples, Math.min(Math.max(progress - index, 0), 1)),
-        view,
-        geometry,
-      )
-        .map(
-          (segment) => 'M' + segment.map(({ x, y }) => `${x.toFixed(1)},${y.toFixed(1)}`).join('L'),
-        )
-        .join(''),
+      d: pathData(
+        arcSegments(
+          arcPrefix(leg.samples, Math.min(Math.max(progress - index, 0), 1)),
+          view,
+          geometry,
+        ),
+      ),
     }));
   });
+
+  /** The arcs of every trip (one per leg, sampled once); empty for a map that is only an image. */
+  private readonly tripLegs = computed(() => {
+    if (!this.interactive()) {
+      return [];
+    }
+    const byId = new Map(this.cities().map((city) => [city.id, city]));
+    return this.trips()
+      .map((trip) => ({
+        id: trip.id,
+        legs: trip.stops.slice(1).flatMap((stopId, index) => {
+          const from = byId.get(trip.stops[index]);
+          const to = byId.get(stopId);
+          return from && to && from !== to ? [arcSamples(from, to)] : [];
+        }),
+      }))
+      .filter(({ legs }) => legs.length > 0);
+  });
+
+  /** The trip arcs through the current view (re-projected per frame like the route), without the ones behind the globe. */
+  protected readonly tripPaths = computed(() => {
+    if (!this.showTrips()) {
+      return [];
+    }
+    const view = this.view();
+    const geometry = this.geometry();
+    return this.tripLegs()
+      .map(({ id, legs }) => ({
+        id,
+        d: legs.map((samples) => pathData(arcSegments(samples, view, geometry))).join(''),
+      }))
+      .filter(({ d }) => d !== '');
+  });
+
+  /** The small card for the hovered trip arc, above the pointer (below it near the top edge). */
+  protected readonly tripTip = computed(() => {
+    const hovered = this.hoveredTrip();
+    const trip = hovered ? this.trips().find(({ id }) => id === hovered.id) : undefined;
+    if (!hovered || !trip) {
+      return null;
+    }
+    const top = (hovered.y / this.renderedHeight()) * 100;
+    return {
+      trip,
+      left: Math.min(Math.max((hovered.x / this.renderedWidth()) * 100, 12), 88),
+      top,
+      below: top < 22,
+    };
+  });
+
+  /** The pause control is offered wherever the globe can idle, unless motion is reduced. */
+  protected readonly showPause = computed(
+    () => this.autoRotate() && this.interactive() && !this.reducedMotion(),
+  );
+  protected readonly paused = this.idlePreference.paused;
+  protected readonly toggleCount = computed(
+    () => (this.trips().length > 0 ? 1 : 0) + (this.showPause() ? 1 : 0),
+  );
+
+  /** The globe may turn by itself: asked for, interactive, no route and motion allowed. */
+  private readonly idleEligible = computed(
+    () => this.autoRotate() && this.interactive() && this.route() === null && !this.reducedMotion(),
+  );
 
   /** The dash train runs once the whole arc is drawn, and never when motion is reduced. */
   protected readonly flowing = computed(() => !this.reducedMotion() && this.drawn() >= 1);
@@ -457,16 +567,26 @@ export class RouteMap {
   }
 
   private cornerZones(width: number, height: number): Box[] {
-    return [
+    const zones = [
       { left: width - ZOOM_ZONE_WIDTH_PX, top: 0, right: width, bottom: ZOOM_ZONE_HEIGHT_PX },
       { left: 0, top: height - 30, right: 240, bottom: height },
     ];
+    const toggles = this.toggleCount();
+    if (toggles > 0) {
+      zones.push({
+        left: width - ZOOM_ZONE_WIDTH_PX - TOGGLE_ZONE_WIDTH_PX,
+        top: 0,
+        right: width - ZOOM_ZONE_WIDTH_PX,
+        bottom: toggles * TOGGLE_ZONE_STEP_PX,
+      });
+    }
+    return zones;
   }
 
   private endZones(width: number, height: number): Box[] {
     const end = width - this.insetEnd();
     const middle = this.insetStart() + (width - this.insetStart() - this.insetEnd()) / 2;
-    return [
+    const zones = [
       {
         left: end - ZOOM_ZONE_WIDTH_PX,
         top: height - ZOOM_ZONE_HEIGHT_PX,
@@ -475,6 +595,16 @@ export class RouteMap {
       },
       { left: middle - 120, top: height - 30, right: middle + 120, bottom: height },
     ];
+    const toggles = this.toggleCount();
+    if (toggles > 0) {
+      zones.push({
+        left: end - ZOOM_ZONE_WIDTH_PX - TOGGLE_ZONE_WIDTH_PX,
+        top: height - toggles * TOGGLE_ZONE_STEP_PX - TOGGLE_ZONE_STEP_PX / 2,
+        right: end - ZOOM_ZONE_WIDTH_PX,
+        bottom: height,
+      });
+    }
+    return zones;
   }
 
   /** The one city that can be reached with Tab: the last one focused, else the origin, else the first. */
@@ -550,6 +680,17 @@ export class RouteMap {
 
   private animationFrame = 0;
   private drawFrame = 0;
+  private idleFrame = 0;
+  private idleLast: number | null = null;
+  private idleTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Set by an interaction until the 10 s of quiet are over; the pointer inside the map blocks as well. */
+  private idleBlocked = false;
+  private pointerInside = false;
+  /** Keyboard focus is inside the map: the globe must not turn a focused city out of sight. */
+  private focusInside = false;
+  /** Too many slow update frames: no more idle rotation until the page is reloaded. */
+  private idleOff = false;
+  private wasIdleEligible = true;
   /** Where the running animation ends, so a quick second click builds on it. */
   private animationTarget: GlobeView | null = null;
   private scrollHintTimer: ReturnType<typeof setTimeout> | undefined;
@@ -566,7 +707,9 @@ export class RouteMap {
     this.destroyRef.onDestroy(() => {
       this.stopAnimation();
       this.stopDraw();
+      this.stopIdle();
       clearTimeout(this.scrollHintTimer);
+      clearTimeout(this.idleTimer);
     });
     this.watchReducedMotion();
     this.loadLand().then(
@@ -581,6 +724,27 @@ export class RouteMap {
     effect(() => {
       const key = this.routeKey();
       untracked(() => this.startDraw(key));
+    });
+
+    // The pause control takes effect at once, in both directions.
+    effect(() => {
+      this.paused();
+      untracked(() => this.syncIdle());
+    });
+
+    // Idle rotation follows the conditions: a selected route (or reduced motion) stops it; when they
+    // end again it waits for 10 s of quiet, like after an interaction.
+    effect(() => {
+      const eligible = this.idleEligible();
+      untracked(() => {
+        const back = eligible && !this.wasIdleEligible;
+        this.wasIdleEligible = eligible;
+        if (back) {
+          this.interrupt();
+        } else {
+          this.syncIdle();
+        }
+      });
     });
 
     // Turn to a newly chosen route (smoothly), and back to Europe when it is cleared. When only the
@@ -651,6 +815,7 @@ export class RouteMap {
   }
 
   private zoomBy(factor: number, keepCityId: number | null = null): void {
+    this.interrupt();
     this.adjusted = true;
     const view = this.animationTarget ?? this.view();
     const target = { ...view, zoom: clampZoom(view.zoom * factor) };
@@ -683,6 +848,7 @@ export class RouteMap {
 
   /** Goes back to the route, or to Europe when there is none. */
   protected reset(): void {
+    this.interrupt();
     this.adjusted = false;
     this.moveTo(this.homeView(), true);
   }
@@ -730,6 +896,7 @@ export class RouteMap {
     if (!this.interactive()) {
       return;
     }
+    this.interrupt();
     const modifier = event.ctrlKey || event.metaKey; // also how a trackpad pinch arrives
     if (this.cooperative() && !modifier) {
       this.showScrollHint(); // the page scrolls
@@ -756,6 +923,138 @@ export class RouteMap {
     if (this.hoveredId() !== null) {
       this.hoveredId.set(null);
     }
+    if (this.hoveredTrip() !== null) {
+      this.hoveredTrip.set(null);
+    }
+  }
+
+  // --- Trips layer -----------------------------------------------------------------
+
+  protected hoverTrip(event: PointerEvent, id: number): void {
+    const rect = this.svg()?.nativeElement.getBoundingClientRect();
+    if (rect) {
+      this.hoveredTrip.set({ id, x: event.clientX - rect.left, y: event.clientY - rect.top });
+    }
+  }
+
+  protected openTrip(id: number): void {
+    if (!this.consumeDrag()) {
+      this.tripOpen.emit(id);
+    }
+  }
+
+  // --- Idle rotation ---------------------------------------------------------------
+
+  protected enter(): void {
+    this.pointerInside = true;
+    this.interrupt();
+  }
+
+  protected leave(): void {
+    this.pointerInside = false;
+    this.interrupt();
+  }
+
+  protected togglePause(): void {
+    this.idlePreference.set(!this.paused());
+  }
+
+  protected onFocusIn(): void {
+    this.focusInside = true;
+    this.interrupt();
+  }
+
+  protected onFocusOut(event: FocusEvent): void {
+    if (!this.host.nativeElement.contains(event.relatedTarget as Node | null)) {
+      this.focusInside = false;
+      this.interrupt();
+    }
+  }
+
+  /** Any interaction: the globe stops at once and, unless the pointer is still over it, turns again after 10 s of quiet. */
+  protected interrupt(): void {
+    if (!this.autoRotate()) {
+      return;
+    }
+    this.idleBlocked = true;
+    clearTimeout(this.idleTimer);
+    if (!this.pointerInside && !this.focusInside) {
+      this.idleTimer = setTimeout(() => {
+        this.idleBlocked = false;
+        this.syncIdle();
+      }, IDLE_RESUME_MS);
+    }
+    this.syncIdle();
+  }
+
+  /** Starts or stops the turning loop to match the conditions (also when the tab is hidden or shown). */
+  protected syncIdle(): void {
+    const run =
+      this.autoRotate() &&
+      this.idleEligible() &&
+      !this.idleBlocked &&
+      !this.idleOff &&
+      !this.paused() &&
+      !this.pointerInside &&
+      !this.focusInside &&
+      !this.document.hidden &&
+      typeof requestAnimationFrame !== 'undefined';
+    if (run && !this.idleFrame) {
+      this.startIdle();
+    } else if (!run) {
+      this.stopIdle();
+    }
+  }
+
+  /**
+   * One signal write per update, like a drag: the same re-projection of land, arcs and cities. The turn
+   * is slow (about 1 px per update at 20 updates a second), and on a device where an update makes the next
+   * frame slow (software rendering) the gap grows, up to {@link IDLE_SLOW_UPDATE_MS}, so the globe never
+   * keeps the browser busy. When the frames after updates keep being slow (5 above 32 ms within 10 s) the
+   * rotation switches itself off until the page is reloaded.
+   */
+  private startIdle(): void {
+    this.idleLast = null;
+    let interval = IDLE_UPDATE_MS;
+    let frameStart: number | null = null;
+    let updated = false;
+    const slow: number[] = [];
+    const step = (now: number) => {
+      if (updated && frameStart !== null) {
+        const frame = now - frameStart;
+        interval = Math.min(Math.max(2 * frame, IDLE_UPDATE_MS), IDLE_SLOW_UPDATE_MS);
+        if (frame > IDLE_SLOW_FRAME_MS) {
+          slow.push(now);
+        }
+        while (slow.length > 0 && now - slow[0] > IDLE_SLOW_WINDOW_MS) {
+          slow.shift();
+        }
+        if (slow.length >= IDLE_SLOW_FRAMES_LIMIT) {
+          this.idleOff = true;
+          this.idleFrame = 0;
+          return;
+        }
+      }
+      frameStart = now;
+      updated = false;
+      const elapsed = this.idleLast === null ? 0 : now - this.idleLast;
+      if (this.idleLast === null || elapsed >= interval) {
+        if (elapsed > 0) {
+          this.view.set(idleTurn(this.view(), elapsed));
+          updated = true;
+        }
+        this.idleLast = now;
+      }
+      this.idleFrame = requestAnimationFrame(step);
+    };
+    this.idleFrame = requestAnimationFrame(step);
+  }
+
+  private stopIdle(): void {
+    if (this.idleFrame) {
+      cancelAnimationFrame(this.idleFrame);
+      this.idleFrame = 0;
+    }
   }
 
   protected onCityFocus(id: number): void {
@@ -767,6 +1066,7 @@ export class RouteMap {
     if (!this.interactive() || event.button !== 0) {
       return;
     }
+    this.interrupt();
     this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (this.pointers.size === 1) {
       this.pressStart = { x: event.clientX, y: event.clientY };
@@ -823,6 +1123,7 @@ export class RouteMap {
   // --- Helpers --------------------------------------------------------------------
 
   private setZoom(factor: number): void {
+    this.interrupt();
     this.stopAnimation();
     this.adjusted = true;
     const view = this.view();
@@ -877,6 +1178,7 @@ export class RouteMap {
       this.view.set(target);
       return;
     }
+    this.interrupt();
     this.animationTarget = target;
     const from = this.view();
     let started: number | null = null;
@@ -965,6 +1267,13 @@ export class RouteMap {
     observer.observe(element);
     this.destroyRef.onDestroy(() => observer.disconnect());
   }
+}
+
+/** SVG path data of the visible parts of an arc, one subpath each. */
+function pathData(segments: MapPoint[][]): string {
+  return segments
+    .map((segment) => 'M' + segment.map(({ x, y }) => `${x.toFixed(1)},${y.toFixed(1)}`).join('L'))
+    .join('');
 }
 
 const GRATICULE = geoGraticule().step([30, 30])();
