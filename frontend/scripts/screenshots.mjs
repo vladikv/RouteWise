@@ -44,6 +44,13 @@ const SCREENS = [
   { name: 'trip-details', path: '/trips/{firstTrip}', settle: 2000 },
   { name: 'trip-form', path: '/trips/new' },
   { name: 'modes', path: '/modes' },
+  // With the OS "transparency effects" off: opaque glass, backdrop colours still visible.
+  {
+    name: 'home-route-reduced-transparency',
+    path: '/?from={berlin}&to={vienna}',
+    reducedTransparency: true,
+    settle: 2500,
+  },
   {
     name: 'account-menu',
     minWidth: 768,
@@ -70,14 +77,19 @@ try {
     const page = await context.newPage();
     // Headless Chromium reports reduced transparency (solid glass); the review shows the glass look.
     const session = await context.newCDPSession(page);
-    await session.send('Emulation.setEmulatedMedia', {
-      features: [{ name: 'prefers-reduced-transparency', value: 'no-preference' }],
-    });
+    const transparency = (reduce) =>
+      session.send('Emulation.setEmulatedMedia', {
+        features: [
+          { name: 'prefers-reduced-transparency', value: reduce ? 'reduce' : 'no-preference' },
+        ],
+      });
+    await transparency(false);
     await login(page);
     for (const screen of SCREENS) {
       if ((only && !only.has(screen.name)) || (screen.minWidth && width < screen.minWidth)) {
         continue;
       }
+      await transparency(screen.reducedTransparency === true);
       await page.evaluate(
         (layout) => localStorage.setItem('routewise.homeLayout', layout),
         screen.layout ?? 'split',

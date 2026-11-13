@@ -279,7 +279,7 @@ pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in te
   every meaningful mark 3:1; check a new or changed pair before using it.
   Glass look: a fixed `.glow-layer` element in `app.ts` (`aria-hidden`, four large radial blobs: soft grey, olive,
   warm at 55/55/50% centre alpha and a little lime at 16%, tokens `--color-smoke|olive|warm-aNN`; static, because the
-  shell's full-viewport blur would be recomputed every frame if they moved; hidden under reduced transparency) sits behind all
+  shell's full-viewport blur would be recomputed every frame if they moved; also shown under reduced transparency) sits behind all
   content, so no ancestor of a glass surface may have an opaque background. The whole app lives in one `AppShell`
   (`shared/ui/app-shell.ts`): a rounded glass shell (`--shell-radius` 32 px, 20 px on phones) with a small outer
   margin (`--shell-margin` 16 px, 6 px on phones). Its glass is a `::before` sibling layer (`--glass-bg-shell`:
@@ -302,9 +302,11 @@ pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in te
   the brightest point (olive plus half of grey, shell 50%): on panels white 8.6:1, muted 6.8:1, lime 6.4:1; on
   12% controls white 6.1:1, muted 4.9:1, lime 4.6:1; control borders 3.4:1. Re-run the check (a small script over
   the blob alphas, the shell tint and the fill stack) when raising a blob, the tint or a fill.
-  Under `prefers-reduced-transparency` the glass tokens become solid surfaces with `--glass-filter: none` and the
-  backdrop is hidden, so never hard-code a blur or a translucent fill. Headless Chromium reports reduced
-  transparency, so `npm run screenshots` emulates `no-preference` to show the glass.
+  Under `prefers-reduced-transparency` the glass surfaces become opaque and a little lighter
+  (`--color-surface-raised`, `--color-surface-raised-strong`, solid lane tints) with the same borders and highlight,
+  and `--glass-filter: none`; the backdrop glows and the shell tint stay visible, so the app never turns flat black.
+  Never hard-code a blur or a translucent fill. Headless Chromium reports reduced transparency, so
+  `npm run screenshots` emulates `no-preference`, except for the `home-route-reduced-transparency` capture.
   Dark theme only (see Theme). Radii: `--radius-lg`
   (cards), `--radius-md`, `--radius-pill` (buttons, inputs, badges). Type: 17 px body, Manrope (loaded in
   `index.html`, weights 400-800) is the only font (`--font-sans`; `--font-display`

@@ -20,6 +20,10 @@
   --color-bg: #0b0d12;
   --color-surface: #141820;
   --color-surface-muted: #1c212b;
+  /* Opaque stand-ins for the glass fills under prefers-reduced-transparency: a little lighter
+     than the surface so panels and controls still read as raised over the shell. */
+  --color-surface-raised: #1b2029;
+  --color-surface-raised-strong: #252b36;
   --color-border: #2a303c;
   /* Borders that identify a control (inputs): 3:1 against the glass fill under it. */
   --color-border-strong: var(--color-text-a60);
@@ -139,16 +143,19 @@
   }
 }
 
-/* Glass becomes solid: no see-through surfaces, no blur, no backdrop blobs. */
+/*
+ * Reduced transparency: the glass surfaces (panels, cards, controls, menus) become opaque and a
+ * little lighter, with the same borders and highlight, and nothing is blurred. The backdrop glows
+ * and the shell's tint stay, so the app keeps its colours instead of turning flat black; the
+ * shell is the frame the backdrop shows through, not a surface content is read on.
+ */
 @media (prefers-reduced-transparency: reduce) {
   :root {
-    --glass-bg-shell: var(--color-surface);
-    --glass-bg: var(--color-surface);
-    --glass-bg-strong: var(--color-surface-muted);
-    --glass-bg-menu: var(--color-surface-muted);
+    --glass-bg: var(--color-surface-raised);
+    --glass-bg-strong: var(--color-surface-raised-strong);
+    --glass-bg-menu: var(--color-surface-raised-strong);
     --glass-blur: 0px;
     --glass-filter: none;
-    --glass-highlight: inset 0 0 0 0 transparent;
     --lane-fastest-a55: #2a456c;
     --lane-cheapest-a55: #673a2d;
     --lane-greenest-a55: #3a5222;
@@ -224,12 +231,6 @@ body {
     width: 48vmax;
     height: 48vmax;
     background: radial-gradient(closest-side, var(--color-primary-a16), transparent);
-  }
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .glow-layer {
-    display: none;
   }
 }
 
