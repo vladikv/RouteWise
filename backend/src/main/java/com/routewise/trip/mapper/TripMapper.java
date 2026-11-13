@@ -4,7 +4,10 @@ import java.util.List;
 
 import com.routewise.city.domain.City;
 import com.routewise.trip.domain.Trip;
+import com.routewise.trip.domain.TripFigures;
 import com.routewise.trip.domain.TripStop;
+import com.routewise.trip.dto.TripFiguresResponse;
+import com.routewise.trip.dto.TripListItemResponse;
 import com.routewise.trip.dto.TripRequest;
 import com.routewise.trip.dto.TripResponse;
 import com.routewise.trip.dto.TripStopResponse;
@@ -26,6 +29,23 @@ public class TripMapper {
                 trip.getNotes(),
                 trip.getCreatedAt(),
                 trip.getUpdatedAt());
+    }
+
+    /** The trip with its list figures; {@code figures} may be {@code null}. */
+    public TripListItemResponse toListItem(Trip trip, TripFigures figures) {
+        return new TripListItemResponse(
+                trip.getId(),
+                trip.getTitle(),
+                trip.getStops().stream().map(TripMapper::toResponse).toList(),
+                trip.getDepartureDate(),
+                trip.getTravelers(),
+                trip.getPriority(),
+                trip.getNotes(),
+                trip.getCreatedAt(),
+                trip.getUpdatedAt(),
+                figures == null ? null : new TripFiguresResponse(figures.totalCost(), figures.co2Kg(),
+                        figures.carCo2Kg(), figures.co2VsCarPercent(), figures.co2ShareOfCar(), figures.modes(),
+                        figures.legModes()));
     }
 
     /**

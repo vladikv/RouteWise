@@ -28,6 +28,8 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 
 /**
  * Runs against the real Flyway schema and seed data (ddl-auto=validate).
@@ -80,7 +82,7 @@ class TripRepositoryTest {
     }
 
     @Test
-    void findAllByOwnerId_returnsOnlyThatOwnersTripsSoonestFirstWithCitiesLoaded() {
+    void findAllBySpecification_returnsOnlyThatOwnersTripsInTheGivenOrderWithCitiesLoaded() {
         tripRepository.save(trip(LocalDate.now().plusDays(30), "Paris", "Rome"));
         tripRepository.save(trip(LocalDate.now().plusDays(3), "Berlin", "Vienna"));
         Trip bobsTrip = trip(LocalDate.now().plusDays(1), "Lisbon", "Madrid");
@@ -89,7 +91,9 @@ class TripRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<Trip> trips = tripRepository.findAllByOwnerIdAndDeletedAtIsNullOrderByDepartureDateAscIdAsc(alice.getId());
+        List<Trip> trips = tripRepository.findAll(
+                Specification.allOf(TripSpecifications.ownedBy(alice.getId()), TripSpecifications.active()),
+                Sort.by("departureDate", "id"));
 
         assertThat(trips).extracting(trip -> trip.stopCities().getFirst().getName())
                 .containsExactly("Berlin", "Paris");
@@ -104,7 +108,9 @@ class TripRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        assertThat(tripRepository.findAllByOwnerIdAndDeletedAtIsNullOrderByDepartureDateAscIdAsc(alice.getId()))
+        assertThat(tripRepository.findAll(
+                        Specification.allOf(TripSpecifications.ownedBy(alice.getId()), TripSpecifications.active()),
+                        Sort.unsorted()))
                 .extracting(Trip::getId).containsExactly(kept.getId());
         assertThat(tripRepository.findActiveByIdAndOwnerId(deleted.getId(), alice.getId()))
                 .isEmpty();

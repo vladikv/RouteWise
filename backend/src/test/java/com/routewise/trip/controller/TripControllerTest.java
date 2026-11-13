@@ -1,5 +1,6 @@
 package com.routewise.trip.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -16,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -26,6 +28,17 @@ import com.routewise.common.config.SecurityConfig;
 import com.routewise.common.exception.ConflictException;
 import com.routewise.common.exception.FieldValidationException;
 import com.routewise.common.exception.ResourceNotFoundException;
+import com.routewise.common.exception.FieldValidationException;
+import com.routewise.transportmode.domain.TransportModeCode;
+import com.routewise.trip.dto.PriorityTotalResponse;
+import com.routewise.trip.dto.TripFacetsResponse;
+import com.routewise.trip.dto.TripFiguresResponse;
+import com.routewise.trip.dto.TripListItemResponse;
+import com.routewise.trip.dto.TripPageResponse;
+import com.routewise.trip.dto.TripSearchParams;
+import com.routewise.trip.dto.TripStatsResponse;
+import com.routewise.trip.service.TripQueryService;
+import com.routewise.trip.service.TripStatsService;
 import com.routewise.trip.domain.TripPriority;
 import com.routewise.trip.dto.TripRequest;
 import com.routewise.trip.dto.TripResponse;
@@ -36,6 +49,7 @@ import com.routewise.user.TestUsers;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -64,16 +78,124 @@ class TripControllerTest {
     @MockitoBean
     private TripService tripService;
 
-    @Test
-    void findAll_returnsTrips() throws Exception {
-        when(tripService.findAll(TestUsers.ALICE_ID)).thenReturn(List.of(response(1L)));
+    @MockitoBean
+    private TripQueryService tripQueryService;
 
-        mockMvc.perform(get("/api/trips"))
+    @MockitoBean
+    private TripStatsService tripStatsService;
+
+    @Test
+    void search_bindsQueryParametersAndReturnsThePage() throws Exception {
+        when(tripQueryService.search(any(TripSearchParams.class), eq(TestUsers.ALICE_ID))).thenReturn(page());
+
+        mockMvc.perform(get("/api/trips")
+                        .param("q", "vienna")
+                        .param("priority", "FASTEST", "GREENEST")
+                        .param("mode", "TRAIN")
+                        .param("from", "2026-12-01")
+                        .param("to", "2026-12-31")
+                        .param("sort", "co2")
+                        .param("direction", "desc")
+                        .param("page", "1")
+                        .param("size", "5"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1))
-                .andExpect(jsonPath("$[0].stops[0].cityName").value("Berlin"))
-                .andExpect(jsonPath("$[0].stops[1].country").value("AT"))
-                .andExpect(jsonPath("$[0].stops[1].position").value(1));
+                .andExpect(jsonPath("$.items[0].id").value(1))
+                .andExpect(jsonPath("$.items[0].stops[1].country").value("AT"))
+                .andExpect(jsonPath("$.items[0].figures.co2VsCarPercent").value(-81))
+                .andExpect(jsonPath("$.totalItems").value(1))
+                .andExpect(jsonPath("$.facets.priorities[0].priority").value("FASTEST"))
+                .andExpect(jsonPath("$.facets.modes[0].count").value(1))
+                .andExpect(jsonPath("$.priorityTotals[0].totalCost").value(90.5));
+
+        ArgumentCaptor<TripSearchParams> params = ArgumentCaptor.forClass(TripSearchParams.class);
+        verify(tripQueryService).search(params.capture(), eq(TestUsers.ALICE_ID));
+        assertThat(params.getValue()).isEqualTo(new TripSearchParams("vienna",
+                List.of(TripPriority.FASTEST, TripPriority.GREENEST), List.of(TransportModeCode.TRAIN),
+                LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 31), "co2", "desc", 1, 5));
+    }
+
+    @Test
+    void search_withoutParameters_passesNullsForTheDefaults() throws Exception {
+        when(tripQueryService.search(any(TripSearchParams.class), eq(TestUsers.ALICE_ID))).thenReturn(page());
+
+        mockMvc.perform(get("/api/trips")).andExpect(status().isOk());
+
+        verify(tripQueryService).search(
+                new TripSearchParams(null, null, null, null, null, null, null, null, null), TestUsers.ALICE_ID);
+    }
+
+    @Test
+    void search_withInvalidParameters_returns400WithFieldErrors() throws Exception {
+        mockMvc.perform(get("/api/trips").param("sort", "price").param("size", "101").param("page", "-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.errors[*].field",
+                        containsInAnyOrder("sort", "size", "page")));
+    }
+
+    @Test
+    void search_withUnknownPriority_returns400WithFieldError() throws Exception {
+        mockMvc.perform(get("/api/trips").param("priority", "SLOWEST"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("priority"));
+    }
+
+    @Test
+    void search_withUnknownMode_returns400WithFieldError() throws Exception {
+        mockMvc.perform(get("/api/trips").param("mode", "BOAT"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("mode"));
+    }
+
+    @Test
+    void search_withMalformedDate_returns400WithFieldError() throws Exception {
+        mockMvc.perform(get("/api/trips").param("from", "13/12/2026"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("from"));
+    }
+
+    @Test
+    void search_withUnknownDirectionOrUpperCaseSort_returns400() throws Exception {
+        mockMvc.perform(get("/api/trips").param("direction", "up").param("sort", "COST"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[*].field",
+                        containsInAnyOrder("direction", "sort")));
+    }
+
+    @Test
+    void search_withFromAfterTo_returns400() throws Exception {
+        when(tripQueryService.search(any(TripSearchParams.class), eq(TestUsers.ALICE_ID)))
+                .thenThrow(new FieldValidationException("to", "must not be before from"));
+
+        mockMvc.perform(get("/api/trips").param("from", "2026-12-31").param("to", "2026-12-01"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("to"));
+    }
+
+    @Test
+    void search_whenLoggedOut_returns401() throws Exception {
+        TestUsers.anonymousMockMvc(context).perform(get("/api/trips"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void stats_returnsTheUsersKeyFigures() throws Exception {
+        when(tripStatsService.stats(TestUsers.ALICE_ID)).thenReturn(new TripStatsResponse(3,
+                new BigDecimal("262.0"), 2, 1, new BigDecimal("120.50"), "EUR",
+                new TripStatsResponse.NextTrip(1L, "Weekend in Vienna", DEPARTURE)));
+
+        mockMvc.perform(get("/api/trips/stats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tripsPlanned").value(3))
+                .andExpect(jsonPath("$.co2SavedVsCarKg").value(262.0))
+                .andExpect(jsonPath("$.averageCost").value(120.5))
+                .andExpect(jsonPath("$.nextTrip.title").value("Weekend in Vienna"));
+    }
+
+    @Test
+    void stats_whenLoggedOut_returns401() throws Exception {
+        TestUsers.anonymousMockMvc(context).perform(get("/api/trips/stats"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -261,5 +383,18 @@ class TripControllerTest {
         return new TripResponse(id, "Weekend in Vienna",
                 List.of(new TripStopResponse(1L, "Berlin", "DE", 0), new TripStopResponse(2L, "Vienna", "AT", 1)),
                 DEPARTURE, 2, TripPriority.GREENEST, null, NOW, NOW);
+    }
+
+    private static TripPageResponse page() {
+        TripResponse trip = response(1L);
+        TripListItemResponse item = new TripListItemResponse(trip.id(), trip.title(), trip.stops(),
+                trip.departureDate(), trip.travelers(), trip.priority(), trip.notes(), trip.createdAt(),
+                trip.updatedAt(), new TripFiguresResponse(new BigDecimal("90.50"), new BigDecimal("61.0"),
+                        new BigDecimal("323.0"), -81, new BigDecimal("0.19"), List.of(TransportModeCode.TRAIN),
+                        List.of(TransportModeCode.TRAIN)));
+        return new TripPageResponse(List.of(item), 0, 20, 1, 1, "EUR",
+                new TripFacetsResponse(List.of(new TripFacetsResponse.PriorityCount(TripPriority.FASTEST, 0)),
+                        List.of(new TripFacetsResponse.ModeCount(TransportModeCode.TRAIN, 1))),
+                List.of(new PriorityTotalResponse(TripPriority.GREENEST, 1, new BigDecimal("90.50"))));
     }
 }

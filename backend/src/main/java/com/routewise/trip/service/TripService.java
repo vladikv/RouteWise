@@ -40,16 +40,6 @@ public class TripService {
         this.clock = clock;
     }
 
-    /**
-     * Returns the owner's trips, soonest departure first.
-     */
-    @Transactional(readOnly = true)
-    public List<TripResponse> findAll(Long ownerId) {
-        return tripRepository.findAllByOwnerIdAndDeletedAtIsNullOrderByDepartureDateAscIdAsc(ownerId).stream()
-                .map(tripMapper::toResponse)
-                .toList();
-    }
-
     @Transactional(readOnly = true)
     public TripResponse findById(Long id, Long ownerId) {
         return tripMapper.toResponse(getTrip(id, ownerId));

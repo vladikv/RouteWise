@@ -80,10 +80,13 @@ class AuthFlowIntegrationTest {
 
         mockMvc.perform(alice.send(get("/api/trips")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1));
+                .andExpect(jsonPath("$.totalItems").value(1));
         mockMvc.perform(bob.send(get("/api/trips")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(0));
+                .andExpect(jsonPath("$.totalItems").value(0));
+        mockMvc.perform(bob.send(get("/api/trips/stats")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tripsPlanned").value(0));
         mockMvc.perform(bob.send(get("/api/trips/" + tripId))).andExpect(status().isNotFound());
         mockMvc.perform(bob.send(get("/api/trips/" + tripId + "/comparison"))).andExpect(status().isNotFound());
         mockMvc.perform(bob.send(get("/api/trips/" + tripId + "/advice"))).andExpect(status().isNotFound());
@@ -110,6 +113,9 @@ class AuthFlowIntegrationTest {
         String trip = "/api/trips/" + JsonPath.read(created.getResponse().getContentAsString(), "$.id");
 
         mockMvc.perform(alice.send(delete(trip))).andExpect(status().isNoContent());
+
+        mockMvc.perform(alice.send(get("/api/trips"))).andExpect(jsonPath("$.totalItems").value(0));
+        mockMvc.perform(alice.send(get("/api/trips/stats"))).andExpect(jsonPath("$.tripsPlanned").value(0));
 
         mockMvc.perform(alice.send(get(trip))).andExpect(status().isNotFound());
         mockMvc.perform(alice.send(get(trip + "/comparison"))).andExpect(status().isNotFound());
@@ -156,10 +162,15 @@ class AuthFlowIntegrationTest {
 
         mockMvc.perform(demo.send(get("/api/trips")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(4))
-                .andExpect(jsonPath("$[0].title").value("Weekend in Vienna"))
-                .andExpect(jsonPath("$[1].title").value("Central Europe loop"))
-                .andExpect(jsonPath("$[1].stops.length()").value(5));
+                .andExpect(jsonPath("$.totalItems").value(4))
+                .andExpect(jsonPath("$.items[0].title").value("Weekend in Vienna"))
+                .andExpect(jsonPath("$.items[0].figures.totalCost").isNumber())
+                .andExpect(jsonPath("$.items[1].title").value("Central Europe loop"))
+                .andExpect(jsonPath("$.items[1].stops.length()").value(5));
+        mockMvc.perform(demo.send(get("/api/trips/stats")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tripsPlanned").value(4))
+                .andExpect(jsonPath("$.nextTrip.title").value("Weekend in Vienna"));
     }
 
     @Test

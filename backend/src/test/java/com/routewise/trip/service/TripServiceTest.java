@@ -164,15 +164,6 @@ class TripServiceTest {
     }
 
     @Test
-    void findAll_mapsTripsInRepositoryOrder() {
-        Trip first = trip(1L, "First");
-        Trip second = trip(2L, "Second");
-        when(tripRepository.findAllByOwnerIdAndDeletedAtIsNullOrderByDepartureDateAscIdAsc(OWNER_ID)).thenReturn(List.of(first, second));
-
-        assertThat(tripService.findAll(OWNER_ID)).extracting(TripResponse::title).containsExactly("First", "Second");
-    }
-
-    @Test
     void update_replacesFieldsAndTheWholeStopList() {
         Trip existing = trip(5L, "Old title");
         knownCities(berlin, prague, vienna);
@@ -248,7 +239,7 @@ class TripServiceTest {
         tripService.delete(5L, OWNER_ID);
 
         assertThat(existing.getDeletedAt()).isEqualTo(CLOCK.instant());
-        verify(tripRepository, never()).delete(any());
+        verify(tripRepository, never()).delete(any(Trip.class));
     }
 
     @Test
@@ -257,7 +248,7 @@ class TripServiceTest {
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> tripService.delete(42L, OWNER_ID)).isInstanceOf(ResourceNotFoundException.class);
-        verify(tripRepository, never()).delete(any());
+        verify(tripRepository, never()).delete(any(Trip.class));
     }
 
     @Test

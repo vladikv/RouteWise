@@ -5,14 +5,19 @@ import java.util.Optional;
 
 import com.routewise.trip.domain.Trip;
 
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 
-public interface TripRepository extends JpaRepository<Trip, Long> {
+public interface TripRepository extends JpaRepository<Trip, Long>, JpaSpecificationExecutor<Trip> {
 
+    /** Trips matching {@code spec} (see {@link TripSpecifications}) with their stops and cities. */
+    @Override
     @EntityGraph(attributePaths = {"stops", "stops.city"})
-    List<Trip> findAllByOwnerIdAndDeletedAtIsNullOrderByDepartureDateAscIdAsc(Long ownerId);
+    List<Trip> findAll(Specification<Trip> spec, Sort sort);
 
     /**
      * An active (not deleted) trip of the owner. Empty for someone else's or a deleted trip,

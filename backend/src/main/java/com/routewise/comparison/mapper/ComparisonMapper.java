@@ -31,7 +31,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class ComparisonMapper {
 
-    static final String CURRENCY = "EUR";
+    /** All prices are in this currency. */
+    public static final String CURRENCY = "EUR";
 
     public ModeParameters toParameters(TransportMode mode) {
         return new ModeParameters(mode.getCode(), mode.getAvgSpeedKmh(), mode.getCostPerKm(),
