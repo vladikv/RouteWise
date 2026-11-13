@@ -9,6 +9,7 @@ function option(overrides: Partial<ModeOption> & Pick<ModeOption, 'mode'>): Mode
   return {
     available: true,
     unavailableReason: null,
+    unavailableCode: null,
     distanceKm: 600,
     durationMinutes: 300,
     totalCost: 100,
@@ -130,10 +131,35 @@ describe('ComparisonChart', () => {
   });
 
   it('lists unavailable modes with their reason instead of a bar', () => {
-    expect(chart.querySelector('.unavailable')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-      'Bike is not available: Route of 681 km exceeds the BIKE limit of 150 km',
+    const note = chart.querySelector('.unavailable');
+
+    expect(note?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      '⊘ Bike: Not available: too far for this mode',
     );
+    expect(note?.classList).toContain('muted');
   });
+
+  it.each([
+    ['DIFFERENT_LANDMASS', 'Bike: Not available: different continent or island'],
+    [null, 'Bike: Not available: Route is closed'],
+  ] as const)(
+    'reads the unavailable code %s as text, falling back to the reason',
+    async (code, text) => {
+      const bike = LEG_COMPARISON.options.find((option) => option.mode === 'BIKE') as ModeOption;
+      fixture.componentRef.setInput('comparison', {
+        ...LEG_COMPARISON,
+        options: [
+          ...LEG_COMPARISON.options.filter((option) => option.mode !== 'BIKE'),
+          { ...bike, unavailableCode: code, unavailableReason: 'Route is closed' },
+        ],
+      });
+      await fixture.whenStable();
+
+      expect(chart.querySelector('.unavailable')?.textContent?.replace(/\s+/g, ' ')).toContain(
+        text,
+      );
+    },
+  );
 
   it('gives each bar a tooltip with all four metrics', () => {
     expect(chart.querySelector('.bar')?.getAttribute('title')).toBe(

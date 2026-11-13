@@ -83,7 +83,10 @@
             </td>
             <td class="numeric">{{ totals.co2Kg | number: '1.1-1' }} kg</td>
           } @else {
-            <td colspan="3" class="reason">Not possible: {{ totals.unavailableReason }}</td>
+            <td colspan="3" class="reason">
+              <span class="reason__icon" aria-hidden="true">⊘</span>
+              {{ unavailableTotalsText(totals.unavailableCode, totals.unavailableReason) }}
+            </td>
           }
         </tr>
       }

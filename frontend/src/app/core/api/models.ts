@@ -91,11 +91,16 @@ export interface WeatherSummary {
   hazards: WeatherHazard[];
 }
 
+/** Why a mode is unavailable: the cities are on different landmasses, or the leg is beyond the mode's range. */
+export type UnavailableCode = 'DIFFERENT_LANDMASS' | 'TOO_FAR';
+
 /** One mode in a comparison. Metrics are null when the mode is unavailable. */
 export interface ModeOption {
   mode: TransportModeCode;
   available: boolean;
   unavailableReason: string | null;
+  /** Machine-readable cause; null when available. Show it as readable text, `unavailableReason` is English prose. */
+  unavailableCode: UnavailableCode | null;
   distanceKm: number;
   durationMinutes: number | null;
   totalCost: number | null;
@@ -133,6 +138,8 @@ export interface ModeTotals {
   mode: TransportModeCode;
   available: boolean;
   unavailableReason: string | null;
+  /** Cause on the first leg that rules the mode out; `unavailableReason` starts with "Leg N (A to B): ". */
+  unavailableCode: UnavailableCode | null;
   durationMinutes: number | null;
   totalCost: number | null;
   co2Kg: number | null;

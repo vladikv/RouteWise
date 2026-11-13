@@ -51,7 +51,8 @@
             </td>
           } @else {
             <td role="cell" colspan="4" class="reason">
-              Not available: {{ option.unavailableReason }}
+              <span class="reason__icon" aria-hidden="true">⊘</span>
+              {{ unavailableText(option.unavailableCode, option.unavailableReason) }}
             </td>
           }
         </tr>

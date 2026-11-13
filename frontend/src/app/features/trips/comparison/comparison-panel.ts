@@ -6,6 +6,7 @@ import {
   MODE_LABELS,
   PRIORITY_LABELS,
   durationLabel,
+  unavailableText,
   travelersLabel,
 } from '../../../shared/util/labels';
 
@@ -26,5 +27,6 @@ export class ComparisonPanel {
   protected readonly hazardLabels = HAZARD_LABELS;
   protected readonly priorityLabels = PRIORITY_LABELS;
   protected readonly durationLabel = durationLabel;
+  protected readonly unavailableText = unavailableText;
   protected readonly travelersLabel = travelersLabel;
 }

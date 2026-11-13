@@ -59,6 +59,10 @@
 @for (option of unavailable(); track option.mode) {
   <p class="unavailable muted">
     <app-mode-icon [mode]="option.mode" />
-    {{ modeLabels[option.mode] }} is not available: {{ option.unavailableReason }}
+    <span class="unavailable__text">
+      <span aria-hidden="true">⊘</span>
+      {{ modeLabels[option.mode] }}:
+      {{ unavailableText(option.unavailableCode, option.unavailableReason) }}
+    </span>
   </p>
 }

@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, input, signal } from '@an
 import { ModeOption } from '../../../core/api/models';
 import { ModeIcon } from '../../../shared/ui/mode-icon';
 import { TabOption, Tabs } from '../../../shared/ui/tabs';
-import { MODE_LABELS, durationLabel } from '../../../shared/util/labels';
+import { MODE_LABELS, durationLabel, unavailableText } from '../../../shared/util/labels';
 import { comparisonInsight } from './comparison-insight';
 import { LegComparison } from './leg-comparison';
 
@@ -60,6 +60,7 @@ export class ComparisonChart {
   protected readonly tabsId = `comparison-metric-${nextId++}`;
   protected readonly modeLabels = MODE_LABELS;
   protected readonly durationLabel = durationLabel;
+  protected readonly unavailableText = unavailableText;
 
   protected readonly insight = computed(() => comparisonInsight(this.comparison()));
 
