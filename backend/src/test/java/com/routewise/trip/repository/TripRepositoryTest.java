@@ -8,6 +8,8 @@ import java.util.Arrays;
 import java.util.List;
 
 import com.routewise.city.domain.City;
+import com.routewise.common.config.ClockConfig;
+import com.routewise.common.config.JpaAuditingConfig;
 import com.routewise.city.repository.CityRepository;
 import com.routewise.transportmode.domain.TransportMode;
 import com.routewise.transportmode.domain.TransportModeCode;
@@ -23,12 +25,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
+import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 
 /**
  * Runs against the real Flyway schema and seed data (ddl-auto=validate).
  */
 @DataJpaTest
+@Import({JpaAuditingConfig.class, ClockConfig.class})
 class TripRepositoryTest {
 
     @Autowired

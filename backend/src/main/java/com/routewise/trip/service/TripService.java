@@ -71,7 +71,7 @@ public class TripService {
             requireNotInPast(request.departureDate());
         }
         apply(request, trip);
-        // Flush so that @UpdateTimestamp is applied before the response is built.
+        // Flush so that @LastModifiedDate is applied before the response is built.
         return tripMapper.toResponse(tripRepository.saveAndFlush(trip));
     }
 
