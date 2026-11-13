@@ -67,8 +67,8 @@
             <button
               type="button"
               class="chip"
-              [attr.aria-pressed]="date() === quick.date"
-              (click)="setDate(quick.date)"
+              [attr.aria-pressed]="activeQuick() === quick.label"
+              (click)="toggleQuick(quick)"
             >
               {{ quick.label }}
             </button>
@@ -76,7 +76,9 @@
         </div>
       </div>
       <p id="explorer-forecast" class="forecast" [class.forecast--on]="forecastAvailable()">
-        @if (forecastAvailable()) {
+        @if (!date()) {
+          Pick a date to include the weather forecast
+        } @else if (forecastAvailable()) {
           <span aria-hidden="true">☁</span> Weather forecast included
         } @else {
           Forecast not available yet: it covers the next 16 days ({{ daysAhead() }} days away)
@@ -127,8 +129,13 @@
       }
       @if (!request()) {
         <div class="placeholder">
-          <p class="placeholder__title">Where are you going?</p>
-          <p>Choose two cities on the map or with the From and To fields.</p>
+          @if (originId() !== null && destinationId() !== null && !date()) {
+            <p class="placeholder__title">Pick a date</p>
+            <p>Choose when you travel, or use a quick date, to compare the modes.</p>
+          } @else {
+            <p class="placeholder__title">Where are you going?</p>
+            <p>Choose two cities on the map or with the From and To fields.</p>
+          }
         </div>
       } @else if (comparison.error(); as error) {
         <app-error-message [error]="error" (retry)="comparison.reload()" />

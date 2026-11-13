@@ -62,26 +62,46 @@
   outline-offset: -3px;
 }
 
+/* A glass sphere: translucent ocean, lighter land, a highlight at the upper left, a lime rim. */
 .sea {
   fill: var(--map-sea);
-  stroke: var(--map-border);
+}
+
+.glass-halo {
+  fill: none;
+  stroke: var(--map-halo);
+  stroke-width: 6px;
+}
+
+.glass-rim {
+  fill: none;
+  stroke: var(--map-rim);
   stroke-width: 1px;
+}
+
+.glass-halo,
+.glass-rim,
+.glass-air,
+.glass-sheen,
+.graticule,
+.land,
+.city__name,
+.city__letter,
+.route {
+  pointer-events: none;
 }
 
 .graticule {
   fill: none;
-  stroke: var(--map-border);
+  stroke: var(--map-graticule);
   stroke-width: 0.5px;
-  opacity: 0.45;
-  pointer-events: none;
 }
 
 .land {
   fill: var(--map-land);
-  stroke: var(--map-border);
-  stroke-width: 0.7px;
+  stroke: var(--map-coast);
+  stroke-width: 0.5px;
   stroke-linejoin: round;
-  pointer-events: none;
 }
 
 /* Cities */
@@ -101,8 +121,6 @@
 
 .city__dot {
   fill: var(--map-city);
-  stroke: var(--map-land);
-  stroke-width: 1.5px;
   transition: r 0.12s ease;
 }
 
@@ -117,29 +135,30 @@
 }
 
 .city__name {
-  fill: var(--color-text);
+  fill: var(--map-label);
   font-weight: 500;
-  /* A halo keeps names readable over coastlines, borders and the route. */
+  /* A halo keeps names readable over coastlines and the route. */
   paint-order: stroke;
-  stroke: var(--map-land);
+  stroke: var(--map-label-halo);
   stroke-linejoin: round;
-  pointer-events: none;
 }
 
+.city--hovered .city__name {
+  fill: var(--color-text);
+  font-weight: 700;
+}
+
+/* The names of the route's cities are lime, like the route. */
 .city--origin .city__name,
 .city--destination .city__name,
-.city--stop .city__name,
-.city--hovered .city__name {
+.city--stop .city__name {
+  fill: var(--color-primary-ink);
   font-weight: 700;
 }
 
 /* Only the mark fades: the name keeps its contrast. */
 .city--dimmed .city__dot {
-  opacity: 0.55;
-}
-
-.city--dimmed .city__name {
-  fill: var(--color-text-muted);
+  opacity: 0.85;
 }
 
 .city--dimmed.city--hovered .city__dot {
@@ -156,37 +175,35 @@
   fill: var(--color-on-primary);
   font-weight: 800;
   text-anchor: middle;
-  pointer-events: none;
 }
 
 /* Route */
 
+/* A lifted arc: the line over a wider low-alpha stroke as its glow (no blur filter: cheap while turning). */
 .route {
   fill: none;
   stroke: var(--color-primary);
-  stroke-width: 3px;
+  stroke-width: 2.5px;
   stroke-linecap: round;
-  animation: draw-route 0.7s ease-out both;
+  stroke-linejoin: round;
 }
 
-.route--halo {
-  stroke: var(--map-route-halo);
-  stroke-width: 7px;
-  animation: none;
-  opacity: 0.8;
+.route--glow {
+  stroke: var(--map-route-glow);
+  stroke-width: 9px;
 }
 
-/* A dash train runs along each arc from origin to destination once the line has been drawn. A negative
+/* A dash train runs along each arc from origin to destination once it has been drawn. A negative
    offset step moves the dashes forward along the path; the solid line below stays when motion is reduced. */
 .route--flow {
   stroke: var(--color-on-primary);
-  stroke-width: 3px;
+  stroke-width: 2.5px;
   stroke-linecap: butt;
   stroke-dasharray: 5 15;
   opacity: 0;
   animation:
-    flow-in 0.3s ease-out 0.7s forwards,
-    flow-route 1s linear 0.7s infinite;
+    flow-in 0.3s ease-out forwards,
+    flow-route 1s linear infinite;
 }
 
 @keyframes flow-in {
@@ -204,18 +221,6 @@
 @media (prefers-reduced-motion: reduce) {
   .route--flow {
     display: none;
-  }
-}
-
-/* Dashes are in screen pixels: grow one dash past any route length and end with no gap, which is a
-   solid line at every zoom and size. */
-@keyframes draw-route {
-  from {
-    stroke-dasharray: 0 4000;
-  }
-
-  to {
-    stroke-dasharray: 4000 0;
   }
 }
 

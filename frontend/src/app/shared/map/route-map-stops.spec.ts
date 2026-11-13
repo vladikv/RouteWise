@@ -69,7 +69,7 @@ describe('RouteMap with stops', () => {
       /^Route Berlin → Prague → Vienna, \d+ km straight-line\.$/,
     );
     // One great-circle arc per leg.
-    expect(map.querySelectorAll('path.route:not(.route--halo)')).toHaveLength(2);
+    expect(map.querySelectorAll('path.route:not(.route--glow)')).toHaveLength(2);
   });
 
   it('shows every visit of a city in its pin on a round trip', async () => {

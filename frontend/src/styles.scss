@@ -60,17 +60,25 @@
   --color-warm: #c2825a;
   /* Alpha variants of the palette above (same hues, written from the hex values). */
   --color-bg-a50: rgb(11 13 18 / 50%);
+  --color-bg-a60: rgb(11 13 18 / 60%);
   --color-bg-a70: rgb(11 13 18 / 70%);
   --color-surface-a85: rgb(20 24 32 / 85%);
+  --color-text-a06: rgb(255 255 255 / 6%);
   --color-text-a08: rgb(255 255 255 / 8%);
+  --color-text-a10: rgb(255 255 255 / 10%);
   --color-text-a12: rgb(255 255 255 / 12%);
   --color-text-a14: rgb(255 255 255 / 14%);
   --color-text-a18: rgb(255 255 255 / 18%);
+  --color-text-a35: rgb(255 255 255 / 35%);
   --color-text-a50: rgb(255 255 255 / 50%);
   --color-text-a60: rgb(255 255 255 / 60%);
   --color-primary-a12: rgb(182 242 60 / 12%);
+  --color-primary-a06: rgb(182 242 60 / 6%);
   --color-primary-a16: rgb(182 242 60 / 16%);
   --color-primary-a20: rgb(182 242 60 / 20%);
+  --color-primary-a35: rgb(182 242 60 / 35%);
+  --color-primary-a00: rgb(182 242 60 / 0%);
+  --color-text-a00: rgb(255 255 255 / 0%);
   --color-smoke-a55: rgb(138 147 166 / 55%);
   --color-olive-a55: rgb(154 171 69 / 55%);
   --color-warm-a50: rgb(194 130 90 / 50%);
@@ -102,12 +110,26 @@
   /* De-emphasised chart bars; the recommended bar uses --color-highlight. */
   --color-bar: #6b7385;
   /* Route map */
-  --map-sea: #0e1118;
-  --map-land: #191e28;
-  --map-border: #616b7f;
-  --map-city: #b8bfcc;
-  /* Dark outline under the route and pins so lime stays 3:1 against the land. */
-  --map-route-halo: var(--map-land);
+  /* The globe is a glass sphere. Ocean: a dark tint of the base colour, translucent so the backdrop
+     glows show through; land: the glass surface colour, a little lighter. Opaque under reduced transparency. */
+  --map-sea: var(--color-bg-a60);
+  --map-land: var(--color-text-a10);
+  --map-coast: var(--color-text-a35);
+  --map-graticule: var(--color-text-a06);
+  /* Soft highlight at the upper left, a thin lime rim and a faint lime glow inside the edge and around it. */
+  --map-sheen: var(--color-text-a12);
+  --map-sheen-end: var(--color-text-a00);
+  --map-rim: var(--color-primary-a35);
+  --map-air: var(--color-primary-a16);
+  --map-air-end: var(--color-primary-a00);
+  --map-halo: var(--color-primary-a06);
+  /* Cities: small muted dots, muted names with a dark halo; the route's cities and the route are lime. */
+  --map-city: var(--color-text-a60);
+  --map-label: var(--color-text-muted);
+  --map-label-halo: var(--color-bg-a70);
+  --map-route-glow: var(--color-primary-a20);
+  /* Dark outline under the pins so lime stays 3:1 against the globe. */
+  --map-route-halo: var(--color-bg);
 
   /* Manrope (loaded in index.html) is the only font; the system stack is the fallback. */
   --font-sans:
@@ -133,6 +155,11 @@
   --shell-radius: var(--radius-xl);
   /* What the header and the shell margins take from the Home stage's height. */
   --chrome-height: calc(var(--header-height) + 2 * var(--shell-margin));
+  /* The footer of the page area (one line of text between 1 rem paddings and a border). */
+  --footer-height: 3.5625rem;
+  /* The Home stage (map, or map plus side column) fills what is left of the viewport: after the header,
+     the shell margins and border (2 px) and the footer. */
+  --stage-height: calc(100dvh - var(--chrome-height) - var(--footer-height) - 2px);
 }
 
 @media (max-width: 47.99rem) {
@@ -156,6 +183,8 @@
     --glass-bg-menu: var(--color-surface-raised-strong);
     --glass-blur: 0px;
     --glass-filter: none;
+    --map-sea: #10141b;
+    --map-land: #222936;
     --lane-fastest-a55: #2a456c;
     --lane-cheapest-a55: #673a2d;
     --lane-greenest-a55: #3a5222;
@@ -589,6 +618,16 @@ textarea[aria-invalid='true'] {
   }
 }
 
+/* From 1024 px the Home stage is as tall as the page area minus its footer (and, where #main has
+   padding, that), so the page does not scroll; below 34 rem it scrolls instead of squeezing the stage. */
+@media (min-width: 64rem) and (max-width: 79.99rem) {
+  :root {
+    --stage-height: calc(
+      100dvh - var(--chrome-height) - var(--footer-height) - 2px - 2 * var(--space-8)
+    );
+  }
+}
+
 /* Colour dot of a priority lane (board lane header, list rows); the name always sits next to it. */
 .lane-dot {
   display: inline-block;
@@ -614,4 +653,11 @@ textarea[aria-invalid='true'] {
 /* The Trips page uses more width for its four-column board. */
 #main:has(.trips-page) {
   max-width: 84rem;
+}
+
+/* The trip form's three columns (describe, globe, form) use the width from 1280 px. */
+@media (min-width: 80rem) {
+  #main:has(.trip-page) {
+    max-width: 100rem;
+  }
 }

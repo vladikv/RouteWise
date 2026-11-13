@@ -25,15 +25,42 @@
     (pointercancel)="onPointerUp($event)"
     (keydown)="onMapKey($event)"
   >
+    <defs>
+      <radialGradient [attr.id]="gradientId + '-sheen'" cx="0.3" cy="0.24" r="0.62">
+        <stop offset="0" style="stop-color: var(--map-sheen)" />
+        <stop offset="1" style="stop-color: var(--map-sheen-end)" />
+      </radialGradient>
+      <radialGradient [attr.id]="gradientId + '-air'" cx="0.5" cy="0.5" r="0.5">
+        <stop offset="0.82" style="stop-color: var(--map-air-end)" />
+        <stop offset="1" style="stop-color: var(--map-air)" />
+      </radialGradient>
+    </defs>
+
+    <circle class="glass-halo" [attr.cx]="d.cx" [attr.cy]="d.cy" [attr.r]="d.r + 3" />
     <circle class="sea" [attr.cx]="d.cx" [attr.cy]="d.cy" [attr.r]="d.r" />
     <path class="graticule" [attr.d]="graticule()" />
     <path class="land" [attr.d]="land()" />
+    <circle
+      class="glass-air"
+      [attr.cx]="d.cx"
+      [attr.cy]="d.cy"
+      [attr.r]="d.r"
+      [attr.fill]="'url(#' + gradientId + '-air)'"
+    />
+    <circle
+      class="glass-sheen"
+      [attr.cx]="d.cx"
+      [attr.cy]="d.cy"
+      [attr.r]="d.r"
+      [attr.fill]="'url(#' + gradientId + '-sheen)'"
+    />
+    <circle class="glass-rim" [attr.cx]="d.cx" [attr.cy]="d.cy" [attr.r]="d.r" />
 
-    @for (leg of legPaths(); track $index) {
-      <path class="route route--halo" [attr.d]="leg" />
-      <path class="route" [attr.d]="leg" />
-      @if (!reducedMotion()) {
-        <path class="route route--flow" [attr.d]="leg" />
+    @for (leg of legPaths(); track leg.key) {
+      <path class="route route--glow" [attr.d]="leg.d" />
+      <path class="route" [attr.d]="leg.d" />
+      @if (flowing()) {
+        <path class="route route--flow" [attr.d]="leg.d" />
       }
     }
 
@@ -86,7 +113,7 @@
               class="city__dot"
               [attr.cx]="marker.point.x"
               [attr.cy]="marker.point.y"
-              [attr.r]="hoveredId() === marker.city.id ? 6.5 : 4.5"
+              [attr.r]="hoveredId() === marker.city.id ? dotActiveRadius : dotRadius"
             />
           }
           @if (marker.label; as label) {

@@ -9,46 +9,51 @@ import { TripApi } from '../../core/api/trip-api';
 import { ErrorMessage } from '../../shared/ui/error-message';
 import { Spinner } from '../../shared/ui/spinner';
 import { PRIORITIES } from '../../shared/util/labels';
+import { LayoutBreakpoint } from '../../shared/util/layout-breakpoint';
 import { TripDraftInput } from './trip-draft-input';
 import { presetFromState } from './trip-duplicate';
 import { TripForm, TripPreset } from './trip-form';
 
 /**
  * Creates a trip (`/trips/new`) or edits one (`/trips/:id/edit`). A new trip can
- * be prefilled from a free-text description.
+ * be prefilled from a free-text description. From 1280 px: describe | globe | form in
+ * columns that fit the viewport; below that the three blocks are stacked.
  */
 @Component({
   selector: 'app-trip-form-page',
   imports: [ErrorMessage, Spinner, TripDraftInput, TripForm],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="page-header">
-      <h1>{{ id() ? 'Edit trip' : 'New trip' }}</h1>
-    </div>
+    <div class="trip-page" [class.trip-page--edit]="id()">
+      <div class="page-header">
+        <h1>{{ id() ? 'Edit trip' : 'New trip' }}</h1>
+      </div>
 
-    <div class="layout" [class.layout--single]="id()">
-      @if (!id()) {
-        <section class="card draft" aria-label="Describe your trip">
-          <app-trip-draft-input
-            [busy]="parsing()"
-            [draft]="draft()"
-            [error]="parseError()"
-            (parse)="parseDescription($event)"
-          />
-        </section>
-      }
+      <div class="layout">
+        @if (!id()) {
+          <section
+            class="card draft"
+            aria-label="Describe your trip"
+            [attr.tabindex]="columns() ? 0 : null"
+          >
+            <app-trip-draft-input
+              [busy]="parsing()"
+              [draft]="draft()"
+              [error]="parseError()"
+              (parse)="parseDescription($event)"
+            />
+          </section>
+        }
 
-      <section class="card form">
         @if (cities.isLoading() || trip.isLoading()) {
-          <app-spinner label="Loading…" />
+          <section class="card status">
+            <app-spinner label="Loading…" />
+          </section>
         } @else if (cities.error() ?? trip.error(); as error) {
-          <app-error-message [error]="error" (retry)="reload()" />
+          <section class="card status">
+            <app-error-message [error]="error" (retry)="reload()" />
+          </section>
         } @else if (cities.value(); as cityList) {
-          @if (saveError(); as error) {
-            <div class="save-error">
-              <app-error-message [error]="error" [retryable]="false" />
-            </div>
-          }
           <app-trip-form
             [cities]="cityList"
             [trip]="trip.value() ?? null"
@@ -57,39 +62,72 @@ import { TripForm, TripPreset } from './trip-form';
             [submitting]="saving()"
             [serverErrors]="fieldErrors()"
             [cancelLink]="cancelLink()"
+            [columns]="columns()"
             (submitted)="save($event)"
-          />
+          >
+            @if (saveError(); as error) {
+              <div class="save-error">
+                <app-error-message [error]="error" [retryable]="false" />
+              </div>
+            }
+          </app-trip-form>
         }
-      </section>
+      </div>
     </div>
   `,
   styles: `
+    /* Below 1280 px: one column (describe, globe, form) and the page scrolls. */
     .layout {
       display: grid;
       gap: var(--space-6);
       max-width: 44rem;
     }
 
-    /* Wide screens: the description sits beside the form and stays in view while it scrolls. */
-    @media (min-width: 64rem) {
+    .save-error {
+      margin-bottom: var(--space-4);
+    }
+
+    /*
+     * From 1280 px: three columns that fill the page area, so the page does not scroll
+     * (describe | globe | form; editing drops the description). A column whose content is
+     * taller than the space scrolls inside itself.
+     */
+    @media (min-width: 80rem) {
+      .trip-page {
+        display: flex;
+        flex-direction: column;
+        height: calc(var(--stage-height) - 2 * var(--space-8));
+        min-height: 34rem;
+      }
+
+      .page-header {
+        margin-bottom: var(--space-4);
+      }
+
       .layout {
-        grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr);
-        align-items: start;
+        flex: 1;
+        min-height: 0;
+        grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr) minmax(24rem, 27rem);
+        grid-template-rows: minmax(0, 1fr);
+        gap: var(--space-4);
         max-width: none;
       }
 
-      .layout--single {
-        grid-template-columns: minmax(0, 44rem);
+      .trip-page--edit .layout {
+        grid-template-columns: minmax(0, 1fr) minmax(24rem, 30rem);
       }
 
       .draft {
-        position: sticky;
-        top: var(--space-4);
+        min-height: 0;
+        overflow-y: auto;
+        scrollbar-color: var(--color-border-strong) transparent;
+        scrollbar-width: thin;
       }
-    }
 
-    .save-error {
-      margin-bottom: var(--space-4);
+      /* Loading or failed: one card across the globe and form columns. */
+      .status {
+        grid-column: -3 / -1;
+      }
     }
   `,
 })
@@ -107,6 +145,10 @@ export class TripFormPage {
   private readonly cityApi = inject(CityApi);
   private readonly advisorApi = inject(AdvisorApi);
   private readonly router = inject(Router);
+  private readonly breakpoint = inject(LayoutBreakpoint);
+
+  /** From 1280 px the page is laid out in columns that fit the viewport. */
+  protected readonly columns = computed(() => this.breakpoint.layout() === 'wide');
 
   protected readonly cities = rxResource({ stream: () => this.cityApi.findAll() });
   protected readonly trip = rxResource({

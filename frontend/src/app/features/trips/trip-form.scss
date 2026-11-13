@@ -1,13 +1,24 @@
+/* The host adds no box: the map panel and the fields card are items of the page's grid. */
+:host {
+  display: contents;
+}
+
+/* Glass frame around the globe when it fills its column (the map draws no frame in fill mode). */
+.map-panel--fill {
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-highlight), var(--shadow-card);
+}
+
 /* Stops: ordered list of city pickers with move/remove buttons. */
 
 .stops-field {
   margin-inline: 0;
   padding: 0;
   border: 0;
-}
-
-.stops-field app-route-map {
-  margin: var(--space-2) 0 var(--space-4);
 }
 
 .stops {
@@ -79,4 +90,52 @@
   background: var(--color-danger-bg);
   color: var(--color-danger-text);
   font-weight: 600;
+}
+
+/*
+ * From 1280 px the fields scroll inside their card, so the page itself never scrolls. The spacing is
+ * a little tighter, and the Create / Cancel bar stays at the bottom of the card while the fields scroll.
+ */
+@media (min-width: 80rem) {
+  .fields {
+    min-height: 0;
+    padding: var(--space-6);
+    overflow-y: auto;
+    scrollbar-color: var(--color-border-strong) transparent;
+    scrollbar-width: thin;
+  }
+
+  .field {
+    margin-bottom: var(--space-3);
+  }
+
+  .stops {
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+
+  textarea {
+    min-height: 4.5rem;
+  }
+
+  .row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 var(--space-3);
+  }
+
+  .priority .segmented span {
+    padding: 0 var(--space-2);
+  }
+
+  .actions {
+    position: sticky;
+    /* Sticks to the padding edge of the scroll area, so the card padding is pulled back in. */
+    bottom: calc(-1 * var(--space-6));
+    z-index: 1;
+    margin: var(--space-2) calc(-1 * var(--space-6)) calc(-1 * var(--space-6));
+    padding: var(--space-3) var(--space-6);
+    border-top: 1px solid var(--glass-border);
+    background:
+      linear-gradient(var(--glass-bg-strong), var(--glass-bg-strong)), var(--color-surface);
+  }
 }

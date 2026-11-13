@@ -28,9 +28,11 @@ import {
   MapPoint,
   clampZoom,
   createGlobeProjection,
+  arcPrefix,
+  arcSamples,
+  arcSegments,
   fitRoute,
   globeGeometry,
-  greatCircle,
   haversineKm,
   interpolateView,
   isVisible,
@@ -71,14 +73,16 @@ const WIDE_MIN_PX = 720;
 
 /** Sizes in CSS pixels. */
 const LABEL_PX = 13;
-const DOT_PX = 4.5;
+const DOT_PX = 3.5;
+/** A dot grows to this radius under the pointer or focus. */
+const DOT_ACTIVE_PX = 5.5;
 /** Space kept around a route when the map zooms to it, in CSS pixels; more in fill mode, where controls float over the map. */
 const FIT_MARGIN_PX = 70;
 const FILL_FIT_MARGIN_PX = 96;
 /** Cities this far outside the drawing are not rendered (so they cannot take focus either). */
 const OFFSCREEN_PX = 24;
 /** The click target of a city: as large as the nearest neighbour allows, between these. */
-const HIT_MIN_PX = DOT_PX + 2;
+const HIT_MIN_PX = 6.5;
 const HIT_MAX_PX = 17;
 /** What the zoom buttons cover (CSS pixels): labels keep clear of it. */
 const ZOOM_ZONE_WIDTH_PX = 68;
@@ -89,6 +93,12 @@ const KEY_ROTATE_DEGREES = 20;
 /** A pointer that moves further than this between press and release is a drag, not a click. */
 const DRAG_THRESHOLD_PX = 4;
 const ANIMATION_MS = 700;
+/** The arc of a route draws itself from A to B: a pause for the globe to turn, then this long per leg (at most {@link DRAW_MAX_MS} in all). */
+const DRAW_DELAY_MS = 350;
+const DRAW_MS_PER_LEG = 700;
+const DRAW_MAX_MS = 1800;
+
+let nextMapId = 0;
 
 type LandState = 'loading' | 'ready' | 'failed';
 
@@ -157,6 +167,12 @@ export class RouteMap {
   private readonly renderedWidth = signal(DEFAULT_WIDTH);
   private readonly renderedHeight = signal(DEFAULT_HEIGHT);
   protected readonly hoveredId = signal<number | null>(null);
+  /** Share of the route drawn so far, 0 to 1, across all legs in order; 1 when nothing animates. */
+  protected readonly drawn = signal(1);
+  /** Prefix of the ids of the gradients this globe defines (several maps can share a page). */
+  protected readonly gradientId = `globe-${nextMapId++}`;
+  protected readonly dotRadius = DOT_PX;
+  protected readonly dotActiveRadius = DOT_ACTIVE_PX;
   /** Follows the system setting live. */
   protected readonly reducedMotion = signal(false);
   /** Land shapes as GeoJSON; loaded on demand (its own chunk), the globe shows only the sea until then. */
@@ -297,30 +313,51 @@ export class RouteMap {
     fitRoute(this.routeCities(), this.frame(), this.fill() ? FILL_FIT_MARGIN_PX : FIT_MARGIN_PX),
   );
 
-  /** The route through every stop as great-circle arcs, one per leg; null with fewer than two stops. */
+  /** The route through every stop: its legs as pairs of cities, and the total straight-line distance; null with fewer than two stops. */
   protected readonly route = computed(() => {
     const cities = this.routeCities();
     if (cities.length < 2) {
       return null;
     }
-    const arcs = cities.slice(1).map((city, i) => greatCircle(cities[i], city));
-    const distanceKm = cities
-      .slice(1)
-      .reduce((sum, city, i) => sum + haversineKm(cities[i], city), 0);
-    return { arcs, distanceKm };
+    const legs = cities.slice(1).map((to, i) => ({
+      from: cities[i],
+      to,
+      samples: arcSamples(cities[i], to),
+    }));
+    const distanceKm = legs.reduce((sum, leg) => sum + haversineKm(leg.from, leg.to), 0);
+    return { legs, distanceKm };
   });
 
-  /** One SVG path per leg through the current projection; the part behind the horizon is cut off. */
+  /**
+   * One lifted arc per leg (the leg's great-circle path above the surface) as an SVG path through the
+   * current view, drawn up to `drawn()` and cut where it goes behind the globe. The key changes with the route, so a new
+   * route's arcs are new elements.
+   */
   protected readonly legPaths = computed(() => {
     const route = this.route();
-    const pathOf = this.pathOf();
-    return route
-      ? route.arcs.map(
-          (coordinates) =>
-            pathOf({ type: 'LineString', coordinates } as GeoPermissibleObjects) ?? '',
+    if (!route) {
+      return [];
+    }
+    const view = this.view();
+    const geometry = this.geometry();
+    const key = this.routeKey();
+    const progress = this.drawn() * route.legs.length;
+    return route.legs.map((leg, index) => ({
+      key: `${key}:${index}`,
+      d: arcSegments(
+        arcPrefix(leg.samples, Math.min(Math.max(progress - index, 0), 1)),
+        view,
+        geometry,
+      )
+        .map(
+          (segment) => 'M' + segment.map(({ x, y }) => `${x.toFixed(1)},${y.toFixed(1)}`).join('L'),
         )
-      : [];
+        .join(''),
+    }));
   });
+
+  /** The dash train runs once the whole arc is drawn, and never when motion is reduced. */
+  protected readonly flowing = computed(() => !this.reducedMotion() && this.drawn() >= 1);
 
   /** Pin text per city: "A"/"B", or stop numbers ("1", or "1, 5" on a round trip). */
   private readonly pins = computed(() => {
@@ -512,6 +549,7 @@ export class RouteMap {
   });
 
   private animationFrame = 0;
+  private drawFrame = 0;
   /** Where the running animation ends, so a quick second click builds on it. */
   private animationTarget: GlobeView | null = null;
   private scrollHintTimer: ReturnType<typeof setTimeout> | undefined;
@@ -527,6 +565,7 @@ export class RouteMap {
     afterNextRender(() => this.observeSize());
     this.destroyRef.onDestroy(() => {
       this.stopAnimation();
+      this.stopDraw();
       clearTimeout(this.scrollHintTimer);
     });
     this.watchReducedMotion();
@@ -537,6 +576,12 @@ export class RouteMap {
       },
       () => this.landState.set('failed'),
     );
+
+    // A new route draws its arc from A to B (at once when motion is reduced).
+    effect(() => {
+      const key = this.routeKey();
+      untracked(() => this.startDraw(key));
+    });
 
     // Turn to a newly chosen route (smoothly), and back to Europe when it is cleared. When only the
     // size of the map or the space the panels leave changes (a layout switch, a resize), a view the
@@ -847,6 +892,38 @@ export class RouteMap {
       }
     };
     this.animationFrame = requestAnimationFrame(step);
+  }
+
+  /** Draws the route arc from A to B over a time that grows with the number of legs; a second route restarts it. */
+  private startDraw(key: string): void {
+    this.stopDraw();
+    const legs = this.routeCities().length - 1;
+    if (legs < 1 || this.reducedMotion() || typeof requestAnimationFrame === 'undefined') {
+      this.drawn.set(1);
+      return;
+    }
+    const duration = Math.min(legs * DRAW_MS_PER_LEG, DRAW_MAX_MS);
+    this.drawn.set(0);
+    let started: number | null = null;
+    const step = (now: number) => {
+      started ??= now;
+      const t = Math.min(1, Math.max(0, (now - started - DRAW_DELAY_MS) / duration));
+      this.drawn.set(1 - Math.pow(1 - t, 2));
+      if (t < 1 && key === this.routeKey()) {
+        this.drawFrame = requestAnimationFrame(step);
+      } else {
+        this.drawFrame = 0;
+        this.drawn.set(1);
+      }
+    };
+    this.drawFrame = requestAnimationFrame(step);
+  }
+
+  private stopDraw(): void {
+    if (this.drawFrame) {
+      cancelAnimationFrame(this.drawFrame);
+      this.drawFrame = 0;
+    }
   }
 
   private stopAnimation(): void {

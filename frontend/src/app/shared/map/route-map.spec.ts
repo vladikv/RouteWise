@@ -152,7 +152,7 @@ describe('RouteMap', () => {
   it('draws the route as a great-circle path and states it in text once both cities are chosen', async () => {
     await select(3, 23);
 
-    const legs = map.querySelectorAll('path.route:not(.route--halo)');
+    const legs = map.querySelectorAll('path.route:not(.route--glow)');
     expect(legs).toHaveLength(1);
     expect(legs[0].getAttribute('d')).toMatch(/^M[\d.-]+,[\d.-]+L/);
     expect(city('Berlin').querySelector('.city__letter')?.textContent?.trim()).toBe('A');
@@ -481,28 +481,135 @@ describe('RouteMap', () => {
     });
   });
 
+  describe('glass globe', () => {
+    it('layers the tinted sea, land, a lime rim and a highlight, in this order', () => {
+      const classes = Array.from(svg().querySelectorAll(':scope > circle, :scope > path.land')).map(
+        (element) => element.getAttribute('class'),
+      );
+
+      expect(classes).toEqual([
+        'glass-halo',
+        'sea',
+        'land',
+        'glass-air',
+        'glass-sheen',
+        'glass-rim',
+      ]);
+    });
+
+    it('gives every globe its own gradient ids, which the highlight and the glow refer to', () => {
+      const other = TestBed.createComponent(RouteMap);
+      other.componentRef.setInput('cities', [BERLIN]);
+      other.detectChanges();
+      const ids = (root: HTMLElement) =>
+        Array.from(root.querySelectorAll('radialGradient')).map((gradient) => gradient.id);
+
+      const first = ids(map);
+      const second = ids(other.nativeElement as HTMLElement);
+
+      expect(first).toHaveLength(2);
+      expect(second).toHaveLength(2);
+      expect(first.filter((id) => second.includes(id))).toEqual([]);
+      expect(map.querySelector('circle.glass-sheen')?.getAttribute('fill')).toBe(
+        `url(#${first[0]})`,
+      );
+      expect(map.querySelector('circle.glass-air')?.getAttribute('fill')).toBe(`url(#${first[1]})`);
+    });
+  });
+
   describe('route animation', () => {
-    it('adds no moving dashes when motion is reduced, leaving the solid line', async () => {
+    const legs = (element: HTMLElement) =>
+      Array.from(element.querySelectorAll('path.route:not(.route--glow):not(.route--flow)'));
+    const points = (d: string | null) => (d?.match(/[\d.-]+,[\d.-]+/g) ?? []).length;
+
+    it('shows the whole lifted arc at once and adds no moving dashes when motion is reduced', async () => {
       await select(3, 23);
 
-      expect(map.querySelectorAll('path.route:not(.route--halo)')).toHaveLength(1);
+      expect(legs(map)).toHaveLength(1);
+      expect(points(legs(map)[0].getAttribute('d'))).toBe(49);
       expect(map.querySelector('path.route--flow')).toBeNull();
     });
 
-    it('runs a dash flow along each leg, in the direction of travel, unless motion is reduced', async () => {
-      vi.stubGlobal('matchMedia', () => ({ matches: false }));
-      const animated = TestBed.createComponent(RouteMap);
-      animated.componentRef.setInput('cities', [BERLIN, VIENNA, PARIS]);
-      animated.componentRef.setInput('originId', 3);
-      animated.componentRef.setInput('destinationId', 23);
-      await animated.whenStable();
-      const element = animated.nativeElement as HTMLElement;
+    describe('with motion', () => {
+      let frames: FrameRequestCallback[];
+      let animated: ComponentFixture<RouteMap>;
+      let element: HTMLElement;
 
-      const flow = element.querySelectorAll('path.route--flow');
-      const solid = element.querySelector('path.route:not(.route--halo):not(.route--flow)');
-      expect(flow).toHaveLength(1);
-      // Same geometry as the solid line, which starts at the origin (Berlin).
-      expect(flow[0].getAttribute('d')).toBe(solid?.getAttribute('d'));
+      /** Runs the queued animation frames at `elapsed` ms after the start. */
+      const step = async (elapsed: number) => {
+        frames.splice(0).forEach((callback) => callback(1000 + elapsed));
+        await animated.whenStable();
+      };
+      const lengths = () => legs(element).map((leg) => points(leg.getAttribute('d')));
+
+      beforeEach(async () => {
+        vi.stubGlobal('matchMedia', () => ({ matches: false }));
+        frames = [];
+        vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
+          frames.push(callback),
+        );
+        vi.stubGlobal('cancelAnimationFrame', () => undefined);
+        animated = TestBed.createComponent(RouteMap);
+        animated.componentRef.setInput('cities', [BERLIN, VIENNA, PARIS]);
+        element = animated.nativeElement as HTMLElement;
+        await animated.whenStable();
+      });
+
+      it('draws the arc from A to B, then runs a dash flow along it from the origin', async () => {
+        animated.componentRef.setInput('originId', 3);
+        animated.componentRef.setInput('destinationId', 23);
+        await animated.whenStable();
+        expect(lengths()).toEqual([0]); // nothing drawn yet
+        expect(element.querySelector('path.route--flow')).toBeNull();
+
+        await step(0); // the first frame starts the clock
+        await step(350 + 350); // the pause is over and half the time has passed
+        const partial = lengths()[0];
+        expect(partial).toBeGreaterThan(2);
+        expect(partial).toBeLessThan(49);
+        expect(element.querySelector('path.route--flow')).toBeNull();
+        expect(legs(element)[0].getAttribute('d')).toMatch(/^M[\d.-]+,[\d.-]+L/);
+
+        await step(5000);
+        expect(lengths()).toEqual([49]);
+        const flow = element.querySelectorAll('path.route--flow');
+        expect(flow).toHaveLength(1);
+        // Same geometry as the solid line, which starts at the origin (Berlin).
+        expect(flow[0].getAttribute('d')).toBe(legs(element)[0].getAttribute('d'));
+      });
+
+      it('draws the legs of a multi-stop route in order, one arc per leg', async () => {
+        animated.componentRef.setInput('stops', [3, 23, 18]);
+        await animated.whenStable();
+        await step(0);
+        await step(350 + 400); // inside the first leg
+        const [first, second] = lengths();
+        expect(first).toBeGreaterThan(2);
+        expect(second).toBe(0);
+
+        await step(350 + 1100); // inside the second leg
+        expect(lengths()[0]).toBe(49);
+        expect(lengths()[1]).toBeGreaterThan(2);
+
+        await step(10000);
+        expect(lengths()).toEqual([49, 49]);
+        expect(element.querySelectorAll('path.route--flow')).toHaveLength(2);
+      });
+
+      it('draws a newly chosen route again from the start', async () => {
+        animated.componentRef.setInput('originId', 3);
+        animated.componentRef.setInput('destinationId', 23);
+        await animated.whenStable();
+        await step(0);
+        await step(10000);
+        expect(lengths()).toEqual([49]);
+
+        animated.componentRef.setInput('destinationId', 18);
+        await animated.whenStable();
+
+        expect(lengths()).toEqual([0]);
+        expect(element.querySelector('path.route--flow')).toBeNull();
+      });
     });
   });
 

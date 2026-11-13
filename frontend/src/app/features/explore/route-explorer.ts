@@ -143,7 +143,13 @@ export class RouteExplorer {
   protected readonly destinationId = signal<number | null>(null);
   protected readonly priority = signal<TripPriority>(DEFAULT_PRIORITY);
   protected readonly travelers = signal(MIN_TRAVELERS);
+  /** '' while no date is chosen (the date was cleared): nothing is compared then. */
   protected readonly date = signal(this.defaultDate);
+  /**
+   * The quick date the user clicked, as explicit state: only one is active, even when another one
+   * names the same day, and it ends when the date is typed, picked or cleared.
+   */
+  protected readonly activeQuick = signal<string | null>(null);
 
   protected readonly forecastAvailable = computed(() => hasForecast(this.today, this.date()));
   protected readonly daysAhead = computed(() => daysBetween(this.today, this.date()));
@@ -233,7 +239,7 @@ export class RouteExplorer {
       if (!params || !cities) {
         return;
       }
-      untracked(() => this.applyState(this.parseState(params, cities)));
+      untracked(() => this.applyState(this.urlState(params, cities)));
     });
 
     // State → URL: a new route adds a history entry; other changes replace it.
@@ -245,7 +251,7 @@ export class RouteExplorer {
         return;
       }
       untracked(() => {
-        const fromUrl = this.parseState(params, cities);
+        const fromUrl = this.urlState(params, cities);
         if (sameState(state, fromUrl)) {
           return;
         }
@@ -292,10 +298,19 @@ export class RouteExplorer {
     );
   }
 
+  /** The date field changed: a date, or empty when it was cleared. Ends the active quick date. */
   protected setDate(value: string): void {
-    if (ISO_DATE.test(value)) {
+    if (value === '' || ISO_DATE.test(value)) {
       this.date.set(value);
+      this.activeQuick.set(null);
     }
+  }
+
+  /** Selects a quick date; the active one again deselects it and clears the date. */
+  protected toggleQuick(quick: { label: string; date: string }): void {
+    const deselect = this.activeQuick() === quick.label;
+    this.activeQuick.set(deselect ? null : quick.label);
+    this.date.set(deselect ? '' : quick.date);
   }
 
   private currentState(): ExplorerState {
@@ -311,9 +326,18 @@ export class RouteExplorer {
   private applyState(state: ExplorerState): void {
     this.originId.set(state.originId);
     this.destinationId.set(state.destinationId);
-    this.date.set(state.date);
+    if (state.date !== this.date()) {
+      this.date.set(state.date);
+      this.activeQuick.set(null);
+    }
     this.travelers.set(state.travelers);
     this.priority.set(state.priority);
+  }
+
+  /** The URL's state, except that a cleared date stays cleared while the URL has no date (it is never written). */
+  private urlState(params: ParamMap, cities: City[]): ExplorerState {
+    const state = this.parseState(params, cities);
+    return !params.has('date') && this.date() === '' ? { ...state, date: '' } : state;
   }
 
   /** Reads the URL; anything unknown or out of range falls back to the default. */
@@ -344,7 +368,7 @@ export class RouteExplorer {
     const params: Record<string, string | number> = {};
     if (state.originId !== null) params['from'] = state.originId;
     if (state.destinationId !== null) params['to'] = state.destinationId;
-    if (state.date !== this.defaultDate) params['date'] = state.date;
+    if (state.date !== '' && state.date !== this.defaultDate) params['date'] = state.date;
     if (state.travelers !== MIN_TRAVELERS) params['travelers'] = state.travelers;
     if (state.priority !== DEFAULT_PRIORITY) params['priority'] = state.priority;
     return params;
