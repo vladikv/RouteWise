@@ -231,6 +231,17 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
   - Unchanged: backend, API contracts, routes other than the new `/modes`, URL state of the explorer
   - Process: `ui-builder` builds each step, `ui-reviewer` reviews before each commit (all 🔴 fixed); stop after each step with `work/` screenshots; commits via the `commit` skill; never push
   - Done when: specs updated for changed markup (no test deleted without a stated reason) and new specs for the shell, rail, lanes, Modes page, route animation (reduced motion), label density, account popover, confirm dialog, Undo toast and restore failure, list expansion, pagination and keyboard navigation; `npm run lint`, `npm test` and `./mvnw verify` green; `after-*` screenshots of every screen at 1920/1280/375 in `docs/screenshots/`; `docs/AI_WORKFLOW.md` entry
+- [ ] `feat/living-globe`: an idle-rotating globe with a "My trips" layer, flatter route arcs, a New trip page whose panels fill the height and a more readable Modes page (frontend only, no API change)
+  - Depends on `fix/ui-polish` and `fix/ui-review-findings` (merged)
+  - Idle rotation on maps with no route selected (Home, New trip): a full turn in about 2 minutes; stops at once on hover, drag, wheel/zoom, keyboard use or a selected route, resumes after 10 s without interaction; off under `prefers-reduced-motion`, paused while the tab is hidden; reuses the per-frame re-projection that dragging uses
+  - "My trips" layer on Home (logged in): the next 20 upcoming trips from `GET /api/trips?from=<today>&sort=date&direction=asc&size=20` (deleted trips are excluded by the API), placed with the city list Home already loads; thin, low-opacity lifted arcs without animation that fade further while a route is selected; hover shows a small glass tooltip (title, date), click opens the trip (a wider invisible stroke as hit area); toggle "Show my trips" next to the zoom controls, saved in `localStorage` (try/catch), default on; the arcs are a pointer convenience hidden from assistive tech, the same trips stay reachable through Upcoming trips and the Trips page
+  - Flatter arcs: lift per radian 0.5 → 0.25 and maximum 30 % → 15 % of the radius, also for the "My trips" arcs
+  - New trip from 1280 px: the three columns have equal height and fill the viewport; the description textarea and the Notes field grow into the free space; the Create/Cancel bar sits at the bottom inside the form panel (same glass, rounded bottom corners); "What matters most?" as a 2×2 grid (one row only if all four fit), never one option alone on a line
+  - Modes page at the Trips width (84rem): cards with label left and value right on one line, values slightly larger; cards wrap 5 → 3+2 → 2 → 1; the chart uses the full width and the best mode for the shown metric gets the accent, the others a muted tone
+  - Done when: Playwright at 1920 and 1440 shows no page scroll on Home and New trip, no overflow in "What matters most?" and Modes values on one line; a frame-time probe while rotating with the trips layer on shows no long frames; specs for rotation start/stop/resume (fake timers, reduced motion, hidden tab), the trips layer (data, toggle and storage failure, tooltip, click, fade), the flatter arc values, the New trip layout and the Modes chart accent; `ui-reviewer` 🔴 fixed; `npm run lint` and `npm test` green
+- [x] `feat/parser-relative-dates`: the rule-based trip parser understands more relative dates
+  - "this weekend" (Saturday, or today on Saturday or Sunday, like the UI shortcut) and "next weekend" (the Saturday after that) are new; "next week" becomes next Monday, matching the UI shortcut (was today + 7); today, tomorrow, "in N days/weeks", "next <weekday>" (its next occurrence after today) and explicit dates such as "Dec 4" keep working
+  - Done when: a unit test per expression with a fixed clock (hand-computed dates, incl. Saturday/Sunday edge cases); `backend-reviewer` 🔴 fixed; `./mvnw verify` green
 - [ ] `docs/readme-demo`: README and demo recording
 
 ## Decisions log
@@ -402,6 +413,10 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
 | 2026-11-13 | "Upcoming trips" are the next 5 trips from today (`sort=date&direction=asc&from=<today>&size=5`) | Useful for planning and needs no creation-date sort, so the API contract stays unchanged |
 | 2026-11-13 | New `Modal` (native `<dialog>`, any content) beside the confirm `Dialog`; `Menu` gets an `end` placement, opaque when opened from the rail | The palette and the shortcuts list ask no question; the rail's backdrop filter keeps a nested panel from blurring the page |
 | 2026-11-13 | The header's search button (below 1024 px) still opens the Trips search; Ctrl/Cmd + K opens the palette at every width | Keeps the phone flow unchanged; the palette is a keyboard tool |
+| 2026-11-14 | Modes chart: the best mode for the shown metric gets the accent, the others a muted tone | Human choice; matches the comparison chart on Home, where only the recommended mode is lime |
+| 2026-11-14 | Parser "next week" means next Monday (was today + 7) | Human choice: the parser and the UI shortcut must agree on what "next week" is |
+| 2026-11-14 | The "My trips" globe layer uses the existing trip search (next 20 upcoming), no new endpoint | Enough to show where the user travels without clutter; the API contract stays unchanged |
+| 2026-11-14 | Parser: a weekday named with a weekend ("sunday this weekend") picks that day of the weekend; "the weekend" counts as this weekend | Found by the backend review; without it the Saturday won over the named Sunday |
 
 ## Backlog / ideas
 

@@ -602,3 +602,17 @@ corrected manually, and why.
 - Steering the look needs pictures. Code review alone could not judge "smoky" or "clearly visible glass", so each step stopped on screenshots.
 - The most serious defects were accessibility timing and focus problems that only showed when a real browser removed the element that had focus. The probes against the running app found them; jsdom specs alone would not have.
 
+## feat/parser-relative-dates
+
+**Delegated to AI**
+- Planning and implementation (main session): "this weekend", "next weekend", and "next week" as next Monday in `RuleBasedTripParser.findDate`, with a test per expression and a fixed clock.
+- Review: `backend-reviewer` (no 🔴).
+
+**Corrected manually / human decisions**
+- Human decision: "next week" follows the UI shortcut (next Monday), not today + 7.
+- The first build of the new patterns put raw backspace characters into the Java source. Doubled backslashes in a shell heredoc were collapsed on the way in, so `"\\b"` reached the file as `"\b"` and the tests failed. The lines were rewritten with the file editor.
+- After the review: a weekday named with a weekend now picks that day; "next week" is matched as a word; the today/tonight pattern became a constant; tests were added for Friday as today, "weekends", and the return split.
+
+**Why**
+- The parser and the UI shortcuts now agree on every relative date. Before, "next week" typed in free text and the "Next week" button gave different days.
+
