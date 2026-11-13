@@ -295,17 +295,18 @@ describe('RouteExplorer layouts', () => {
 
     it('keeps the map view the user set', async () => {
       const svg = explorer.querySelector('app-route-map svg') as SVGElement;
-      const initial = svg.getAttribute('viewBox');
+      const radius = () => svg.querySelector('circle.sea')?.getAttribute('r');
+      const initial = radius();
       svg.dispatchEvent(new WheelEvent('wheel', { deltaY: -400, bubbles: true, cancelable: true }));
       await fixture.whenStable();
-      const viewBox = svg.getAttribute('viewBox');
-      expect(viewBox).not.toBe(initial);
+      const zoomed = radius();
+      expect(zoomed).not.toBe(initial);
 
       await choose('Split');
       await choose('Map');
 
       expect(explorer.querySelector('app-route-map svg')).toBe(svg);
-      expect(svg.getAttribute('viewBox')).toBe(viewBox);
+      expect(radius()).toBe(zoomed);
     });
   });
 });

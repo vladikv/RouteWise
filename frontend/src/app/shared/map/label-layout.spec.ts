@@ -98,4 +98,18 @@ describe('layoutLabels', () => {
     expect(placed.length).toBeGreaterThan(0);
     expect(placed.length).toBeLessThan(cluster.length);
   });
+
+  it('gives a dot-only point no label but keeps its dot clear of other labels', () => {
+    // "Aaaa" would fit to the right of A, but the dot-only point B sits there.
+    const labels = layoutLabels(
+      [
+        { id: 1, x: 100, y: 100, text: 'Aaaa' },
+        { id: 2, x: 120, y: 100, text: 'Bbbb', dotOnly: true },
+      ],
+      METRICS,
+    );
+
+    expect(labels.get(2)).toBeNull();
+    expect(labels.get(1)?.side).toBe('left');
+  });
 });

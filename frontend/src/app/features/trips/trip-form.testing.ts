@@ -1,30 +1,31 @@
 import { ComponentFixture } from '@angular/core/testing';
-import { City, Trip } from '../../core/api/models';
+import { makeCity } from '../../core/api/city.testing';
+import { Trip } from '../../core/api/models';
 
 /** Test data and DOM helpers shared by the trip form specs. */
 
-export const BERLIN: City = {
+export const BERLIN = makeCity({
   id: 3,
   name: 'Berlin',
   country: 'DE',
   latitude: 52.52,
   longitude: 13.405,
-};
-export const VIENNA: City = {
+});
+export const VIENNA = makeCity({
   id: 23,
   name: 'Vienna',
   country: 'AT',
   latitude: 48.2082,
   longitude: 16.3738,
-};
-export const PRAGUE: City = {
+});
+export const PRAGUE = makeCity({
   id: 18,
   name: 'Prague',
   country: 'CZ',
   latitude: 50.0755,
   longitude: 14.4378,
-};
-export const CITIES: City[] = [BERLIN, PRAGUE, VIENNA];
+});
+export const CITIES = [BERLIN, PRAGUE, VIENNA];
 
 export const TRIP: Trip = {
   id: 7,

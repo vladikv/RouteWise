@@ -18,9 +18,18 @@ export interface CitySummary {
   country: string;
 }
 
+export type Continent =
+  'AFRICA' | 'ASIA' | 'EUROPE' | 'NORTH_AMERICA' | 'OCEANIA' | 'SOUTH_AMERICA';
+
 export interface City extends CitySummary {
   latitude: number;
   longitude: number;
+  continent: Continent;
+  /** Ground-connected region (e.g. EURASIA, JAPAN); ground modes need the same landmass. */
+  landmass: string;
+  capital: boolean;
+  /** 1 = labelled first on the map … 3 = only when zoomed in. */
+  labelRank: number;
 }
 
 /** Cost and CO₂ are per traveler, except CAR (per vehicle). */

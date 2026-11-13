@@ -1,14 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { City } from '../../core/api/models';
+import { makeCity } from '../../core/api/city.testing';
 import { CityPicker } from './city-picker';
 
-const city = (id: number, name: string, country: string): City => ({
-  id,
-  name,
-  country,
-  latitude: 0,
-  longitude: 0,
-});
+const city = (id: number, name: string, country: string) => makeCity({ id, name, country });
 const CITIES = [
   city(1, 'Berlin', 'DE'),
   city(2, 'Venice', 'IT'),
