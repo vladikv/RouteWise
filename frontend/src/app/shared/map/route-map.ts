@@ -15,12 +15,14 @@ import {
 } from '@angular/core';
 import { City } from '../../core/api/models';
 import { LAND_RINGS } from './europe-land';
-import { LabelRequest, LabelSide, PlacedLabel, layoutLabels } from './label-layout';
+import { Box, LabelRequest, LabelSide, PlacedLabel, layoutLabels } from './label-layout';
 import { MapPoint, Projection, createProjection, haversineKm, routeArc } from './projection';
 import {
+  FitFrame,
   MAX_ZOOM,
   MIN_ZOOM,
   View,
+  clampView,
   fitPoints,
   interpolateView,
   panBy,
@@ -53,6 +55,8 @@ const LAND_WEST = -30;
 const LAND_EAST = 48;
 const LAND_SOUTH = 33;
 const LAND_NORTH = 63;
+/** Kept between the view and the edge of the land data (drawing units), so the clipped coast never shows. */
+const LAND_EDGE = 8;
 /** Width (CSS pixels) over which the land fades into the sea at the edge of its data. */
 const FADE_PX = 90;
 /** A `wide` map switches to the wide view from this rendered width on (CSS pixels). */
@@ -65,8 +69,9 @@ const COVER_MARGIN = 48;
 /** Sizes in CSS pixels; they stay the same on screen at every zoom and map size. */
 const LABEL_PX = 13;
 const DOT_PX = 4.5;
-/** Space kept around a route when the map zooms to it, in CSS pixels. */
+/** Space kept around a route when the map zooms to it, in CSS pixels; more in fill mode, where controls float over the map. */
 const FIT_MARGIN_PX = 70;
+const FILL_FIT_MARGIN_PX = 96;
 const ZOOM_STEP = 1.6;
 /** A pointer that moves further than this between press and release is a drag, not a click. */
 const DRAG_THRESHOLD_PX = 4;
@@ -100,13 +105,20 @@ export class RouteMap {
   readonly interactive = input(true);
   readonly wide = input(false);
   /**
-   * Layout hook: fill the height of the host instead of following the drawing's
-   * aspect ratio (the drawing stays whole and centred, no stretching).
+   * Layout hook: fill the width and height of the host instead of following the drawing's
+   * aspect ratio. The view takes the host's aspect ratio and never leaves the land data, so
+   * the map has no letterbox bands and no visible edges at any size.
    */
   readonly fill = input(false);
-  /** Layout hook: where the zoom buttons and the hint sit; `bottom` keeps them clear of side panels. */
-  readonly controls = input<'corner' | 'bottom'>('corner');
-  /** In fill mode: pixels at the left and right covered by floating panels; the cities are centred between them. */
+  /**
+   * Layout hook: where the zoom buttons sit. `corner` is the top right; `bottom-end` the bottom
+   * right, `insetEnd` pixels in from the edge so floating panels stay clear of it.
+   */
+  readonly controls = input<'corner' | 'bottom-end'>('corner');
+  /**
+   * In fill mode: pixels at the left and right covered by floating panels. The map is centred
+   * between them and a route is fitted into the space they leave free.
+   */
   readonly insetStart = input(0);
   readonly insetEnd = input(0);
   /** An ordered route of city ids (2+ stops); replaces origin/destination when given. */
@@ -142,7 +154,7 @@ export class RouteMap {
 
   /** The whole-map view (zoom 1): near-square, or landscape for a wide map. */
   protected readonly base = computed<View>(() => {
-    if (this.fill() && this.renderedHeight() > 0) {
+    if (this.useFill()) {
       return this.coverView();
     }
     if (!this.wide() || this.renderedWidth() < WIDE_MIN_PX) {
@@ -162,51 +174,128 @@ export class RouteMap {
       height: bottom - top,
     };
   });
+  /** The land data as a view, inset by {@link LAND_EDGE}: in fill mode the map never shows beyond it. */
+  private readonly landBox = computed<View>(() => {
+    const project = this.projection();
+    const northWest = project({ longitude: LAND_WEST, latitude: LAND_NORTH });
+    const southEast = project({ longitude: LAND_EAST, latitude: LAND_SOUTH });
+    return {
+      x: northWest.x + LAND_EDGE,
+      y: northWest.y + LAND_EDGE,
+      width: southEast.x - northWest.x - 2 * LAND_EDGE,
+      height: southEast.y - northWest.y - 2 * LAND_EDGE,
+    };
+  });
+  /** In fill mode the area the view may move in: all the land. Otherwise the base view. */
+  private readonly bounds = computed<View>(() => (this.useFill() ? this.landBox() : this.base()));
+  private readonly useFill = computed(() => this.fill() && this.renderedHeight() > 0);
+  /** The container as seen by the route fit; undefined outside fill mode. */
+  private readonly frame = computed<FitFrame | undefined>(() =>
+    this.useFill()
+      ? {
+          width: this.renderedWidth(),
+          height: this.renderedHeight(),
+          start: this.insetStart(),
+          end: this.insetEnd(),
+        }
+      : undefined,
+  );
   /**
-   * Fill mode: a view with the container's aspect ratio (no letterbox) that
-   * shows all cities, centred in the area between the side insets.
+   * Fill mode, the whole-map view (zoom 1): the container's aspect ratio (no letterbox), all
+   * cities in the area between the side insets. It may extend past the land data.
    */
-  private readonly coverView = computed<View>(() => {
+  private readonly coverView = computed<View>(() => this.coverAt(this.fitUnit()));
+  /**
+   * Fill mode: the view shown at rest, the whole-map view but never larger than the land data,
+   * so no edge of it can show at any aspect ratio. Cities it leaves out are reached by panning.
+   */
+  private readonly restView = computed<View>(() => {
+    if (!this.useFill()) {
+      return this.base();
+    }
+    const box = this.landBox();
+    const unit = Math.min(
+      this.fitUnit(),
+      box.width / this.renderedWidth(),
+      box.height / this.renderedHeight(),
+    );
+    const view = this.coverAt(unit);
+    return clampView(view, view, box);
+  });
+  /** Drawing units per pixel at which all cities fit between the insets, with a margin. */
+  private readonly fitUnit = computed(() => {
+    const project = this.projection();
+    const points = this.cities().map((city) => project(city));
+    const xs = points.map((point) => point.x);
+    const ys = points.map((point) => point.y);
+    const free = this.freeWidth();
+    return Math.max(
+      (Math.max(...xs) - Math.min(...xs) + 2 * COVER_MARGIN) / free,
+      (Math.max(...ys) - Math.min(...ys) + 2 * COVER_MARGIN) / this.renderedHeight(),
+    );
+  });
+  /** Width in pixels the panels leave free (never less than a small strip). */
+  private freeWidth(): number {
+    const width = this.renderedWidth();
+    return Math.max(width - this.insetStart() - this.insetEnd(), Math.min(width, 240));
+  }
+
+  /** A view with the container's aspect ratio at `unit`, with the cities' centre in the free area. */
+  private coverAt(unit: number): View {
     const project = this.projection();
     const points = this.cities().map((city) => project(city));
     const xs = points.map((point) => point.x);
     const ys = points.map((point) => point.y);
     const width = this.renderedWidth();
     const height = this.renderedHeight();
-    const free = Math.max(width - this.insetStart() - this.insetEnd(), Math.min(width, 240));
-    const unit = Math.max(
-      (Math.max(...xs) - Math.min(...xs) + 2 * COVER_MARGIN) / free,
-      (Math.max(...ys) - Math.min(...ys) + 2 * COVER_MARGIN) / height,
-    );
     const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
     const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
-    const freeCenter = this.insetStart() + free / 2;
+    const freeCenter = this.insetStart() + this.freeWidth() / 2;
     return {
       x: centerX - unit * freeCenter,
       y: centerY - (unit * height) / 2,
       width: unit * width,
       height: unit * height,
     };
-  });
-  /** Edges of the land data, where the fill view fades the land into the sea instead of cutting it off. */
+  }
+  /**
+   * Where the fill view reaches past the land data (after a route fit that needed more room than
+   * the land has, or a zoom out), the land fades into the sea instead of ending in a hard edge.
+   */
   protected readonly fades = computed(() => {
+    const view = this.view();
+    const box = this.landBox();
+    const tolerance = 0.01; // rounding: a view that exactly fits the box is not beyond it
+    const beyond =
+      view.x < box.x - tolerance ||
+      view.y < box.y - tolerance ||
+      view.x + view.width > box.x + box.width + tolerance ||
+      view.y + view.height > box.y + box.height + tolerance;
+    if (!this.useFill() || !beyond) {
+      return null;
+    }
     const project = this.projection();
     const northWest = project({ longitude: LAND_WEST, latitude: LAND_NORTH });
     const southEast = project({ longitude: LAND_EAST, latitude: LAND_SOUTH });
-    const size = (FADE_PX * this.base().width) / Math.max(this.renderedWidth(), 1);
+    const size = FADE_PX * this.unit();
+    // Reaches one stroke width past the data so the coast's clipped edge is covered completely.
+    const outside = 3 * this.unit();
     return {
-      west: northWest.x,
-      east: southEast.x,
-      north: northWest.y,
-      south: southEast.y,
-      size,
-      width: southEast.x - northWest.x,
-      height: southEast.y - northWest.y,
+      west: northWest.x - outside,
+      east: southEast.x + outside,
+      north: northWest.y - outside,
+      south: southEast.y + outside,
+      size: size + outside,
+      width: southEast.x - northWest.x + 2 * outside,
+      height: southEast.y - northWest.y + 2 * outside,
     };
   });
   protected readonly isWideView = computed(() => this.base() !== BASE);
   protected readonly aspectRatio = computed(() => `${this.base().width} / ${this.base().height}`);
   private lastBase: View | null = null;
+  private lastRoute: unknown = null;
+  /** True once the user has zoomed or moved the map by hand since the last route or fit. */
+  private adjusted = false;
 
   /** All land shapes as one SVG path in drawing coordinates. */
   protected readonly land = computed(() => landPath(this.projection()));
@@ -299,13 +388,7 @@ export class RouteMap {
         right: right - edge,
         bottom: bottom - edge,
       },
-      // The zoom buttons (top right) and the hint (bottom left) sit over the drawing.
-      reserved: interactive
-        ? [
-            { left: right - 60 * unit, top: view.y, right, bottom: view.y + 140 * unit },
-            { left: view.x, top: bottom - 30 * unit, right: view.x + 240 * unit, bottom },
-          ]
-        : [],
+      reserved: interactive ? this.controlZones(view, unit) : [],
     });
 
     const routeCities = this.routeCities();
@@ -327,6 +410,26 @@ export class RouteMap {
       };
     });
   });
+
+  /** Where the zoom buttons and the hint cover the drawing, so no label is placed there. */
+  private controlZones(view: View, unit: number): Box[] {
+    const right = view.x + view.width;
+    const bottom = view.y + view.height;
+    if (this.controls() === 'corner') {
+      return [
+        { left: right - 60 * unit, top: view.y, right, bottom: view.y + 140 * unit },
+        { left: view.x, top: bottom - 30 * unit, right: view.x + 240 * unit, bottom },
+      ];
+    }
+    const end = right - this.insetEnd() * unit;
+    const middle =
+      view.x +
+      (this.insetStart() + (view.width / unit - this.insetStart() - this.insetEnd()) / 2) * unit;
+    return [
+      { left: end - 60 * unit, top: bottom - 140 * unit, right: end, bottom },
+      { left: middle - 120 * unit, top: bottom - 30 * unit, right: middle + 120 * unit, bottom },
+    ];
+  }
 
   /** Details for the city under the pointer or keyboard focus, positioned over the map. */
   protected readonly card = computed(() => {
@@ -396,21 +499,36 @@ export class RouteMap {
     afterNextRender(() => this.observeSize());
     this.destroyRef.onDestroy(() => this.stopAnimation());
 
-    // Zoom to a newly chosen route; back out when it is cleared. A change of the
-    // whole-map view (resize across the wide threshold) jumps without animation.
+    // Zoom to a newly chosen route; back out when it is cleared. When only the size of the map or
+    // the space the panels leave changes (a layout switch, a resize), a view the user has moved is
+    // kept (same centre, same zoom relative to the whole map) and otherwise the route is fitted
+    // again, without animation.
     effect(() => {
       const route = this.route();
       const interactive = this.interactive();
       const base = this.base();
+      const rest = this.restView();
+      const frame = this.frame();
+      const bounds = this.bounds();
       untracked(() => {
+        const routeChanged = route !== this.lastRoute;
         const baseChanged = base !== this.lastBase;
+        const previousBase = this.lastBase;
+        this.lastRoute = route;
         this.lastBase = base;
+        if (routeChanged) {
+          this.adjusted = false;
+        } else if (this.adjusted) {
+          if (baseChanged && previousBase) {
+            this.keepView(previousBase, base, bounds);
+          }
+          return;
+        }
         const animate = interactive && !baseChanged;
-        const unitAtBase = base.width / Math.max(this.renderedWidth(), 1);
         if (route) {
-          this.moveTo(fitPoints(route.points, base, FIT_MARGIN_PX * unitAtBase), animate);
+          this.moveTo(fitPoints(route.points, base, this.fitMargin(base), frame, bounds), animate);
         } else if (baseChanged || this.routeCities().length === 0) {
-          this.moveTo({ ...base }, animate);
+          this.moveTo({ ...rest }, animate);
         }
       });
     });
@@ -453,21 +571,55 @@ export class RouteMap {
   // --- Zoom buttons and keys ------------------------------------------------------
 
   protected zoomIn(): void {
-    this.moveTo(zoomAt(this.view(), this.base(), ZOOM_STEP, this.center()), true);
+    this.zoomBy(ZOOM_STEP);
   }
 
   protected zoomOut(): void {
-    this.moveTo(zoomAt(this.view(), this.base(), 1 / ZOOM_STEP, this.center()), true);
+    this.zoomBy(1 / ZOOM_STEP);
+  }
+
+  private zoomBy(factor: number): void {
+    this.adjusted = true;
+    this.moveTo(zoomAt(this.view(), this.base(), factor, this.center(), this.bounds()), true);
   }
 
   /** Shows the whole route, or the whole map when there is none. */
   protected fit(): void {
     const route = this.route();
     const base = this.base();
-    const unitAtBase = base.width / Math.max(this.renderedWidth(), 1);
+    this.adjusted = false;
     this.moveTo(
-      route ? fitPoints(route.points, base, FIT_MARGIN_PX * unitAtBase) : { ...base },
+      route
+        ? fitPoints(route.points, base, this.fitMargin(base), this.frame(), this.bounds())
+        : { ...this.restView() },
       true,
+    );
+  }
+
+  /** Space kept around a route, in drawing units at the whole-map scale. */
+  private fitMargin(base: View): number {
+    const margin = this.useFill() ? FILL_FIT_MARGIN_PX : FIT_MARGIN_PX;
+    return margin * (base.width / Math.max(this.renderedWidth(), 1));
+  }
+
+  /** After the whole-map view changed: same centre, same zoom relative to it. */
+  private keepView(previousBase: View, base: View, bounds: View): void {
+    const view = this.view();
+    const zoom = zoomOf(view, previousBase);
+    const width = base.width / zoom;
+    const height = base.height / zoom;
+    this.moveTo(
+      clampView(
+        {
+          x: view.x + view.width / 2 - width / 2,
+          y: view.y + view.height / 2 - height / 2,
+          width,
+          height,
+        },
+        base,
+        bounds,
+      ),
+      false,
     );
   }
 
@@ -506,7 +658,8 @@ export class RouteMap {
     event.preventDefault(); // zoom the map instead of scrolling the page
     const factor = Math.exp(-event.deltaY * 0.0018);
     this.stopAnimation();
-    this.view.set(zoomAt(this.view(), this.base(), factor, this.toDrawing(event)));
+    this.adjusted = true;
+    this.view.set(zoomAt(this.view(), this.base(), factor, this.toDrawing(event), this.bounds()));
   }
 
   protected onPointerDown(event: PointerEvent): void {
@@ -534,7 +687,10 @@ export class RouteMap {
       if (this.pinchDistance > 0 && spread > 0) {
         const [a, b] = [...this.pointers.values()];
         const middle = this.toDrawing({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 });
-        this.view.set(zoomAt(this.view(), this.base(), spread / this.pinchDistance, middle));
+        this.adjusted = true;
+        this.view.set(
+          zoomAt(this.view(), this.base(), spread / this.pinchDistance, middle, this.bounds()),
+        );
       }
       this.pinchDistance = spread;
       this.dragged = true;
@@ -552,6 +708,7 @@ export class RouteMap {
       (event.currentTarget as Element).setPointerCapture?.(event.pointerId);
     }
     this.stopAnimation();
+    this.adjusted = true;
     const unit = this.unit();
     this.view.set(
       panBy(
@@ -559,6 +716,7 @@ export class RouteMap {
         this.base(),
         -(event.clientX - previous.x) * unit,
         -(event.clientY - previous.y) * unit,
+        this.bounds(),
       ),
     );
   }
@@ -635,12 +793,14 @@ export class RouteMap {
         point.y < view.y ||
         point.y > view.y + view.height)
     ) {
+      this.adjusted = true;
       this.moveTo(
         panBy(
           view,
           this.base(),
           point.x - (view.x + view.width / 2),
           point.y - (view.y + view.height / 2),
+          this.bounds(),
         ),
         true,
       );

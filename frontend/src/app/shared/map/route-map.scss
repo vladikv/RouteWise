@@ -226,20 +226,22 @@
   }
 }
 
-.frame--controls-bottom {
+/* Bottom right, clear of the panels floating over the map (--inset-end is their width). */
+.frame--controls-end {
   .zoom {
-    inset: auto auto var(--space-8) 50%;
-    flex-direction: row;
-    translate: -50%;
+    inset: auto var(--inset-end, 0px) var(--space-6) auto;
+    margin-right: var(--space-4);
+    background: var(--glass-bg-menu);
+    -webkit-backdrop-filter: var(--glass-filter);
+    backdrop-filter: var(--glass-filter);
+    box-shadow: var(--glass-highlight), var(--shadow-card);
   }
 
-  .zoom button + button {
-    border-top: 0;
-    border-left: 1px solid var(--color-border);
-  }
-
+  /* Centred in the space the panels leave free. */
   .hint {
-    left: 50%;
+    left: calc(
+      var(--inset-start, 0px) + (100% - var(--inset-start, 0px) - var(--inset-end, 0px)) / 2
+    );
     translate: -50%;
     white-space: nowrap;
   }

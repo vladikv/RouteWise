@@ -1,3 +1,9 @@
+:host {
+  display: block;
+  /* In a narrow panel the table gets tighter instead of scrolling sideways. */
+  container-type: inline-size;
+}
+
 .summary {
   margin-bottom: var(--space-3);
 }
@@ -112,4 +118,91 @@ h3 {
 .badge--hazard {
   border-color: var(--color-accent);
   color: var(--color-accent-text);
+}
+
+/* In a narrow panel (a dock or a phone) every mode becomes a small card instead of a row of five
+   columns: the mode and its score on top, time, cost and CO₂ side by side below. */
+@container (max-width: 30rem) {
+  table,
+  tbody {
+    display: block;
+  }
+
+  /* The column headers stay for assistive technology; each value carries its own label. */
+  thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  tr {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-1) var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  th,
+  td {
+    padding: 0;
+    border: 0;
+  }
+
+  tbody th {
+    grid-column: 1 / span 2;
+  }
+
+  .score {
+    grid-column: 3;
+    grid-row: 1;
+    text-align: right;
+  }
+
+  .score__bar {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .time,
+  .cost,
+  .co2 {
+    grid-row: 2;
+    text-align: left;
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  .numeric::before {
+    display: block;
+    content: attr(data-label);
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    font-weight: 400;
+  }
+
+  .reason {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .recommended {
+    background: var(--color-highlight-bg);
+    box-shadow: inset 4px 0 0 var(--color-highlight-edge);
+  }
+
+  .recommended > * {
+    background: none;
+    box-shadow: none;
+  }
+
+  .mode {
+    display: inline-block;
+  }
 }

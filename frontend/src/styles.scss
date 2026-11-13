@@ -118,8 +118,14 @@
   --space-6: 1.5rem;
   --space-8: 2rem;
   --content-width: 68rem;
-  /* Header bar: its padding plus one 2.75rem control; the Home map stage fills the rest of the viewport. */
-  --header-height: 4.25rem;
+  /* Height of the header bar (measured: padding plus the nav pill); the Home stage fills the rest of the viewport. */
+  --header-height: 4.625rem;
+}
+
+@media (max-width: 47.99rem) {
+  :root {
+    --header-height: 4.25rem;
+  }
 }
 
 /* Light theme: white glass over soft lime glows, ink text. Same hues as the dark palette. */

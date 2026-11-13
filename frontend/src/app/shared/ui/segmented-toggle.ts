@@ -10,6 +10,8 @@ import {
 export interface ToggleOption<T extends string = string> {
   value: T;
   label: string;
+  /** Optional decorative icon: the `d` of one 24 by 24 stroked SVG path. The label stays visible. */
+  icon?: string;
 }
 
 /**
@@ -32,6 +34,11 @@ export interface ToggleOption<T extends string = string> {
         >
           @if (option.value === value()) {
             <span aria-hidden="true">✓</span>
+          }
+          @if (option.icon) {
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path [attr.d]="option.icon" />
+            </svg>
           }
           {{ option.label }}
         </button>
@@ -78,6 +85,16 @@ export interface ToggleOption<T extends string = string> {
       border-color: var(--color-primary-ink);
       background: var(--color-selected-bg);
       color: var(--color-text);
+    }
+
+    .icon {
+      width: 1.1rem;
+      height: 1.1rem;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
     button[aria-checked='true'] span {

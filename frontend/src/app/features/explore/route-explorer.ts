@@ -19,6 +19,7 @@ import { CityPicker } from '../../shared/ui/city-picker';
 import { GlassPanel } from '../../shared/ui/glass-panel';
 import { PriorityPicker } from '../../shared/ui/priority-picker';
 import { ErrorMessage } from '../../shared/ui/error-message';
+import { SegmentedToggle, ToggleOption } from '../../shared/ui/segmented-toggle';
 import { Spinner } from '../../shared/ui/spinner';
 import {
   addDaysIso,
@@ -33,12 +34,28 @@ import { MODE_LABELS, PRIORITIES, travelersLabel } from '../../shared/util/label
 import { ComparisonChart } from '../trips/comparison/comparison-chart';
 import { ComparisonPanel } from '../trips/comparison/comparison-panel';
 import { LegComparison, legComparison } from '../trips/comparison/leg-comparison';
+import { HomeLayout, HomeLayoutChoice } from './home-layout';
 import { WeatherCard } from './weather-card';
 
 const MIN_TRAVELERS = 1;
 const MAX_TRAVELERS = 9;
 const DEFAULT_PRIORITY: TripPriority = 'BALANCED';
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** Width of a floating panel in the Map layout, its distance from the map edge and the air beside it (rem). */
+const DOCK_WIDTH = 24;
+const DOCK_COLLAPSED_WIDTH = 14;
+const DOCK_OFFSET = 1.5;
+const DOCK_AIR = 1;
+const REM_PX = 16;
+
+const LAYOUT_OPTIONS: ToggleOption<HomeLayoutChoice>[] = [
+  {
+    value: 'map',
+    label: 'Map',
+    icon: 'M9 4 3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14',
+  },
+  { value: 'split', label: 'Split', icon: 'M3 5h18v14H3zM14 5v14' },
+];
 
 interface ExplorerState {
   originId: number | null;
@@ -54,11 +71,12 @@ interface ExplorerState {
  * it. The selection lives in the URL, so it can be shared and Back restores the
  * previous route. "Save as trip" carries it to the trip form.
  *
- * One template, three layouts (see `LayoutBreakpoint`): from 1280 px the map
- * fills the stage with two collapsible glass panels floating over it; from
- * 768 px the map, the settings and the results are stacked; below that the
- * settings and results live in a bottom sheet under the map. The settings and
- * results exist once (templates rendered in one place), so ids never repeat.
+ * One template, three arrangements, and the settings and results are rendered once (so ids
+ * never repeat and switching never recreates them or refetches). From 1440 px the user can choose
+ * between Map (the map fills the stage, two glass panels float over it) and Split (the map on
+ * the left, settings and results on the right; stacked below 1024 px); below 768 px the
+ * settings and results live in a bottom sheet under the map. Map and Split only differ in CSS
+ * placement, so cities, priority, date, travelers, results and the map view survive a switch.
  */
 @Component({
   selector: 'app-route-explorer',
@@ -74,6 +92,7 @@ interface ExplorerState {
     ComparisonChart,
     ComparisonPanel,
     ErrorMessage,
+    SegmentedToggle,
     Spinner,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -86,14 +105,30 @@ export class RouteExplorer {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
-  protected readonly layout = inject(LayoutBreakpoint).layout;
+  protected readonly homeLayout = inject(HomeLayout);
+  private readonly breakpoint = inject(LayoutBreakpoint);
+
+  /** Phones: the settings and results go into a bottom sheet. */
+  protected readonly sheet = computed(() => this.breakpoint.layout() === 'narrow');
+  /** The arrangement on screen; Map only exists from 1440 px and never on a phone. */
+  protected readonly arrangement = computed(() =>
+    this.sheet() ? 'sheet' : this.homeLayout.effective(),
+  );
+  /** Panels that float over the map scroll on their own; in Split the column beside the map does. */
+  protected readonly dockScroll = computed(() => this.arrangement() === 'map');
+  protected readonly sideScroll = computed(
+    () => this.arrangement() === 'split' && this.homeLayout.sideBySide(),
+  );
+  protected readonly layoutOptions = LAYOUT_OPTIONS;
   protected readonly formCollapsed = signal(false);
   protected readonly resultsCollapsed = signal(false);
   protected readonly sheetState = signal<SheetState>('peek');
 
-  /** Pixels a floating panel covers at its side of the map (see  in explorer-stage.scss: 24rem + 1.5rem inset + 1rem air). */
+  /** Pixels a floating panel covers at its side of the map (its width, offset and some air). */
   protected readonly insetStart = computed(() => this.dockInset(this.formCollapsed()));
   protected readonly insetEnd = computed(() => this.dockInset(this.resultsCollapsed()));
+  /** No comparison yet: in the Map layout the results panel is only a small hint. */
+  protected readonly resultsIdle = computed(() => this.request() === undefined);
 
   protected readonly travelersLabel = travelersLabel;
   protected readonly today = todayIso();
@@ -231,10 +266,10 @@ export class RouteExplorer {
   }
 
   private dockInset(collapsed: boolean): number {
-    if (this.layout() !== 'wide') {
+    if (this.arrangement() !== 'map') {
       return 0;
     }
-    return (collapsed ? 14 + 2.5 : 24 + 2.5) * 16;
+    return ((collapsed ? DOCK_COLLAPSED_WIDTH : DOCK_WIDTH) + DOCK_OFFSET + DOCK_AIR) * REM_PX;
   }
 
   protected select(selection: RouteSelection): void {

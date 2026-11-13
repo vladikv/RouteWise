@@ -4,7 +4,9 @@
   class="frame"
   [class.frame--interactive]="interactive()"
   [class.frame--fill]="fill()"
-  [class.frame--controls-bottom]="controls() === 'bottom'"
+  [class.frame--controls-end]="controls() === 'bottom-end'"
+  [style.--inset-start.px]="insetStart()"
+  [style.--inset-end.px]="insetEnd()"
 >
   <svg
     #svg
@@ -35,8 +37,7 @@
       [attr.height]="whole.height"
     />
     <path class="land" [attr.d]="land()" />
-    @if (fill()) {
-      @let f = fades();
+    @if (fades(); as f) {
       <defs>
         <linearGradient id="map-fade-start" x1="0" x2="1" y1="0" y2="0">
           <stop offset="0" class="fade-stop" stop-opacity="1" />

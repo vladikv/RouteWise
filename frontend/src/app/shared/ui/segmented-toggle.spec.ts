@@ -35,6 +35,22 @@ describe('SegmentedToggle', () => {
     element.remove();
   });
 
+  it('shows an optional decorative icon next to the visible label', async () => {
+    const fixture = TestBed.createComponent(Host);
+    fixture.componentInstance.options[0].icon = 'M3 5h18v14H3z';
+    document.body.appendChild(fixture.nativeElement);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    const radios = element.querySelectorAll<HTMLElement>('[role="radio"]');
+
+    expect(radios[0].querySelector('svg[aria-hidden="true"] path')?.getAttribute('d')).toBe(
+      'M3 5h18v14H3z',
+    );
+    expect(radios[0].textContent).toContain('Board');
+    expect(radios[1].querySelector('svg')).toBeNull();
+    element.remove();
+  });
+
   it('selects on click', async () => {
     const { fixture, element, radios } = await setup();
     radios()[1].click();

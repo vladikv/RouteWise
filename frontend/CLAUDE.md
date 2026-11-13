@@ -87,9 +87,13 @@ src/
   `[stops]` (an ordered list of city ids), draws every leg with numbered pins
   and emits `cityPick` instead. With `[wide]="true"` (home page) a map
   at least 720 px wide shows the whole land outline in a landscape view; below
-  that, and on the small maps, it keeps the near-square view. `[fill]` makes the map fill its
-  container (Home wide and narrow), `controls` (`corner` | `bottom`) places the zoom buttons and
-  `insetStart`/`insetEnd` (px) keep the fitted route clear of floating panels. The route is
+  that, and on the small maps, it keeps the near-square view. `[fill]` makes the map take its
+  container's aspect ratio (no letterbox): the whole-map view shows all cities between the panels; the view at rest is
+  never larger than the land data (no visible edge at any size) and the user can pan within it; where a route fit or
+  zoom-out reaches past the land, it fades into the sea. `controls` (`corner` | `bottom-end`) places the zoom buttons
+  (`bottom-end`: bottom right, `insetEnd` px in from the edge, clear of the panels) and `insetStart`/`insetEnd` (px) are
+  the widths of floating panels: `fitPoints` centres a route in the space they leave free. A view the user moved is kept
+  (same centre and relative zoom) when the map resizes or a layout switch changes the space. The route is
   drawn with a non-scaling stroke and no dash pattern, so it stays crisp when zooming. The land data
   (`europe-land.ts`) comes from `scripts/gen-europe-land.py`; its box must match
   `LAND_WEST`/`LAND_EAST` in `route-map.ts`. `ComparisonChart` shows one metric at a time (switched with `Tabs`) with the
@@ -106,10 +110,23 @@ src/
   `legComparison(comparison, index)`). A two-stop trip and the home explorer
   show that single leg as before; a multi-stop trip uses `ItineraryView`
   (leg timeline, whole-trip totals, each leg's details).
-- **Home layouts** (`LayoutBreakpoint.layout()`: `wide` >= 1280 px, `medium` 768-1279 px,
-  `narrow` < 768 px): wide = full-bleed map with two floating `GlassPanel`s (settings left, with the
-  page `<h1>`; results right, with `WeatherCard`), both collapsible; medium = map, settings and
-  results stacked; narrow = map plus a `BottomSheet` (peek/expanded, draggable) with settings and results.
+- **Home layouts** (`features/explore/`): two layouts, **Map** and **Split**. `HomeLayout` (`home-layout.ts`)
+  holds the preference (`'map' | 'split'`, default Split, `localStorage` key `routewise.homeLayout`, every
+  access in try/catch, invalid or failing storage = Split) and `effective()`: Map only while the viewport is
+  at least 1440 px (live `matchMedia`), otherwise Split; falling back never overwrites the saved choice.
+  `sideBySide()` is true from 1024 px. A `SegmentedToggle` (icon + label, `stage__toolbar`, floating over the
+  map) offers the choice only from 1440 px. `RouteExplorer` renders **one template once**: the map, the
+  settings dock and the results dock are the same elements in both layouts and `explorer-stage.scss` only moves
+  them (class `stage--map` / `stage--split` / `stage--sheet`), so switching keeps cities, priority, date,
+  travelers, results and the map view and issues no request. Never put the form or results in two `@if`
+  branches. Split: map 58 % at the left, the right column (`stage__side`, focusable scroll region from 1024 px)
+  holds settings and results; stacked below 1024 px. Map: map fills the stage, two floating `GlassPanel` docks
+  (collapsible, 24rem; the settings fit 1440x900 without scrolling: short intro, 2x2 priorities without
+  descriptions, compact spacing); the empty results dock is a hint chip ("Pick two cities to compare") until a
+  comparison is requested. Phones (< 768 px, `LayoutBreakpoint` `narrow`): map plus `BottomSheet` with settings
+  and results. Docks adapt through container queries (route bar, `ComparisonPanel` turns its table into small
+  cards below 30rem instead of scrolling sideways). `--header-height` is the measured header height (the stage is
+  `100dvh - header`).
 - **Trips list** (`features/trips/list/`): `TripToolbar` (row 1: search, Board/List
   `SegmentedToggle`, New trip; row 2: `FilterGroup`s Priority and Mode with counts from the full list;
   result count "3 of 5 trips" in a `role="status"` and "Clear filters"; below 768 px the groups move

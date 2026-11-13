@@ -2,10 +2,15 @@
 
 .route-bar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  /* From above To with the swap button beside them; side by side once the dock is wide. */
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: var(--space-3);
   margin-bottom: var(--space-4);
+
+  app-city-picker:last-child {
+    grid-column: 1;
+  }
 }
 
 .swap {
@@ -31,22 +36,34 @@
   }
 }
 
-/* Narrow containers: From above To, the swap button beside them. */
-.route-bar--stacked {
-  grid-template-columns: minmax(0, 1fr) auto;
+.route-bar .swap {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  transform: rotate(90deg);
 
-  app-city-picker:last-child {
-    grid-column: 1;
+  &:hover:not(:disabled) {
+    transform: rotate(270deg);
   }
+}
 
-  .swap {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    align-self: center;
-    transform: rotate(90deg);
+@container (min-width: 34rem) {
+  .route-bar {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 
-    &:hover:not(:disabled) {
-      transform: rotate(270deg);
+    app-city-picker:last-child {
+      grid-column: auto;
+    }
+
+    .swap {
+      grid-column: auto;
+      grid-row: auto;
+      align-self: auto;
+      transform: none;
+
+      &:hover:not(:disabled) {
+        transform: rotate(180deg);
+      }
     }
   }
 }
@@ -65,14 +82,7 @@
   font-weight: 600;
 }
 
-.settings--row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4) var(--space-6);
-}
-
 .when {
-  flex: 1 1 14rem;
   min-width: 0;
 }
 
@@ -131,6 +141,17 @@
   color: var(--color-text);
 }
 
+.travelers {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+
+  .settings__label {
+    margin: 0;
+  }
+}
+
 .stepper {
   display: inline-flex;
   align-items: center;
@@ -153,6 +174,47 @@
 
 .links {
   margin-top: var(--space-2);
+}
+
+/* In the Map layout the settings panel has to fit a 900 px high screen without scrolling. */
+.stage--map {
+  app-priority-picker {
+    --priority-description: none;
+  }
+
+  .route-bar {
+    margin-bottom: var(--space-3);
+  }
+
+  .settings {
+    margin-bottom: var(--space-2);
+  }
+
+  .settings__label {
+    margin-bottom: var(--space-1);
+  }
+
+  .chip {
+    min-height: 2rem;
+  }
+
+  .forecast {
+    margin-top: var(--space-1);
+  }
+
+  .stepper .button {
+    width: 2.25rem;
+    min-height: 2.25rem;
+  }
+
+  .links {
+    margin-top: var(--space-1);
+
+    .button {
+      padding-inline: var(--space-3);
+      font-size: 0.9375rem;
+    }
+  }
 }
 
 /* Results */
