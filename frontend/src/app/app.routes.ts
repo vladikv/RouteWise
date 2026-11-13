@@ -34,6 +34,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/trips/trip-form-page').then((m) => m.TripFormPage),
   },
   {
+    path: 'modes',
+    title: 'Modes · RouteWise',
+    loadComponent: () => import('./features/modes/modes-page').then((m) => m.ModesPage),
+  },
+  {
     path: 'login',
     title: 'Log in · RouteWise',
     data: { mode: 'login' },

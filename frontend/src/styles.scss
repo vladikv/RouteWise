@@ -2,45 +2,36 @@
  * Global design tokens and base styles. Components use the tokens (var(--…)),
  * never raw colors.
  *
- * Dark theme (default tokens), 60/30/10: midnight black (backgrounds, 60%), pure white
+ * Dark theme only, 60/30/10: midnight black (backgrounds, 60%), pure white
  * (text and lines, 30%), lime (the only accent, 10%: primary actions, links,
  * selection, focus, the recommended mode, the map route). Red and amber are
  * semantic only (errors, weather warnings). Every text pair meets WCAG AA
  * (4.5:1) and every meaningful mark 3:1; re-check when changing a value.
  *
- * Light theme (:root[data-theme='light'], set by ThemeService and the inline script in
- * index.html): the same palette inverted. Midnight black (#0b0d12) becomes the ink for text
- * and lines, white and ink alphas are the surfaces. Lime is a FILL only there (buttons,
- * badges, selection tints, glows, the map route over an ink halo): lime text or thin lines
- * on white fail contrast, so text, links, borders and focus use --color-primary-ink (ink).
- * Red and amber are fills/borders with ink text. --color-text-aNN are alphas of the text
- * colour: white in dark, ink in light.
- *
- * Glass: translucent surfaces are white at 6-10% (--color-text-aNN, NN = percent)
- * over a fixed layer of lime glows (.glow-layer), with a blur + saturation
- * filter, a 1 px light border and an inner top highlight. Text contrast is
- * checked against the brightest glow (peak alpha 16%) under the fill.
- * A second theme overrides the tokens under :root[data-theme='light'].
+ * Glass: translucent white fills (--color-text-aNN, NN = percent) over a fixed smoky
+ * backdrop (.glow-layer: soft grey, olive and warm blobs plus a little lime), with a blur +
+ * saturation filter, a 1 px light border and an inner top highlight. Fills stack (shell: midnight
+ * black 50%, panel: white 8%, control: white 12%); text contrast is checked against the brightest backdrop point
+ * under those fills (see Styling in CLAUDE.md).
  */
-:root,
-:root[data-theme='dark'] {
+:root {
   color-scheme: dark;
 
   --color-bg: #0b0d12;
   --color-surface: #141820;
   --color-surface-muted: #1c212b;
   --color-border: #2a303c;
-  /* Borders that identify a control (inputs): 3:1 against the surface. */
-  --color-border-strong: var(--color-text-a50);
+  /* Borders that identify a control (inputs): 3:1 against the glass fill under it. */
+  --color-border-strong: var(--color-text-a60);
   --color-text: #ffffff;
-  --color-text-muted: #b8bfcc;
+  --color-text-muted: #e2e6ed;
   --color-primary: #b6f23c;
   --color-primary-hover: #c9f76a;
   /* Tinted backgrounds for selected states. */
   --color-primary-soft: #1e2814;
   /* Selected controls (chips, tabs, options). */
   --color-selected-bg: var(--color-primary-a12);
-  /* Lime where it is text, a thin line, a stroke or the focus ring; ink in the light theme. */
+  /* Lime where it is text, a thin line, a stroke or the focus ring. */
   --color-primary-ink: var(--color-primary);
   --color-link-hover: var(--color-primary-hover);
   --color-on-primary: #0b0d12;
@@ -50,48 +41,55 @@
   --color-on-highlight: var(--color-primary);
   /* Edge of recommended marks (stripe, bar outline, primary button border). */
   --color-highlight-edge: var(--color-highlight);
-  /* Edge of amber-tinted marks; ink in the light theme where amber fails 3:1 on white. */
+  /* Edge of amber-tinted marks. */
   --color-accent-edge: var(--color-accent);
   --color-success: var(--color-primary);
   /* Weather warnings. */
   --color-accent: #f5b871;
   --color-danger: #ff8a80;
   --color-danger-bg: #3a1b1e;
-  /* Red and amber as text; ink in the light theme where the hues fail as text on white. */
+  /* Red and amber as text. */
   --color-danger-text: var(--color-danger);
   --color-accent-text: var(--color-accent);
   --color-focus: var(--color-primary);
+  /* Smoky backdrop hues (soft grey, olive, warm); only used as the glow layer's blobs. */
+  --color-smoke: #8a93a6;
+  --color-olive: #9aab45;
+  --color-warm: #c2825a;
   /* Alpha variants of the palette above (same hues, written from the hex values). */
+  --color-bg-a50: rgb(11 13 18 / 50%);
   --color-surface-a85: rgb(20 24 32 / 85%);
-  --color-text-a06: rgb(255 255 255 / 6%);
-  --color-text-a10: rgb(255 255 255 / 10%);
+  --color-text-a08: rgb(255 255 255 / 8%);
   --color-text-a12: rgb(255 255 255 / 12%);
   --color-text-a14: rgb(255 255 255 / 14%);
+  --color-text-a18: rgb(255 255 255 / 18%);
   --color-text-a50: rgb(255 255 255 / 50%);
+  --color-text-a60: rgb(255 255 255 / 60%);
   --color-primary-a08: rgb(182 242 60 / 8%);
   --color-primary-a12: rgb(182 242 60 / 12%);
   --color-primary-a16: rgb(182 242 60 / 16%);
   --color-primary-a20: rgb(182 242 60 / 20%);
+  --color-smoke-a55: rgb(138 147 166 / 55%);
+  --color-olive-a55: rgb(154 171 69 / 55%);
+  --color-warm-a50: rgb(194 130 90 / 50%);
   --color-danger-bg-a70: rgb(58 27 30 / 70%);
   --color-accent-a08: rgb(245 184 113 / 8%);
   --color-accent-a12: rgb(245 184 113 / 12%);
   --color-accent-a20: rgb(245 184 113 / 20%);
-  /* Glass surfaces; --glass-bg-strong is the lighter fill for controls and active items. */
-  --glass-bg: var(--color-text-a06);
-  --glass-bg-strong: var(--color-text-a10);
+  /* Glass surfaces: the shell is a dark tint over the backdrop, panels (white 8%) sit on it, controls and active items (12%) are the lightest. */
+  --glass-bg-shell: var(--color-bg-a50);
+  --glass-bg: var(--color-text-a08);
+  --glass-bg-strong: var(--color-text-a12);
   /* Menus and listboxes float over arbitrary content: a denser fill keeps their text readable. */
   --glass-bg-menu: var(--color-surface-a85);
-  --glass-border: var(--color-text-a12);
-  --glass-blur: 20px;
-  --glass-filter: blur(var(--glass-blur)) saturate(160%);
-  --glass-highlight: inset 0 1px 0 var(--color-text-a10);
-  /* Glow layer: three lime glows (centre alpha), kept at or below 16% for text contrast. */
-  --glow-1: var(--color-primary-a16);
-  --glow-2: var(--color-primary-a12);
-  --glow-3: var(--color-primary-a12);
+  --glass-border: var(--color-text-a18);
+  --glass-blur: 28px;
+  --glass-filter: blur(var(--glass-blur)) saturate(180%);
+  --glass-highlight: inset 0 1px 0 var(--color-text-a12);
   /* Very light shadows: depth comes from the border and blur. */
   --shadow-card: 0 1px 2px rgb(0 0 0 / 20%);
   --shadow-raised: 0 8px 20px rgb(0 0 0 / 25%);
+  --shadow-shell: 0 24px 64px rgb(0 0 0 / 40%);
   /* De-emphasised chart bars; the recommended bar uses --color-highlight. */
   --color-bar: #6b7385;
   /* Route map */
@@ -110,6 +108,7 @@
   --radius-sm: 8px;
   --radius-md: 16px;
   --radius-lg: 24px;
+  --radius-xl: 32px;
   --radius-pill: 999px;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -120,68 +119,25 @@
   --content-width: 68rem;
   /* Height of the header bar (measured: padding plus the nav pill); the Home stage fills the rest of the viewport. */
   --header-height: 4.625rem;
+  /* The app lives in one big glass shell with a small margin around it (smaller on phones). */
+  --shell-margin: 1rem;
+  --shell-radius: var(--radius-xl);
+  /* What the header and the shell margins take from the Home stage's height. */
+  --chrome-height: calc(var(--header-height) + 2 * var(--shell-margin));
 }
 
 @media (max-width: 47.99rem) {
   :root {
     --header-height: 4.25rem;
+    --shell-margin: 0.375rem;
+    --shell-radius: 1.25rem;
   }
 }
 
-/* Light theme: white glass over soft lime glows, ink text. Same hues as the dark palette. */
-:root[data-theme='light'] {
-  color-scheme: light;
-
-  /* Neutrals are ink #0b0d12 blended into white: no new hues. */
-  --color-bg: color-mix(in srgb, #0b0d12 4%, #ffffff);
-  --color-surface: #ffffff;
-  --color-surface-muted: color-mix(in srgb, #0b0d12 7%, #ffffff);
-  --color-border: rgb(11 13 18 / 14%);
-  --color-border-strong: rgb(11 13 18 / 60%);
-  --color-text: #0b0d12;
-  --color-text-muted: rgb(11 13 18 / 72%);
-  --color-primary-hover: color-mix(in srgb, #0b0d12 12%, #b6f23c);
-  --color-primary-soft: rgb(182 242 60 / 40%);
-  --color-selected-bg: rgb(182 242 60 / 40%);
-  --color-primary-ink: #0b0d12;
-  --color-link-hover: rgb(11 13 18 / 72%);
-  --color-on-highlight: #0b0d12;
-  --color-highlight-bg: rgb(182 242 60 / 40%);
-  --color-highlight-edge: rgb(11 13 18 / 80%);
-  --color-accent-edge: rgb(11 13 18 / 80%);
-  --color-focus: #0b0d12;
-  --color-danger-bg: rgb(255 138 128 / 22%);
-  --color-danger-text: #0b0d12;
-  --color-accent-text: #0b0d12;
-  --color-surface-a85: rgb(255 255 255 / 85%);
-  --color-text-a06: rgb(11 13 18 / 6%);
-  --color-text-a10: rgb(11 13 18 / 10%);
-  --color-text-a12: rgb(11 13 18 / 12%);
-  --color-text-a14: rgb(11 13 18 / 14%);
-  --color-text-a50: rgb(11 13 18 / 50%);
-  --color-danger-bg-a70: rgb(255 138 128 / 22%);
-  --glass-bg: rgb(255 255 255 / 60%);
-  --glass-bg-strong: rgb(255 255 255 / 78%);
-  --glass-bg-menu: var(--color-surface-a85);
-  --glass-border: var(--color-text-a14);
-  --glass-highlight: inset 0 1px 0 rgb(255 255 255 / 90%);
-  --glow-1: rgb(182 242 60 / 34%);
-  --glow-2: rgb(182 242 60 / 26%);
-  --glow-3: rgb(182 242 60 / 26%);
-  --shadow-card: 0 1px 2px rgb(11 13 18 / 8%);
-  --shadow-raised: 0 8px 24px rgb(11 13 18 / 16%);
-  --map-sea: color-mix(in srgb, #0b0d12 9%, #ffffff);
-  --map-land: color-mix(in srgb, #0b0d12 2%, #ffffff);
-  --map-border: color-mix(in srgb, #0b0d12 50%, #ffffff);
-  --map-city: color-mix(in srgb, #0b0d12 70%, #ffffff);
-  --map-route-halo: #0b0d12;
-}
-
-/* Glass becomes solid in both themes: no see-through surfaces, no blur. */
+/* Glass becomes solid: no see-through surfaces, no blur, no backdrop blobs. */
 @media (prefers-reduced-transparency: reduce) {
-  :root,
-  :root[data-theme='dark'],
-  :root[data-theme='light'] {
+  :root {
+    --glass-bg-shell: var(--color-surface);
     --glass-bg: var(--color-surface);
     --glass-bg-strong: var(--color-surface-muted);
     --glass-bg-menu: var(--color-surface-muted);
@@ -200,6 +156,8 @@
 body {
   margin: 0;
   min-height: 100dvh;
+  /* The shell fills the viewport and scrolls inside; the page itself does not. */
+  overflow: hidden;
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans);
@@ -209,9 +167,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Glow layer (a fixed element in app.ts): three large lime glows that drift slowly.
-   Radial gradients give the softness, so no blur filter is needed; only transform is
-   animated. It sits below all content so glass surfaces have something to blur. */
+/* Glow layer (a fixed element in app.ts): a smoky backdrop of four large soft blobs (grey, olive,
+   warm, a little lime). Radial gradients give the softness, so no blur filter is needed. It is
+   static on purpose: the shell's full-viewport backdrop blur would be recomputed every frame
+   if the blobs moved. It sits below all content so glass surfaces have something to blur. The
+   blobs sit in different parts of the screen so their peaks do not add up (contrast budget in
+   CLAUDE.md). */
 .glow-layer {
   position: fixed;
   inset: 0;
@@ -222,60 +183,44 @@ body {
   span {
     position: absolute;
     border-radius: 50%;
-    will-change: transform;
-    animation: glow-drift 30s ease-in-out infinite alternate;
   }
 
   span:nth-child(1) {
-    top: calc(28% - 40vmax);
-    left: calc(22% - 40vmax);
-    width: 80vmax;
-    height: 80vmax;
-    background: radial-gradient(
-      closest-side,
-      var(--glow-1),
-      var(--color-primary-a08) 55%,
-      transparent
-    );
+    top: calc(12% - 38vmax);
+    left: calc(18% - 38vmax);
+    width: 76vmax;
+    height: 76vmax;
+    background: radial-gradient(closest-side, var(--color-smoke-a55), transparent);
   }
 
   span:nth-child(2) {
-    top: calc(62% - 36vmax);
-    right: calc(14% - 36vmax);
-    width: 72vmax;
-    height: 72vmax;
-    background: radial-gradient(
-      closest-side,
-      var(--glow-2),
-      var(--color-primary-a08) 55%,
-      transparent
-    );
-    animation-duration: 38s;
-    animation-direction: alternate-reverse;
+    top: calc(45% - 34vmax);
+    right: calc(8% - 34vmax);
+    width: 68vmax;
+    height: 68vmax;
+    background: radial-gradient(closest-side, var(--color-olive-a55), transparent);
   }
 
   span:nth-child(3) {
-    top: calc(100% - 34vmax);
-    left: calc(50% - 38vmax);
-    width: 76vmax;
-    height: 76vmax;
-    background: radial-gradient(
-      closest-side,
-      var(--glow-3),
-      var(--color-primary-a08) 55%,
-      transparent
-    );
-    animation-duration: 26s;
+    top: calc(100% - 32vmax);
+    left: calc(22% - 36vmax);
+    width: 72vmax;
+    height: 72vmax;
+    background: radial-gradient(closest-side, var(--color-warm-a50), transparent);
+  }
+
+  span:nth-child(4) {
+    top: calc(96% - 24vmax);
+    right: calc(6% - 24vmax);
+    width: 48vmax;
+    height: 48vmax;
+    background: radial-gradient(closest-side, var(--color-primary-a16), transparent);
   }
 }
 
-@keyframes glow-drift {
-  from {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-
-  to {
-    transform: translate3d(6vmax, -4vmax, 0) scale(1.15);
+@media (prefers-reduced-transparency: reduce) {
+  .glow-layer {
+    display: none;
   }
 }
 
@@ -556,6 +501,12 @@ a {
   font-weight: 600;
 }
 
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
 input,
 select,
 textarea {
@@ -605,10 +556,6 @@ textarea[aria-invalid='true'] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .glow-layer span {
-    animation: none;
-  }
-
   *,
   *::before,
   *::after {
@@ -619,11 +566,16 @@ textarea[aria-invalid='true'] {
   }
 }
 
-/* The Home map spans the whole viewport width on phones and wide screens. */
+/* The Home map spans the whole width of the shell's page area on phones and wide screens. */
 @media (max-width: 767.98px), (min-width: 1280px) {
   #main:has(.home-stage) {
     max-width: none;
     padding: 0;
+
+    /* Flush against the page edge: keep focus outlines inside. */
+    :focus-visible {
+      outline-offset: -2px;
+    }
   }
 }
 

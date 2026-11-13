@@ -28,7 +28,13 @@ const only = args.only ? new Set(args.only.split(',')) : null;
 const SCREENS = [
   { name: 'home', path: '/' },
   { name: 'home-route', path: '/?from={berlin}&to={vienna}', settle: 2500 },
-  { name: 'home-map', path: '/?from={berlin}&to={vienna}', minWidth: 1440, layout: 'map', settle: 2500 },
+  {
+    name: 'home-map',
+    path: '/?from={berlin}&to={vienna}',
+    minWidth: 1440,
+    layout: 'map',
+    settle: 2500,
+  },
   { name: 'trips', path: '/trips' },
   {
     name: 'trips-list',
@@ -40,8 +46,13 @@ const SCREENS = [
   { name: 'modes', path: '/modes' },
   {
     name: 'account-menu',
+    minWidth: 768,
     path: '/trips',
-    action: (page) => page.getByRole('button', { name: /account menu/i }).first().click(),
+    action: (page) =>
+      page
+        .getByRole('button', { name: /account menu/i })
+        .first()
+        .click(),
   },
 ];
 
@@ -57,6 +68,11 @@ try {
       colorScheme: 'dark',
     });
     const page = await context.newPage();
+    // Headless Chromium reports reduced transparency (solid glass); the review shows the glass look.
+    const session = await context.newCDPSession(page);
+    await session.send('Emulation.setEmulatedMedia', {
+      features: [{ name: 'prefers-reduced-transparency', value: 'no-preference' }],
+    });
     await login(page);
     for (const screen of SCREENS) {
       if ((only && !only.has(screen.name)) || (screen.minWidth && width < screen.minWidth)) {

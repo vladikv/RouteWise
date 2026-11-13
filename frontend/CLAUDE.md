@@ -12,17 +12,18 @@ src/
 └── app/
     ├── core/
     │   ├── api/         typed API layer: models, one service per resource, ApiError
-    │   ├── auth/        Session (who is logged in), authGuard, credentialsInterceptor
-    │   └── theme/       ThemeService (light, dark or system preference, `data-theme` on `<html>`)
-    ├── layout/          app chrome: header (full width, same 24 px gutter as the Home panels; 16 px on phones;
-    │                    strict 3-column grid `1fr auto 1fr`: brand, centred nav pill, actions incl. the theme menu)
-    ├── shared/ui/       presentational building blocks: glass panel, pill nav, stat chip, tabs,
+    │   └── auth/        Session (who is logged in), authGuard, credentialsInterceptor
+    ├── layout/          app chrome: the header inside the shell (strict 3-column grid `1fr auto 1fr`: logo tile
+    │                    plus, on Home from 1440 px, the Map/Split toggle | centred pill nav Home, Trips, Modes |
+    │                    round search and new-trip buttons, account menu; 24 px gutter, 16 px on phones)
+    ├── shared/ui/       presentational building blocks: app shell, icon rail, glass panel, pill nav, stat chip, tabs,
     │                    segmented toggle, filter chip, filter group, menu, toast outlet, icon button, bottom sheet, spinner,
     │                    error message, confirm action, pickers, mode icon
     ├── shared/map/      interactive globe map (SVG, `d3-geo`) and its pure maths (`globe.ts`)
     ├── shared/util/     pure helpers (dates, labels, `LayoutBreakpoint`)
     ├── features/<name>/ routed pages and their child components
-    ├── app.ts           shell: skip link, header, <router-outlet>, footer
+    ├── app.ts           root: backdrop, skip link, `AppShell` (header, icon rail from 1024 px, scrolling page area
+    │                    with <router-outlet> and footer)
     ├── app.routes.ts    lazy routes (`loadComponent`)
     └── app.config.ts    providers: router, HttpClient + interceptors, session load at start-up
 ```
@@ -111,10 +112,10 @@ src/
   Map details: one city is the tab stop (roving `tabindex`: last focused, else origin, else first; arrows move
   between cities); click targets are capped at half the distance to the nearest neighbour; low-ranked cities
   within 2.5 dot widths of a more important one are left out (still in the pickers); in `fill` mode only the
-  space between the docks is drawn and labelled, and `topZone` reserves the layout toolbar for labels.
+  space between the docks is drawn and labelled.
   `gestures`: `greedy` (default; the wheel always zooms except at the zoom limits) or `cooperative` for a map in a
   scrolling page (Ctrl/Cmd + wheel zooms, a plain wheel scrolls and shows "Ctrl + scroll to zoom", `touch-action:
-  pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in tests); failure shows a note.
+pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in tests); failure shows a note.
   Unavailable modes are shown muted with a ⊘ icon: each row says only "Not available", and the API's grouped
   sentences (`unavailableGroups` on each leg and on the comparison, e.g. "Not reachable by land between Dublin
   and Madrid: train, bus, car, bike") are shown once per leg (chart, itinerary timeline) and once for the
@@ -132,8 +133,9 @@ src/
   holds the preference (`'map' | 'split'`, default Split, `localStorage` key `routewise.homeLayout`, every
   access in try/catch, invalid or failing storage = Split) and `effective()`: Map only while the viewport is
   at least 1440 px (live `matchMedia`), otherwise Split; falling back never overwrites the saved choice.
-  `sideBySide()` is true from 1024 px. A `SegmentedToggle` (icon + label, `stage__toolbar`, floating over the
-  map) offers the choice only from 1440 px. `RouteExplorer` renders **one template once**: the map, the
+  `sideBySide()` is true from 1024 px. A `SegmentedToggle` (icon + label) offers the choice only from 1440 px,
+  only on Home, and lives in the **header next to the logo** (`Header` reads `HomeLayout`; the explorer only reads
+  `effective()`). `RouteExplorer` renders **one template once**: the map, the
   settings dock and the results dock are the same elements in both layouts and `explorer-stage.scss` only moves
   them (class `stage--map` / `stage--split` / `stage--sheet`), so switching keeps cities, priority, date,
   travelers, results and the map view and issues no request. Never put the form or results in two `@if`
@@ -143,8 +145,8 @@ src/
   descriptions, compact spacing); the empty results dock is a hint chip ("Pick two cities to compare") until a
   comparison is requested. Phones (< 768 px, `LayoutBreakpoint` `narrow`): map plus `BottomSheet` with settings
   and results. Docks adapt through container queries (route bar, `ComparisonPanel` turns its table into small
-  cards below 30rem instead of scrolling sideways). `--header-height` is the measured header height (the stage is
-  `100dvh - header`).
+  cards below 30rem instead of scrolling sideways). `--header-height` is the measured header height; the stage is `100dvh - var(--chrome-height)`
+  (header plus the two shell margins).
 - **Trips list** (`features/trips/list/`): `TripToolbar` (row 1: search, Board/List
   `SegmentedToggle`, New trip; row 2: `FilterGroup`s Priority and Mode with the API's facet counts;
   result count "3 of 5 trips" in a `role="status"` and "Clear filters"; below 768 px the groups move
@@ -211,27 +213,35 @@ src/
   (`--color-danger`) and amber (`--color-accent`, weather) are semantic only.
   `--color-border-strong` for control borders. Every text pair meets 4.5:1 and
   every meaningful mark 3:1; check a new or changed pair before using it.
-  Glass look: a fixed `.glow-layer` element in `app.ts` (`aria-hidden`, three
-  large lime radial glows at 16/12/12% centre alpha, `--glow-1..3`, drifting
-  over 26-38 s with `transform` only, static under reduced motion) sits behind
-  all content, so no ancestor of a glass surface may have an opaque background.
-  Glass = `background: var(--glass-bg)` (white 6%) or `--glass-bg-strong` (white
-  10%, controls and active items) or `--glass-bg-menu` (surface 85%, dropdowns and
-  listboxes over arbitrary content), plus `backdrop-filter: var(--glass-filter)`
-  (+ `-webkit-`; blur 20 px and saturate 160%), `border: 1px solid var(--glass-border)`
-  and `box-shadow: var(--glass-highlight)` (inner top highlight; combine it with
-  any other shadow). Alpha variants are written as `--color-*-aNN` (NN = percent;
-  same hues, add one only when used). `backdrop-filter` goes on the few top-level
-  surfaces (header bar via `:host::before` so dropdowns are not inside its
-  backdrop root, panels, sheet, menus, toolbar search, chips); never on list
-  cards or table rows (fill, border and highlight only), and not on elements
-  nested in a glass panel (a backdrop-filter ancestor limits what they can blur).
-  Contrast rule: white, muted and lime text must stay 4.5:1 and control borders
-  3:1 on the fill over the brightest glow (peak 16% lime over `--color-bg`);
-  re-run the check when raising a glow, a fill or a tint (card tints are 8%).
-  Under `prefers-reduced-transparency` the glass tokens become solid surfaces
-  with `--glass-filter: none`, so never hard-code a blur or a translucent fill.
-  The light theme overrides the tokens under `:root[data-theme='light']` (see Theme). Radii: `--radius-lg`
+  Glass look: a fixed `.glow-layer` element in `app.ts` (`aria-hidden`, four large radial blobs: soft grey, olive,
+  warm at 55/55/50% centre alpha and a little lime at 16%, tokens `--color-smoke|olive|warm-aNN`; static, because the
+  shell's full-viewport blur would be recomputed every frame if they moved; hidden under reduced transparency) sits behind all
+  content, so no ancestor of a glass surface may have an opaque background. The whole app lives in one `AppShell`
+  (`shared/ui/app-shell.ts`): a rounded glass shell (`--shell-radius` 32 px, 20 px on phones) with a small outer
+  margin (`--shell-margin` 16 px, 6 px on phones). Its glass is a `::before` sibling layer (`--glass-bg-shell`:
+  midnight black 50%, blur, border), never the shell itself, so panels, menus and the rail blur the real backdrop
+  and the globe never sits inside a backdrop root. The page area (`.page` in `app.ts`, `tabindex="-1"`, focused on first render and on route changes unless focus is inside it or in an open menu, so Space/PageDown scroll it; the skip link focuses `#main` itself because of `<base href>`) scrolls, not the window
+  (`body` is `overflow: hidden`) and returns to the top when the route path changes (not for query changes).
+  Glass = `background: var(--glass-bg)` (white 8%) or `--glass-bg-strong` (white 12%, controls and active items) or
+  `--glass-bg-menu` (surface 85%, dropdowns and listboxes over arbitrary content), plus
+  `backdrop-filter: var(--glass-filter)` (+ `-webkit-`; blur 28 px and saturate 180%),
+  `border: 1px solid var(--glass-border)` (white 18%) and `box-shadow: var(--glass-highlight)` (inner top
+  highlight; combine it with any other shadow). Alpha variants are written as `--color-*-aNN` (NN = percent;
+  same hues, add one only when used). `backdrop-filter` goes on the few top-level surfaces (shell layer, icon rail,
+  panels, sheet, menus, toolbar search; not chips or icon buttons); never on list cards or table rows (fill, border and highlight
+  only), not on the header bar (the shell is its glass) and not on elements nested in a glass panel (a
+  backdrop-filter ancestor limits what they can blur).
+  Contrast rule: white, muted and lime text must stay 4.5:1 and control borders (`--color-border-strong`, white
+  60%) 3:1 on the fills over the brightest backdrop point. Budget: the backdrop under the shell tint peaks at
+  L about 0.03 (two blobs overlapping count as one peak plus half the other), then panel (+8% white) and control
+  (+12% white) fills stack. Text colours: `--color-text-muted` is #e2e6ed and styles every placeholder (global `::placeholder`). Numbers at
+  the brightest point (olive plus half of grey, shell 50%): on panels white 8.6:1, muted 6.8:1, lime 6.4:1; on
+  12% controls white 6.1:1, muted 4.9:1, lime 4.6:1; control borders 3.4:1. Re-run the check (a small script over
+  the blob alphas, the shell tint and the fill stack) when raising a blob, the tint or a fill.
+  Under `prefers-reduced-transparency` the glass tokens become solid surfaces with `--glass-filter: none` and the
+  backdrop is hidden, so never hard-code a blur or a translucent fill. Headless Chromium reports reduced
+  transparency, so `npm run screenshots` emulates `no-preference` to show the glass.
+  Dark theme only (see Theme). Radii: `--radius-lg`
   (cards), `--radius-md`, `--radius-pill` (buttons, inputs, badges). Type: 17 px body, Manrope (loaded in
   `index.html`, weights 400-800) is the only font (`--font-sans`; `--font-display`
   is an alias). Shared classes: `.card`, `.button` (`--primary`,
@@ -242,24 +252,19 @@ src/
   metric switch), `SegmentedToggle`, `FilterChip`, `IconButton`, `BottomSheet`; prefer them over new
   one-off controls. Blur only on a few top-level panels, never per list row. Component styles stay
   small (4 kB budget).
-- **Theme:** light, dark and system. `ThemeService` (`core/theme/theme.ts`) holds the
-  preference (`'light' | 'dark' | 'system'`, default system, saved in `localStorage` key
-  `routewise.theme`; every storage access is in try/catch and falls back to system), follows
-  `prefers-color-scheme` live while on system, and sets `data-theme` and `color-scheme` on
-  `<html>`. An inline script in `index.html` does the same before first paint (keep the key and
-  values in sync with the service). The header's theme menu (disclosure with three `aria-pressed`
-  buttons, current one also marked with a ✓) changes it. Dark tokens live in `:root`; light tokens
-  redefine them from the same palette (midnight black as ink, white and ink alphas as surfaces).
-  **Lime is a fill only in light mode** (primary buttons, badges, selected tints, glows, the map
-  route over a dark halo): anything that is lime text, a link, a thin line, a stroke or the focus
-  ring uses `--color-primary-ink` (lime in dark, ink in light), selected backgrounds use
-  `--color-selected-bg`, recommended stripes, bar outlines and primary-button borders use
-  `--color-highlight-edge`, and red/amber text uses `--color-danger-text`/`--color-accent-text`
-  (red and amber are borders and fills with ink text in light). Never write `color: var(--color-primary)`.
-  Map tokens (`--map-sea`, `--map-land`, `--map-border`, `--map-city`) have light variants and
-  `--map-route-halo` is the outline under the route and pins. Use only tokens in components so both
-  themes work; check any new pair in light and dark. `prefers-reduced-transparency` makes the glass
-  solid in both themes.
+- **Theme:** dark only (`color-scheme: dark` in `:root`, `<meta name="color-scheme" content="dark">`). There is
+  no theme service, menu or `data-theme`. The semantic aliases (`--color-primary-ink`, `--color-selected-bg`,
+  `--color-highlight-edge`, `--color-danger-text` …) remain and currently equal their dark values; use them for
+  the roles they name (lime text, selected background, recommended edge) so a future theme has one place to change.
+- **Shell, header and rail:** `AppShell` projects `shellHeader`, an optional `shellRail` and the page area. `Header`
+  is the top bar (logo tile, centred `PillNav` Home / Trips / Modes, round search and new-trip buttons (only below 1024 px, where there is no rail), avatar menu
+  or "Log in"; below 768 px the collapsed navigation menu). "Search trips" (header button and first rail item)
+  calls `SearchFocus.open()` (`shared/util/search-focus.ts`): navigate to `/trips`, then the `TripToolbar` takes
+  focus in its search field (the request stays pending until the field exists; a refused navigation leaves
+  nothing pending). `IconRail` (`shared/ui/icon-rail.ts`, rendered by `app.ts` only while
+  `LayoutBreakpoint.desktop()`, from 1024 px) is a labelled `nav` of round items: links get `aria-current="page"`
+  (exact path match, query ignored) and a lime ring, buttons emit `activate`; every item has `aria-label` and a
+  `title` tooltip. `/modes` is a lazy placeholder page until the Modes milestone step.
 - **Accessibility:** semantic HTML and landmarks, labels on inputs, visible
   focus, nothing conveyed by color alone, scrollable regions focusable.
   Layouts work down to 375 px.

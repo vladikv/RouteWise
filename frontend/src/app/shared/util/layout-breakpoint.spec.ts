@@ -54,10 +54,19 @@ describe('LayoutBreakpoint', () => {
     expect(breakpoint.layout()).toBe('wide');
   });
 
+  it('reports desktop from 1024 px', () => {
+    const viewport = mockViewport(1023);
+    const breakpoint = TestBed.inject(LayoutBreakpoint);
+    expect(breakpoint.desktop()).toBe(false);
+
+    viewport.resize(1024);
+    expect(breakpoint.desktop()).toBe(true);
+  });
+
   it('stops listening when destroyed', () => {
     const viewport = mockViewport(1400);
     TestBed.inject(LayoutBreakpoint);
-    expect(viewport.listenerCount()).toBe(2);
+    expect(viewport.listenerCount()).toBe(3);
 
     TestBed.resetTestingModule();
     expect(viewport.listenerCount()).toBe(0);
@@ -65,6 +74,8 @@ describe('LayoutBreakpoint', () => {
 
   it('falls back to the stacked layout without matchMedia', () => {
     vi.stubGlobal('matchMedia', undefined);
-    expect(TestBed.inject(LayoutBreakpoint).layout()).toBe('medium');
+    const breakpoint = TestBed.inject(LayoutBreakpoint);
+    expect(breakpoint.layout()).toBe('medium');
+    expect(breakpoint.desktop()).toBe(false);
   });
 });

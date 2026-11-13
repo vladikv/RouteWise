@@ -7,7 +7,9 @@ import { API_BASE_URL } from '../../core/api/api-config';
 import { AuthApi } from '../../core/api/auth-api';
 import { ALICE } from '../../core/auth/auth.testing';
 import { Session } from '../../core/auth/session';
-import { THEME_STORAGE_KEY } from '../../core/theme/theme';
+import { HOME_LAYOUT_STORAGE_KEY, HomeLayout } from '../../features/explore/home-layout';
+import { mockViewport } from '../../shared/util/viewport.testing';
+import { SearchFocus } from '../../shared/util/search-focus';
 import { Header } from './header';
 
 describe('Header', () => {
@@ -21,13 +23,13 @@ describe('Header', () => {
         provideRouter([
           { path: '', children: [] },
           { path: 'trips', children: [] },
+          { path: 'modes', children: [] },
         ]),
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: API_BASE_URL, useValue: 'http://api.test' },
       ],
     }).compileComponents();
-    localStorage.removeItem(THEME_STORAGE_KEY);
     fixture = TestBed.createComponent(Header);
     header = fixture.nativeElement as HTMLElement;
   });
@@ -60,7 +62,7 @@ describe('Header', () => {
     await render();
 
     const nav = header.querySelector('nav[aria-label="Main"]')!;
-    expect(linkHrefs(nav)).toEqual(['/', '/trips']);
+    expect(linkHrefs(nav)).toEqual(['/', '/trips', '/modes']);
     const link = Array.from(header.querySelectorAll('a')).find(
       (anchor) => anchor.textContent?.trim() === 'Log in',
     );
@@ -145,7 +147,7 @@ describe('Header', () => {
     await render();
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
     const panel = header.querySelector('#nav-menu')!;
-    expect(linkHrefs(panel)).toEqual(['/', '/trips', '/login']);
+    expect(linkHrefs(panel)).toEqual(['/', '/trips', '/modes', '/login']);
 
     toggle.click();
     await render();
@@ -185,71 +187,123 @@ describe('Header', () => {
     ]);
   });
 
-  it('puts the navigation in the middle column between brand and actions', async () => {
+  it('puts the logo group, the navigation and the actions in three columns', async () => {
     await render();
 
     const columns = Array.from(header.querySelector('.header__inner')!.children);
     expect(columns.map((column) => column.className.split(' ')[0])).toEqual([
-      'brand',
+      'header__start',
       'header__nav',
       'header__actions',
     ]);
+    expect(columns[0].querySelector('a.brand')).not.toBeNull();
     expect(columns[1].querySelector('nav[aria-label="Main"]')).not.toBeNull();
-    expect(columns[2].querySelector('.menu--theme')).not.toBeNull();
+    expect(columns[2].querySelector('.avatar, .login')).not.toBeNull();
   });
 
-  it('shows the theme preference in the button label', async () => {
+  it('has round search and new-trip buttons and no theme menu', async () => {
     await render();
 
-    expect(button('Theme: System').getAttribute('aria-expanded')).toBe('false');
-    expect(button('Theme: System').getAttribute('aria-controls')).toBe('theme-menu');
+    expect(button('Search trips')).not.toBeNull();
+    expect(header.querySelector('a[aria-label="New trip"]')?.getAttribute('href')).toBe(
+      '/trips/new',
+    );
+    expect(header.querySelector('[aria-label^="Theme"]')).toBeNull();
   });
 
-  it('chooses a theme from the theme menu and closes it', async () => {
-    await render();
-    const toggle = button('Theme: System');
-
-    toggle.click();
-    await render();
-    expect(toggle.getAttribute('aria-expanded')).toBe('true');
-    const options = Array.from(header.querySelectorAll('#theme-menu button'));
-    expect(options.map((option) => option.textContent?.replace('✓', '').trim())).toEqual([
-      'Light',
-      'Dark',
-      'System',
-    ]);
-    expect(options.map((option) => option.getAttribute('aria-pressed'))).toEqual([
-      'false',
-      'false',
-      'true',
-    ]);
-    expect(options[2].textContent).toContain('✓');
-
-    (options[1] as HTMLButtonElement).click();
+  it('asks the trips page to focus its search field', async () => {
+    const open = vi.spyOn(TestBed.inject(SearchFocus), 'open').mockImplementation(() => undefined);
     await render();
 
-    expect(header.querySelector('#theme-menu')).toBeNull();
-    expect(button('Theme: Dark')).toBe(toggle);
-    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
-    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
-    expect(document.activeElement).toBe(toggle);
+    button('Search trips').click();
+
+    expect(open).toHaveBeenCalledOnce();
+  });
+});
+
+describe('Header layout toggle', () => {
+  let viewport: ReturnType<typeof mockViewport>;
+  let fixture: ComponentFixture<Header>;
+  let header: HTMLElement;
+
+  async function render(width: number, saved?: 'map' | 'split'): Promise<void> {
+    localStorage.clear();
+    if (saved) {
+      localStorage.setItem(HOME_LAYOUT_STORAGE_KEY, saved);
+    }
+    viewport = mockViewport(width);
+    await TestBed.configureTestingModule({
+      imports: [Header],
+      providers: [
+        provideRouter([
+          { path: '', children: [] },
+          { path: 'trips', children: [] },
+        ]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: API_BASE_URL, useValue: 'http://api.test' },
+      ],
+    }).compileComponents();
+    fixture = TestBed.createComponent(Header);
+    header = fixture.nativeElement as HTMLElement;
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  afterEach(() => {
+    viewport.restore();
+    localStorage.clear();
   });
 
-  it('closes the theme menu with Escape and on a click outside', async () => {
-    await render();
-    const toggle = button('Theme: System');
+  const radio = (label: string): HTMLButtonElement | undefined =>
+    Array.from(
+      header.querySelectorAll<HTMLButtonElement>('[role="radiogroup"] [role="radio"]'),
+    ).find((item) => item.textContent?.includes(label));
 
-    toggle.click();
-    await render();
-    header.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    await render();
-    expect(header.querySelector('#theme-menu')).toBeNull();
-    expect(document.activeElement).toBe(toggle);
+  it('puts the Map / Split toggle next to the logo on Home from 1440 px', async () => {
+    await render(1920, 'map');
 
-    toggle.click();
-    await render();
-    document.body.click();
-    await render();
-    expect(header.querySelector('#theme-menu')).toBeNull();
+    const start = header.querySelector('.header__start')!;
+    expect(start.querySelector('[role="radiogroup"][aria-label="Home layout"]')).not.toBeNull();
+    expect(radio('Map')?.getAttribute('aria-checked')).toBe('true');
+    expect(radio('Split')?.getAttribute('aria-checked')).toBe('false');
+    expect(radio('Map')?.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('saves the choice through HomeLayout without touching the route', async () => {
+    await render(1920, 'map');
+    const navigated = vi.spyOn(TestBed.inject(Router), 'navigateByUrl');
+
+    radio('Split')!.click();
+    await fixture.whenStable();
+
+    expect(TestBed.inject(HomeLayout).preference()).toBe('split');
+    expect(localStorage.getItem(HOME_LAYOUT_STORAGE_KEY)).toBe('split');
+    expect(radio('Split')?.getAttribute('aria-checked')).toBe('true');
+    expect(navigated).not.toHaveBeenCalled();
+  });
+
+  it('is not offered below 1440 px, and the saved choice stays', async () => {
+    await render(1280, 'map');
+
+    expect(header.querySelector('[role="radiogroup"]')).toBeNull();
+    expect(localStorage.getItem(HOME_LAYOUT_STORAGE_KEY)).toBe('map');
+
+    viewport.resize(1600);
+    await fixture.whenStable();
+    expect(header.querySelector('[role="radiogroup"]')).not.toBeNull();
+  });
+
+  it('is only offered on Home', async () => {
+    await render(1920);
+    expect(header.querySelector('[role="radiogroup"]')).not.toBeNull();
+
+    await TestBed.inject(Router).navigateByUrl('/trips');
+    await fixture.whenStable();
+    expect(header.querySelector('[role="radiogroup"]')).toBeNull();
+
+    await TestBed.inject(Router).navigateByUrl('/?from=1&to=2');
+    await fixture.whenStable();
+    expect(header.querySelector('[role="radiogroup"]')).not.toBeNull();
   });
 });

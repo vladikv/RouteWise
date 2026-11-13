@@ -6,6 +6,7 @@ export type PageLayout = 'narrow' | 'medium' | 'wide';
 
 const WIDE_QUERY = '(min-width: 1280px)';
 const MEDIUM_QUERY = '(min-width: 768px)';
+const DESKTOP_QUERY = '(min-width: 1024px)';
 
 /**
  * The current page layout as a signal, kept up to date from `matchMedia`.
@@ -16,6 +17,8 @@ const MEDIUM_QUERY = '(min-width: 768px)';
 export class LayoutBreakpoint {
   private readonly wide = this.watch(WIDE_QUERY);
   private readonly medium = this.watch(MEDIUM_QUERY);
+  /** From 1024 px: room for the shell's icon rail (and Home's two columns). */
+  readonly desktop = this.watch(DESKTOP_QUERY);
 
   readonly layout = computed<PageLayout>(() =>
     this.wide() ? 'wide' : this.medium() ? 'medium' : 'narrow',

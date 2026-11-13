@@ -13,13 +13,12 @@ import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { CityApi } from '../../core/api/city-api';
 import { ComparisonApi } from '../../core/api/comparison-api';
 import { City, Comparison, ComparisonRequest, TripPriority } from '../../core/api/models';
-import { RouteMap, RouteSelection, TopZone } from '../../shared/map/route-map';
+import { RouteMap, RouteSelection } from '../../shared/map/route-map';
 import { BottomSheet, SheetState } from '../../shared/ui/bottom-sheet';
 import { CityPicker } from '../../shared/ui/city-picker';
 import { GlassPanel } from '../../shared/ui/glass-panel';
 import { PriorityPicker } from '../../shared/ui/priority-picker';
 import { ErrorMessage } from '../../shared/ui/error-message';
-import { SegmentedToggle, ToggleOption } from '../../shared/ui/segmented-toggle';
 import { Spinner } from '../../shared/ui/spinner';
 import {
   addDaysIso,
@@ -34,7 +33,7 @@ import { MODE_LABELS, PRIORITIES, travelersLabel } from '../../shared/util/label
 import { ComparisonChart } from '../trips/comparison/comparison-chart';
 import { ComparisonPanel } from '../trips/comparison/comparison-panel';
 import { LegComparison, legComparison } from '../trips/comparison/leg-comparison';
-import { HomeLayout, HomeLayoutChoice } from './home-layout';
+import { HomeLayout } from './home-layout';
 import { WeatherCard } from './weather-card';
 
 const MIN_TRAVELERS = 1;
@@ -47,17 +46,6 @@ const DOCK_COLLAPSED_WIDTH = 14;
 const DOCK_OFFSET = 1.5;
 const DOCK_AIR = 1;
 const REM_PX = 16;
-/** The layout toggle floating over the map's top edge (its box with the margin above it), in pixels. */
-const TOOLBAR_ZONE = { width: 14 * REM_PX, height: 5 * REM_PX };
-
-const LAYOUT_OPTIONS: ToggleOption<HomeLayoutChoice>[] = [
-  {
-    value: 'map',
-    label: 'Map',
-    icon: 'M9 4 3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14',
-  },
-  { value: 'split', label: 'Split', icon: 'M3 5h18v14H3zM14 5v14' },
-];
 
 interface ExplorerState {
   originId: number | null;
@@ -75,7 +63,7 @@ interface ExplorerState {
  *
  * One template, three arrangements, and the settings and results are rendered once (so ids
  * never repeat and switching never recreates them or refetches). From 1440 px the user can choose
- * between Map (the map fills the stage, two glass panels float over it) and Split (the map on
+ * (with the toggle in the header) between Map (the map fills the stage, two glass panels float over it) and Split (the map on
  * the left, settings and results on the right; stacked below 1024 px); below 768 px the
  * settings and results live in a bottom sheet under the map. Map and Split only differ in CSS
  * placement, so cities, priority, date, travelers, results and the map view survive a switch.
@@ -94,7 +82,6 @@ interface ExplorerState {
     ComparisonChart,
     ComparisonPanel,
     ErrorMessage,
-    SegmentedToggle,
     Spinner,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -121,7 +108,6 @@ export class RouteExplorer {
   protected readonly sideScroll = computed(
     () => this.arrangement() === 'split' && this.homeLayout.sideBySide(),
   );
-  protected readonly layoutOptions = LAYOUT_OPTIONS;
   protected readonly formCollapsed = signal(false);
   protected readonly resultsCollapsed = signal(false);
   protected readonly sheetState = signal<SheetState>('peek');
@@ -135,12 +121,6 @@ export class RouteExplorer {
    */
   protected readonly mapGestures = computed(() =>
     this.arrangement() === 'split' && !this.homeLayout.sideBySide() ? 'cooperative' : 'greedy',
-  );
-  /** Where labels keep clear of the layout toggle (only shown from 1440 px). */
-  protected readonly toolbarZone = computed<TopZone | null>(() =>
-    this.homeLayout.mapAvailable()
-      ? { ...TOOLBAR_ZONE, align: this.arrangement() === 'map' ? 'center' : 'start' }
-      : null,
   );
   /** No comparison yet: in the Map layout the results panel is only a small hint. */
   protected readonly resultsIdle = computed(() => this.request() === undefined);

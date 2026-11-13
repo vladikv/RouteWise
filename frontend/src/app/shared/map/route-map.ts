@@ -44,14 +44,6 @@ export const LAND_LOADER = new InjectionToken<
   () => Promise<{ LAND_RINGS: readonly (readonly number[])[] }>
 >('LAND_LOADER', { providedIn: 'root', factory: () => () => import('./world-land') });
 
-/** Something floating over the top of the map (the layout toolbar) that labels must keep clear of. */
-export interface TopZone {
-  /** CSS pixels. */
-  width: number;
-  height: number;
-  align: 'start' | 'center';
-}
-
 export interface RouteSelection {
   originId: number | null;
   destinationId: number | null;
@@ -148,8 +140,6 @@ export class RouteMap {
    * only Ctrl/Cmd + wheel zooms, a plain wheel scrolls the page, and a vertical swipe scrolls it too.
    */
   readonly gestures = input<'greedy' | 'cooperative'>('greedy');
-  /** A toolbar floating over the top of the map; labels stay clear of it. */
-  readonly topZone = input<TopZone | null>(null);
   /** An ordered route of city ids (2+ stops); replaces origin/destination when given. */
   readonly stops = input<number[] | null>(null);
   /** In stops mode: a city the user picked on the map. */
@@ -168,7 +158,7 @@ export class RouteMap {
   private readonly renderedWidth = signal(DEFAULT_WIDTH);
   private readonly renderedHeight = signal(DEFAULT_HEIGHT);
   protected readonly hoveredId = signal<number | null>(null);
-  /** Follows the system setting live, like the theme. */
+  /** Follows the system setting live. */
   private readonly reducedMotion = signal(false);
   /** Land shapes as GeoJSON; loaded on demand (its own chunk), the globe shows only the sea until then. */
   private readonly landShapes = signal<GeoPermissibleObjects | null>(null);
@@ -425,14 +415,9 @@ export class RouteMap {
 
   /** Where the zoom buttons and the hint cover the drawing, so no label is placed there. */
   private controlZones(width: number, height: number): Box[] {
-    const zones =
-      this.controls() === 'corner' ? this.cornerZones(width, height) : this.endZones(width, height);
-    const top = this.topZone();
-    if (top) {
-      const left = top.align === 'center' ? (width - top.width) / 2 : 0;
-      zones.push({ left, top: 0, right: left + top.width, bottom: top.height });
-    }
-    return zones;
+    return this.controls() === 'corner'
+      ? this.cornerZones(width, height)
+      : this.endZones(width, height);
   }
 
   private cornerZones(width: number, height: number): Box[] {

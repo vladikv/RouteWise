@@ -1,23 +1,8 @@
 :host {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 5;
   display: block;
-}
-
-/* The bar's glass is a sibling layer, not an ancestor: the dropdown and nav pill stay
-   outside its backdrop root, so they blur the page rather than the bar. */
-:host::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-bottom: 1px solid var(--glass-border);
-  background: var(--glass-bg);
-  -webkit-backdrop-filter: var(--glass-filter);
-  backdrop-filter: var(--glass-filter);
-  box-shadow: var(--glass-highlight);
-  pointer-events: none;
+  flex: none;
 }
 
 .header__inner {
@@ -25,15 +10,21 @@
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: var(--space-4);
-  /* Full width with the same side gutter as the Home panels. */
   padding: var(--space-3) var(--space-6);
+}
+
+.header__start {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  justify-self: start;
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  justify-self: start;
   border-radius: var(--radius-sm);
   color: var(--color-text);
   font-size: 1.2rem;
@@ -73,9 +64,50 @@
   gap: var(--space-3);
 }
 
+.header__tools {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* From 1024 px the icon rail has these two. */
+@media (min-width: 64rem) {
+  .header__tools {
+    display: none;
+  }
+}
+
 .login,
-.avatar {
+.avatar,
+.round {
   min-height: 2.75rem;
+}
+
+/* Round icon buttons (button or link) on the shell; a fill only, no blur of their own. */
+.round {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  padding: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg-strong);
+  box-shadow: var(--glass-highlight);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.round:hover {
+  border-color: var(--color-border-strong);
+}
+
+.round svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .login {
@@ -94,11 +126,6 @@
   font-size: 0.9rem;
   font-weight: 800;
   cursor: pointer;
-}
-
-.option[aria-pressed='true'] {
-  border-color: var(--color-primary-ink);
-  background: var(--color-selected-bg);
 }
 
 .avatar:hover,
@@ -140,6 +167,7 @@
   }
 
   .header__nav,
+  .header__tools,
   .login,
   .menu--account {
     display: none;

@@ -151,17 +151,6 @@
   </ng-template>
 
   <div class="stage stage--{{ arrangement() }}">
-    @if (homeLayout.mapAvailable()) {
-      <div class="stage__toolbar">
-        <app-segmented-toggle
-          ariaLabel="Home layout"
-          [options]="layoutOptions"
-          [value]="homeLayout.preference()"
-          (valueChange)="homeLayout.set($event)"
-        />
-      </div>
-    }
-
     <div class="stage__map">
       <app-route-map
         [cities]="cityList"
@@ -171,7 +160,6 @@
         [fill]="true"
         controls="bottom-end"
         [gestures]="mapGestures()"
-        [topZone]="toolbarZone()"
         [insetStart]="insetStart()"
         [insetEnd]="insetEnd()"
         (selectionChange)="select($event)"

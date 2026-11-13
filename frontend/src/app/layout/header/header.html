@@ -1,55 +1,48 @@
 <header class="header">
   <div class="header__inner">
-    <a class="brand" routerLink="/">
-      <span class="brand__mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" focusable="false">
-          <path d="M7 17L17 7M9 7h8v8" />
-        </svg>
-      </span>
-      RouteWise
-    </a>
+    <div class="header__start">
+      <a class="brand" routerLink="/">
+        <span class="brand__mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path d="M7 17L17 7M9 7h8v8" />
+          </svg>
+        </span>
+        RouteWise
+      </a>
+      @if (layoutToggleShown()) {
+        <app-segmented-toggle
+          ariaLabel="Home layout"
+          [showCheck]="false"
+          [options]="layoutOptions"
+          [value]="homeLayout.preference()"
+          (valueChange)="homeLayout.set($event)"
+        />
+      }
+    </div>
 
     <div class="header__nav">
       <app-pill-nav [items]="navItems" ariaLabel="Main" />
     </div>
 
     <div class="header__actions">
-      <app-menu class="menu menu--theme" [label]="themeLabel()" panelId="theme-menu">
-        <svg menuIcon viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          @switch (theme.preference()) {
-            @case ('light') {
-              <circle cx="12" cy="12" r="4" />
-              <path
-                d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"
-              />
-            }
-            @case ('dark') {
-              <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />
-            }
-            @default {
-              <rect x="3" y="4" width="18" height="12" rx="2" />
-              <path d="M8 20h8M12 16v4" />
-            }
-          }
-        </svg>
-        <ng-template appMenuContent>
-          <div class="group" role="group" aria-label="Theme">
-            @for (option of themeOptions; track option.value) {
-              <button
-                type="button"
-                class="button option"
-                [attr.aria-pressed]="theme.preference() === option.value"
-                (click)="theme.set(option.value)"
-              >
-                {{ option.label }}
-                @if (theme.preference() === option.value) {
-                  <span aria-hidden="true">✓</span>
-                }
-              </button>
-            }
-          </div>
-        </ng-template>
-      </app-menu>
+      <div class="header__tools">
+        <button
+          type="button"
+          class="round"
+          aria-label="Search trips"
+          title="Search trips"
+          (click)="searchTrips()"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM16 16l4.5 4.5" />
+          </svg>
+        </button>
+        <a class="round" routerLink="/trips/new" aria-label="New trip" title="New trip">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </a>
+      </div>
 
       @if (session.user(); as user) {
         <app-menu class="menu menu--account" panelId="account-menu">

@@ -73,14 +73,14 @@ let nextId = 0;
     .sheet {
       --peek: 2.75rem;
       position: fixed;
-      inset: auto 0 0;
+      /* Inside the shell margin, so it sits within the rounded shell. */
+      inset: auto var(--shell-margin) var(--shell-margin);
       z-index: 20;
       display: flex;
       flex-direction: column;
       height: 85dvh;
       border: 1px solid var(--glass-border);
-      border-bottom: 0;
-      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      border-radius: var(--shell-radius);
       background: var(--glass-bg-strong);
       -webkit-backdrop-filter: var(--glass-filter);
       backdrop-filter: var(--glass-filter);

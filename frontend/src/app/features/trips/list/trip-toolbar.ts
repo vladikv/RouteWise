@@ -5,6 +5,7 @@ import {
   ElementRef,
   Injector,
   afterNextRender,
+  afterRenderEffect,
   computed,
   inject,
   input,
@@ -20,6 +21,7 @@ import { ModeIcon } from '../../../shared/ui/mode-icon';
 import { SegmentedToggle, ToggleOption } from '../../../shared/ui/segmented-toggle';
 import { MODE_LABELS, PRIORITY_LABELS } from '../../../shared/util/labels';
 import { LayoutBreakpoint } from '../../../shared/util/layout-breakpoint';
+import { SearchFocus } from '../../../shared/util/search-focus';
 import { BOARD_PRIORITIES } from './trip-figures';
 import { FILTER_MODES, activeChipCount, resultSummary } from './trip-filters';
 
@@ -91,6 +93,19 @@ export class TripToolbar {
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly filtersButton = viewChild<ElementRef<HTMLButtonElement>>('filtersButton');
+  private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
+  private readonly searchFocus = inject(SearchFocus);
+
+  constructor() {
+    // The shell's "Search trips" shortcut: take focus once the field exists.
+    afterRenderEffect(() => {
+      const input = this.searchInput()?.nativeElement;
+      if (input && this.searchFocus.pending()) {
+        input.focus();
+        this.searchFocus.consume();
+      }
+    });
+  }
 
   protected onSearch(event: Event): void {
     this.search.set((event.target as HTMLInputElement).value);
