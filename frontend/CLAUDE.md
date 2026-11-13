@@ -115,8 +115,10 @@ src/
   `gestures`: `greedy` (default; the wheel always zooms except at the zoom limits) or `cooperative` for a map in a
   scrolling page (Ctrl/Cmd + wheel zooms, a plain wheel scrolls and shows "Ctrl + scroll to zoom", `touch-action:
   pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in tests); failure shows a note.
-  Unavailable modes (`unavailableCode` `DIFFERENT_LANDMASS` | `TOO_FAR`, else the raw reason) are shown muted
-  with a ⊘ icon and the words from `unavailableText`/`unavailableTotalsText` in `shared/util/labels.ts`.
+  Unavailable modes are shown muted with a ⊘ icon: each row says only "Not available", and the API's grouped
+  sentences (`unavailableGroups` on each leg and on the comparison, e.g. "Not reachable by land between Dublin
+  and Madrid: train, bus, car, bike") are shown once per leg (chart, itinerary timeline) and once for the
+  whole-trip totals. Never word reasons in the UI.
   Mode icons (`ModeIcon`) are decorative and always sit next to the name.
 - **City choice:** `CityPicker` (ARIA combobox) next to every interactive map;
   priorities with `PriorityPicker`.
@@ -144,11 +146,17 @@ src/
   cards below 30rem instead of scrolling sideways). `--header-height` is the measured header height (the stage is
   `100dvh - header`).
 - **Trips list** (`features/trips/list/`): `TripToolbar` (row 1: search, Board/List
-  `SegmentedToggle`, New trip; row 2: `FilterGroup`s Priority and Mode with counts from the full list;
+  `SegmentedToggle`, New trip; row 2: `FilterGroup`s Priority and Mode with the API's facet counts;
   result count "3 of 5 trips" in a `role="status"` and "Clear filters"; below 768 px the groups move
   into a `BottomSheet` opened by a "Filters" button), `TripBoard` (columns by priority), `TripTable`,
-  `TripCard`, `TripMenu` (built on `Menu`); `trip-figures.ts` derives cost, CO₂ and KPIs from each trip's
-  comparison (no extra API), `trip-filters.ts` the counts, the result summary and `sortTrips`/`toggleSort`.
+  `TripCard`, `TripMenu` (built on `Menu`). The API does the work: `GET /api/trips` (`TripApi.search`) searches,
+  filters, sorts and returns each trip's `figures` (computed without weather), the chip counts (`facets`) and the
+  board column totals (`priorityTotals`); `GET /api/trips/stats` the KPIs. The page keeps only the query
+  (search debounced 300 ms, chips, the table's sort, which applies only in the list view; `PAGE_SIZE` 100, no
+  paging controls yet) and keeps the previous page visible while the next loads (`linkedSignal`).
+  `trip-figures.ts` maps the page to entries (`tripEntries`) and board columns (`boardColumns`) and holds the
+  wording helpers (`modeSummary`, `tintFor`); `trip-filters.ts` builds the query (`tripSearch`), reads the
+  facets and keeps `toggleSort`/`resultSummary`. No business maths in the UI.
   Cards and rows open the trip as a whole: the title link carries an `::after` stretched over the card/row
   (one tab stop; the focus ring is drawn on the card via `:has(a:focus-visible)`), the "⋯" menu and
   `TripActions` (quick icon buttons Open, Edit, Duplicate, Delete) sit above it with a higher z-index. Quick
@@ -156,15 +164,18 @@ src/
   `ConfirmAction` (`asking`, `showTrigger`). Hover/focus lifts the card 2 px with an edge in its tint
   (`--color-highlight-edge`, `--color-accent-edge`) and no motion under reduced motion. `TripRoute` is the
   decorative (`aria-hidden`) mini route line: a dot per stop, the leg's mode icon between them (`legModes`).
-  The CO₂ bar shows the plan against the car (car = 100 %) with text. `TripTable` sorts by Date, Cost and CO₂
-  (header buttons, `aria-sort` on the `<th>`, trips without figures last); the sort lives in the page.
+  The CO₂ bar shows the plan against the car (car = 100 %, from `co2ShareOfCar`/`co2VsCarPercent`) with text.
+  `TripTable` shows the rows in API order; its Date, Cost and CO₂ header buttons (`aria-sort` on the `<th>`)
+  change the page's sort, which goes to the API.
+  **Delete** is a soft delete: after the confirmed DELETE an info toast "Deleted …" offers Undo
+  (`TripApi.restore`, possible for 30 s), then list and stats reload.
   **Duplicate** is a link to `/trips/new` with router navigation state `{ draft }` (`duplicateState`);
   `TripFormPage` reads it once (`presetFromState`: invalid fields dropped, ignored when editing) and the
   user still saves.
 - **Changing a trip's priority** (Trips page): `TripListPage.move` builds the existing update request from the
   trip in the list (`moveRequest`, `list/trip-move.ts`: all fields, stops as city ids, date unchanged) and calls
   `TripApi.update`. It is optimistic (`withPriority` in place, so the order is kept; `aria-busy` on the card/row
-  while pending), replaces the trip with the response and re-fetches that trip's comparison (the priority weights
+  while pending), merges the response into the item and reloads the list and stats (the priority weights
   the recommendation), and on failure restores the priority and shows an error `ToastService` toast with Retry.
   Two ways in: the "Move to …" items of `TripMenu` (keyboard, touch) and dragging on `TripBoard`, which is
   hand-written with pointer events (no CDK): a mouse/pen drag starts after `DRAG_THRESHOLD_PX`, a finger after a
