@@ -77,6 +77,11 @@ public class RuleBasedTripParser {
             + "(?!\\s+" + PARTY_NOUN + ")" + YEAR);
     private static final Pattern IN_DAYS_OR_WEEKS = Pattern.compile("\\bin\\s+(a|" + NUMBER_ALTERNATIVES
             + ")\\s+(days?|weeks?)\\b");
+    private static final Pattern TODAY_OR_TONIGHT = Pattern.compile("\\b(?:today|tonight)\\b");
+    private static final Pattern NEXT_WEEK = Pattern.compile("\\bnext\\s+week\\b");
+    private static final Pattern SUNDAY = Pattern.compile("\\bsunday\\b");
+    private static final Pattern NEXT_WEEKEND = Pattern.compile("\\bnext\\s+weekend\\b");
+    private static final Pattern THIS_WEEKEND = Pattern.compile("\\b(?:this|the)\\s+weekend\\b");
     private static final Pattern WEEKDAY = Pattern.compile(
             "\\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b");
 
@@ -254,7 +259,9 @@ public class RuleBasedTripParser {
     /**
      * Explicit dates win over relative ones. Dates without a year mean the next
      * such date (this year, or next year if it has passed). A weekday means its
-     * next occurrence after today, also with "next" or "this".
+     * next occurrence after today, also with "next" or "this". "This weekend" is its
+     * Saturday (today on a Saturday or Sunday), "next weekend" the Saturday after that,
+     * and "next week" next Monday, the same days as the UI's date shortcuts.
      */
     static Optional<LocalDate> findDate(String text, LocalDate today) {
         Matcher matcher = ISO_DATE.matcher(text);
@@ -281,15 +288,21 @@ public class RuleBasedTripParser {
         if (text.contains("tomorrow")) {
             return Optional.of(today.plusDays(1));
         }
-        if (Pattern.compile("\\b(?:today|tonight)\\b").matcher(text).find()) {
+        if (TODAY_OR_TONIGHT.matcher(text).find()) {
             return Optional.of(today);
+        }
+        if (NEXT_WEEKEND.matcher(text).find()) {
+            return Optional.of(weekendDay(thisWeekend(today).with(TemporalAdjusters.next(DayOfWeek.SATURDAY)), text));
+        }
+        if (THIS_WEEKEND.matcher(text).find()) {
+            return Optional.of(weekendDay(thisWeekend(today), text));
         }
         matcher = IN_DAYS_OR_WEEKS.matcher(text);
         if (matcher.find()) {
             int amount = "a".equals(matcher.group(1)) ? 1 : number(matcher.group(1));
             return Optional.of(matcher.group(2).startsWith("week") ? today.plusWeeks(amount) : today.plusDays(amount));
         }
-        boolean nextWeek = text.contains("next week");
+        boolean nextWeek = NEXT_WEEK.matcher(text).find();
         matcher = WEEKDAY.matcher(text);
         if (matcher.find()) {
             DayOfWeek day = DayOfWeek.valueOf(matcher.group(1).toUpperCase(Locale.ROOT));
@@ -301,7 +314,23 @@ public class RuleBasedTripParser {
             }
             return Optional.of(today.with(TemporalAdjusters.next(day)));
         }
-        return nextWeek ? Optional.of(today.plusWeeks(1)) : Optional.empty();
+        return nextWeek ? Optional.of(today.with(TemporalAdjusters.next(DayOfWeek.MONDAY))) : Optional.empty();
+    }
+
+    /**
+     * The day of a weekend the text means: its Sunday when "sunday" is named ("sunday this weekend"),
+     * otherwise {@code weekend} itself (its Saturday, or today when that weekend has already begun).
+     */
+    private static LocalDate weekendDay(LocalDate weekend, String text) {
+        return SUNDAY.matcher(text).find() ? weekend.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY)) : weekend;
+    }
+
+    /** This weekend's Saturday, or today when today is already Saturday or Sunday. */
+    private static LocalDate thisWeekend(LocalDate today) {
+        DayOfWeek day = today.getDayOfWeek();
+        return day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY
+                ? today
+                : today.with(TemporalAdjusters.next(DayOfWeek.SATURDAY));
     }
 
     private static Optional<LocalDate> dayOfMonth(int day, int month, String year, LocalDate today) {

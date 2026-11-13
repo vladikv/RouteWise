@@ -63,6 +63,15 @@ class RuleBasedTripParserTest {
     }
 
     @Test
+    void parse_thisWeekendAndBackNextWeekend_departsThisWeekendWithALaterDate() {
+        TripExtraction result = parser.parse("Berlin to Vienna this weekend, back home next weekend", CITIES, TODAY);
+
+        // TODAY is Wednesday 2026-11-11: this weekend is Saturday the 14th; the return is a later date.
+        assertThat(result.departureDate()).isEqualTo(LocalDate.of(2026, 11, 14));
+        assertThat(result.laterDates()).isTrue();
+    }
+
+    @Test
     void parse_departureAndReturnDates_keepsTheDepartureOnly() {
         TripExtraction result = parser.parse("Berlin to Vienna on friday and back on sunday", CITIES, TODAY);
 
@@ -119,7 +128,15 @@ class RuleBasedTripParserTest {
             "in 3 days, 2026-11-14",
             "in two weeks, 2026-11-25",
             "in a week, 2026-11-18",
-            "next week, 2026-11-18",
+            "next week, 2026-11-16",        // next Monday, like the UI shortcut
+            "this weekend, 2026-11-14",     // Saturday of this week
+            "at the weekend, 2026-11-14",
+            "the weekend, 2026-11-14",
+            "sunday this weekend, 2026-11-15",
+            "next weekend, 2026-11-21",     // the Saturday after this weekend's
+            "saturday next weekend, 2026-11-21",
+            "sunday next weekend, 2026-11-22",
+            "dec 4, 2026-12-04",
             "on friday, 2026-11-13",
             "next wednesday, 2026-11-18",    // the weekday after today, never today itself
             "friday next week, 2026-11-20",  // Friday of the calendar week after this one
@@ -129,10 +146,29 @@ class RuleBasedTripParserTest {
         assertThat(RuleBasedTripParser.findDate(text, TODAY)).contains(expected);
     }
 
+    /** Weekend edges: on Saturday and Sunday "this weekend" is today; "next weekend" is the coming Saturday. */
+    @ParameterizedTest(name = "\"{0}\" on {1} -> {2}")
+    @CsvSource({
+            "this weekend, 2026-11-13, 2026-11-14",  // Friday: tomorrow
+            "next weekend, 2026-11-13, 2026-11-21",  // Friday: eight days ahead
+            "this weekend, 2026-11-14, 2026-11-14",  // Saturday: today
+            "this weekend, 2026-11-15, 2026-11-15",  // Sunday: today
+            "next weekend, 2026-11-14, 2026-11-21",  // Saturday: a week later
+            "next weekend, 2026-11-15, 2026-11-21",  // Sunday: the coming Saturday
+            "next week, 2026-11-14, 2026-11-16",     // Saturday: the coming Monday
+            "next week, 2026-11-15, 2026-11-16",     // Sunday: tomorrow, a Monday
+            "next week, 2026-11-16, 2026-11-23"      // Monday: the Monday after
+    })
+    void findDate_weekendAndNextWeek_onWeekendDays(String text, LocalDate today, LocalDate expected) {
+        assertThat(RuleBasedTripParser.findDate(text, today)).contains(expected);
+    }
+
     @Test
     void findDate_impossibleOrMissingDate_isEmpty() {
         assertThat(RuleBasedTripParser.findDate("on 2026-02-30", TODAY)).isEmpty();
         assertThat(RuleBasedTripParser.findDate("some time soon", TODAY)).isEmpty();
+        assertThat(RuleBasedTripParser.findDate("we travel on weekends", TODAY)).isEmpty();
+        assertThat(RuleBasedTripParser.findDate("plans for the next weeks", TODAY)).isEmpty();
         assertThat(RuleBasedTripParser.findDate("we may 3 people go", TODAY)).isEmpty(); // "may" the verb
     }
 
