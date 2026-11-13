@@ -384,6 +384,9 @@ details"`, projected content such as the save error at its top), and its host is
   requested each time it opens; route, date and recommended mode via `tripEntries`/`modeSummary`; each opens
   `/trips/:id`; logged out a "Log in" link; loading, error and empty state "No upcoming trips") and Keyboard shortcuts
   (`ShortcutsDialog`, the list in `SHORTCUT_GROUPS`: keep it in step with the components' keys; `?` outside text fields opens it too).
+  **Loaded on demand:** `app.ts` wraps the palette and the shortcuts dialog in `@defer (when …isOpen())` and the
+  Upcoming trips content in `@defer (on immediate)` inside its popover, so they stay out of the initial bundle; a
+  closed palette or dialog is not in the DOM until it is first opened.
   **Search palette** (`layout/command-palette/`): `PaletteState` holds `isOpen`; Ctrl+K / Cmd+K, by `key` or by physical `code === 'KeyK'` for non-Latin layouts (`document:keydown`
   on the root) opens it on every page and width, also from inside a text field, but not while another dialog is open (the new overlay would take that dialog's content as its opener and lose focus when both close; same for `?`). Menus ignore an Escape that came from a dialog or was handled; `Modal` returns focus to its opener, else to `#main`. While a new search loads the previous results stay (`aria-busy` on the listbox), the highlight stays on the same option and Enter waits for the current text's results. Options take no focus (focus stays in the input, `aria-activedescendant`). It is a `Modal` (`position="top"`)
   with one ARIA combobox (`aria-controls` the listbox, `aria-activedescendant` the highlighted option) over a

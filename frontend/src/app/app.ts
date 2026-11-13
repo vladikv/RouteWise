@@ -76,7 +76,11 @@ const pathOf = (url: string): string => url.split(/[?#]/)[0];
       @if (breakpoint.desktop()) {
         <app-icon-rail shellRail [items]="railItems()" (activate)="onRailItem($event)" />
       }
-      <ng-template #upcomingTrips><app-upcoming-trips /></ng-template>
+      <ng-template #upcomingTrips>
+        @defer (on immediate) {
+          <app-upcoming-trips />
+        }
+      </ng-template>
       <div class="page" #page tabindex="-1">
         <main #main id="main" tabindex="-1">
           <router-outlet />
@@ -87,8 +91,13 @@ const pathOf = (url: string): string => url.split(/[?#]/)[0];
       </div>
     </app-shell>
     <app-toast-outlet />
-    <app-command-palette [open]="palette.isOpen()" (closed)="palette.close()" />
-    <app-shortcuts-dialog [open]="shortcutsOpen()" (closed)="shortcutsOpen.set(false)" />
+    <!-- Loaded on first open and kept, so closing and reopening need no new chunk. -->
+    @defer (when palette.isOpen()) {
+      <app-command-palette [open]="palette.isOpen()" (closed)="palette.close()" />
+    }
+    @defer (when shortcutsOpen()) {
+      <app-shortcuts-dialog [open]="shortcutsOpen()" (closed)="shortcutsOpen.set(false)" />
+    }
   `,
   styles: `
     :host {

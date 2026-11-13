@@ -91,7 +91,14 @@ describe('UpcomingTrips', () => {
     TestBed.tick();
     expectSearch().flush(null, { status: 500, statusText: 'Server Error' });
     await fixture.whenStable();
-    expect(element.querySelector('[role="alert"]')?.textContent).toContain("Couldn't load");
+    expect(element.querySelector('[role="alert"]')).not.toBeNull();
+
+    element.querySelector<HTMLButtonElement>('[role="alert"] button')!.click();
+    TestBed.tick();
+    expectSearch().flush(pageOf([]));
+    await fixture.whenStable();
+    expect(element.querySelector('[role="alert"]')).toBeNull();
+    expect(element.textContent).toContain('No upcoming trips');
   });
 
   it('asks to log in instead of loading while logged out', async () => {

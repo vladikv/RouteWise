@@ -223,7 +223,7 @@ describe('CommandPalette', () => {
     expect(input().getAttribute('aria-activedescendant')).toBe(highlighted);
   });
 
-  it('ignores Enter until the results for the current text have arrived', async () => {
+  it('queues Enter until the results for the current text have arrived', async () => {
     await openPalette();
     await type('b');
     await answer();
@@ -234,8 +234,50 @@ describe('CommandPalette', () => {
     expect(closed).toBe(0);
 
     await answer([CITIES[0]], []);
-    key('Enter');
     expect(navigate).toHaveBeenCalledTimes(1);
+    expect(closed).toBe(1);
+  });
+
+  it('chooses the active option when results arrive after typing and pressing Enter', async () => {
+    await openPalette();
+    await type('ber');
+    key('Enter');
+    expect(navigate).not.toHaveBeenCalled();
+
+    await answer([CITIES[0]], []);
+
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(closed).toBe(1);
+  });
+
+  it('drops a queued Enter when the text changes', async () => {
+    await openPalette();
+    await type('ber');
+    key('Enter');
+    await type('berl');
+    const calls = httpTesting.match((request) => request.url === `${API}/cities`);
+    calls[calls.length - 1].flush([CITIES[0]]);
+    await fixture.whenStable();
+
+    expect(options()).toEqual(['Berlin']);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('drops a queued Enter when the palette closes', async () => {
+    await openPalette();
+    await type('ber');
+    key('Enter');
+    fixture.componentRef.setInput('open', false);
+    fixture.detectChanges();
+    TestBed.tick();
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    await type('ber');
+    const calls = httpTesting.match((request) => request.url === `${API}/cities`);
+    calls[calls.length - 1].flush([CITIES[0]]);
+    await fixture.whenStable();
+
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it('gives the options no tab stop or key handling: focus stays in the input', async () => {

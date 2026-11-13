@@ -151,7 +151,7 @@ describe('App', () => {
       new KeyboardEvent('keydown', { key: '?', bubbles: true, cancelable: true }),
     );
     await fixture.whenStable();
-    expect(dialog().open).toBe(false);
+    expect(dialog()).toBeNull(); // not loaded before its first open
     input.remove();
 
     rail.focus();
@@ -188,7 +188,7 @@ describe('App', () => {
 
       ctrlK();
       await fixture.whenStable();
-      expect(palette(shell).open).toBe(false);
+      expect(palette(shell)).toBeNull();
       expect(shortcuts.open).toBe(true);
 
       shortcuts.dispatchEvent(new Event('cancel', { cancelable: true }));
@@ -200,9 +200,11 @@ describe('App', () => {
     it('keeps the popover open under the palette, and Escape returns focus to its link', async () => {
       const fixture = await render(1280);
       const shell = fixture.nativeElement as HTMLElement;
-      shell
-        .querySelector<HTMLButtonElement>('app-icon-rail button[aria-label="Upcoming trips"]')!
-        .click();
+      const trigger = shell.querySelector<HTMLButtonElement>(
+        'app-icon-rail button[aria-label="Upcoming trips"]',
+      )!;
+      trigger.focus();
+      trigger.click();
       await fixture.whenStable();
       const link = shell.querySelector<HTMLAnchorElement>('app-upcoming-trips a')!;
       expect(document.activeElement).toBe(link);

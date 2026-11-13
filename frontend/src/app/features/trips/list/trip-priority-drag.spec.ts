@@ -255,6 +255,7 @@ describe('TripListPage priority change', () => {
     await settle();
 
     expect(ghost()).not.toBeNull();
+    expect((ghost() as HTMLElement).style.boxShadow).toBe('var(--shadow-raised)');
     expect(column('CHEAPEST').classList).toContain('column--target');
     expect(column('GREENEST').classList).not.toContain('column--target');
     expect(slot('Berlin to Vienna').classList).toContain('slot--source');
