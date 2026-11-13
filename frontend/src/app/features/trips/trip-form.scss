@@ -50,16 +50,6 @@
   .stop__actions {
     justify-content: flex-end;
   }
-
-  .priority .segmented {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    border-radius: var(--radius-lg);
-  }
-
-  .priority .segmented span {
-    justify-content: center;
-  }
 }
 
 .stop__error {
@@ -83,6 +73,32 @@
   margin-bottom: var(--space-2);
 }
 
+/*
+ * What matters most: one row when all four options fit, otherwise a 2x2 grid, so no option ever sits
+ * alone on a line. The box is the container the width is measured on.
+ */
+.priority__box {
+  container-type: inline-size;
+}
+
+.priority .segmented {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-radius: var(--radius-lg);
+}
+
+.priority .segmented span {
+  justify-content: center;
+  text-align: center;
+}
+
+@container (min-width: 26rem) {
+  .priority .segmented {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-radius: var(--radius-pill);
+  }
+}
+
 .form-summary {
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-danger);
@@ -93,29 +109,60 @@
 }
 
 /*
- * From 1280 px the fields scroll inside their card, so the page itself never scrolls. The spacing is
- * a little tighter, and the Create / Cancel bar stays at the bottom of the card while the fields scroll.
+ * From 1280 px the card is a column: the fields scroll in `.fields__scroll` when the space is too short
+ * (the page itself never scrolls) and the Notes field grows into any free space. The Create / Cancel bar is
+ * the last row of the card with the same glass: it reaches the card's edges and its corners follow the card.
  */
 @media (min-width: 80rem) {
   .fields {
+    display: flex;
+    flex-direction: column;
     min-height: 0;
-    padding: var(--space-6);
+    padding: 0;
+    overflow: hidden;
+  }
+
+  form {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .fields__scroll {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    padding: var(--space-4) var(--space-6) var(--space-2);
     overflow-y: auto;
     scrollbar-color: var(--color-border-strong) transparent;
     scrollbar-width: thin;
   }
 
+  .fields__scroll > * {
+    flex: none;
+  }
+
+  .fields__scroll > .notes {
+    flex: 1 1 auto;
+    min-height: 5.5rem;
+    margin-bottom: 0;
+  }
+
+  .notes textarea {
+    flex: 1;
+    min-height: 3.5rem;
+    resize: none;
+  }
+
   .field {
-    margin-bottom: var(--space-3);
+    margin-bottom: var(--space-2);
   }
 
   .stops {
     gap: var(--space-2);
     margin-bottom: var(--space-2);
-  }
-
-  textarea {
-    min-height: 4.5rem;
   }
 
   .row {
@@ -128,14 +175,9 @@
   }
 
   .actions {
-    position: sticky;
-    /* Sticks to the padding edge of the scroll area, so the card padding is pulled back in. */
-    bottom: calc(-1 * var(--space-6));
-    z-index: 1;
-    margin: var(--space-2) calc(-1 * var(--space-6)) calc(-1 * var(--space-6));
+    flex: none;
     padding: var(--space-3) var(--space-6);
     border-top: 1px solid var(--glass-border);
-    background:
-      linear-gradient(var(--glass-bg-strong), var(--glass-bg-strong)), var(--color-surface);
+    background: var(--glass-bg);
   }
 }

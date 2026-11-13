@@ -3,171 +3,180 @@
     [cities]="cities()"
     [stops]="mapStops()"
     [fill]="columns()"
+    [autoRotate]="true"
     [gestures]="columns() ? 'greedy' : 'cooperative'"
     (cityPick)="addCityFromMap($event)"
   />
 </div>
 
-<section class="card fields" aria-label="Trip details" [attr.tabindex]="columns() ? 0 : null">
-  <ng-content />
+<section class="card fields" aria-label="Trip details">
   <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-    @if (submitAttempted() && form.invalid) {
-      <p class="form-summary" role="alert">Please fix the highlighted fields.</p>
-    }
-
-    <div class="field">
-      <label for="trip-title">Title</label>
-      <input
-        id="trip-title"
-        type="text"
-        formControlName="title"
-        maxlength="100"
-        autocomplete="off"
-        [attr.aria-invalid]="errorFor('title') ? 'true' : null"
-        [attr.aria-describedby]="errorFor('title') ? 'trip-title-error' : null"
-      />
-      @if (errorFor('title'); as message) {
-        <span id="trip-title-error" class="field__error">{{ message }}</span>
+    <div class="fields__scroll" [attr.tabindex]="columns() ? 0 : null">
+      <ng-content />
+      @if (submitAttempted() && form.invalid) {
+        <p class="form-summary" role="alert">Please fix the highlighted fields.</p>
       }
-    </div>
 
-    <fieldset class="field stops-field" aria-describedby="trip-stops-hint">
-      <legend>Stops</legend>
-      <p id="trip-stops-hint" class="field__hint">
-        In travel order, {{ minStops }} to {{ maxStops }} stops. Pick cities here or on the globe; a
-        city picked on the globe fills the next empty stop.
-      </p>
+      <div class="field">
+        <label for="trip-title">Title</label>
+        <input
+          id="trip-title"
+          type="text"
+          formControlName="title"
+          maxlength="100"
+          autocomplete="off"
+          [attr.aria-invalid]="errorFor('title') ? 'true' : null"
+          [attr.aria-describedby]="errorFor('title') ? 'trip-title-error' : null"
+        />
+        @if (errorFor('title'); as message) {
+          <span id="trip-title-error" class="field__error">{{ message }}</span>
+        }
+      </div>
 
-      <ol class="stops">
-        @for (cityId of stopValues(); track $index; let i = $index, first = $first, last = $last) {
-          <li class="stop">
-            <app-city-picker
-              class="stop__picker"
-              [id]="'trip-stop-' + i"
-              [label]="stopLabel(i, stopValues().length)"
-              [pin]="'' + (i + 1)"
-              [placeholder]="first ? 'Where from?' : last ? 'Where to?' : 'Next stop'"
-              [cities]="cities()"
-              [value]="cityId ?? null"
-              [excludeId]="first ? null : (stopValues()[i - 1] ?? null)"
-              [invalid]="stopError(i) !== null"
-              [describedBy]="stopError(i) ? 'trip-stop-' + i + '-error' : null"
-              (valueChange)="setStop(i, $event)"
-            />
-            <div class="stop__actions">
-              <app-icon-button
-                [label]="'Move stop ' + (i + 1) + ' up'"
-                [disabled]="first"
-                (click)="moveStop(i, -1)"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path d="M12 19V5M6 11l6-6 6 6" />
-                </svg>
-              </app-icon-button>
-              <app-icon-button
-                [label]="'Move stop ' + (i + 1) + ' down'"
-                [disabled]="last"
-                (click)="moveStop(i, 1)"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path d="M12 5v14M6 13l6 6 6-6" />
-                </svg>
-              </app-icon-button>
-              <app-icon-button
-                [label]="'Remove stop ' + (i + 1)"
-                [disabled]="stopValues().length <= minStops"
-                (click)="removeStop(i)"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              </app-icon-button>
-            </div>
-            @if (stopError(i); as message) {
-              <span [id]="'trip-stop-' + i + '-error'" class="field__error stop__error">{{
-                message
-              }}</span>
+      <fieldset class="field stops-field" aria-describedby="trip-stops-hint">
+        <legend>Stops</legend>
+        <p id="trip-stops-hint" class="field__hint">
+          In travel order, {{ minStops }} to {{ maxStops }} stops. Pick cities here or on the globe;
+          a city picked on the globe fills the next empty stop.
+        </p>
+
+        <ol class="stops">
+          @for (
+            cityId of stopValues();
+            track $index;
+            let i = $index, first = $first, last = $last
+          ) {
+            <li class="stop">
+              <app-city-picker
+                class="stop__picker"
+                [id]="'trip-stop-' + i"
+                [label]="stopLabel(i, stopValues().length)"
+                [pin]="'' + (i + 1)"
+                [placeholder]="first ? 'Where from?' : last ? 'Where to?' : 'Next stop'"
+                [cities]="cities()"
+                [value]="cityId ?? null"
+                [excludeId]="first ? null : (stopValues()[i - 1] ?? null)"
+                [invalid]="stopError(i) !== null"
+                [describedBy]="stopError(i) ? 'trip-stop-' + i + '-error' : null"
+                (valueChange)="setStop(i, $event)"
+              />
+              <div class="stop__actions">
+                <app-icon-button
+                  [label]="'Move stop ' + (i + 1) + ' up'"
+                  [disabled]="first"
+                  (click)="moveStop(i, -1)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M12 19V5M6 11l6-6 6 6" />
+                  </svg>
+                </app-icon-button>
+                <app-icon-button
+                  [label]="'Move stop ' + (i + 1) + ' down'"
+                  [disabled]="last"
+                  (click)="moveStop(i, 1)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M12 5v14M6 13l6 6 6-6" />
+                  </svg>
+                </app-icon-button>
+                <app-icon-button
+                  [label]="'Remove stop ' + (i + 1)"
+                  [disabled]="stopValues().length <= minStops"
+                  (click)="removeStop(i)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </app-icon-button>
+              </div>
+              @if (stopError(i); as message) {
+                <span [id]="'trip-stop-' + i + '-error'" class="field__error stop__error">{{
+                  message
+                }}</span>
+              }
+            </li>
+          }
+        </ol>
+        @if (stopsError(); as message) {
+          <span id="trip-stops-error" class="field__error">{{ message }}</span>
+        }
+        <div>
+          <button
+            type="button"
+            class="button"
+            [disabled]="stopValues().length >= maxStops"
+            (click)="addStop()"
+          >
+            + Add stop
+          </button>
+        </div>
+      </fieldset>
+
+      <div class="row">
+        <div class="field">
+          <label for="trip-date">Departure date</label>
+          <input
+            id="trip-date"
+            type="date"
+            formControlName="departureDate"
+            [min]="today"
+            [attr.aria-invalid]="errorFor('departureDate') ? 'true' : null"
+            [attr.aria-describedby]="errorFor('departureDate') ? 'trip-date-error' : null"
+          />
+          @if (errorFor('departureDate'); as message) {
+            <span id="trip-date-error" class="field__error">{{ message }}</span>
+          }
+        </div>
+
+        <div class="field">
+          <label for="trip-travelers">Travelers</label>
+          <input
+            id="trip-travelers"
+            type="number"
+            formControlName="travelers"
+            min="1"
+            max="9"
+            step="1"
+            inputmode="numeric"
+            [attr.aria-invalid]="errorFor('travelers') ? 'true' : null"
+            [attr.aria-describedby]="
+              errorFor('travelers') ? 'trip-travelers-error' : 'trip-travelers-hint'
+            "
+          />
+          <span id="trip-travelers-hint" class="field__hint">1 to 9</span>
+          @if (errorFor('travelers'); as message) {
+            <span id="trip-travelers-error" class="field__error">{{ message }}</span>
+          }
+        </div>
+      </div>
+
+      <fieldset class="field priority">
+        <legend>What matters most?</legend>
+        <div class="priority__box">
+          <div class="segmented">
+            @for (priority of priorities; track priority) {
+              <label>
+                <input type="radio" formControlName="priority" [value]="priority" />
+                <span>{{ priorityLabels[priority] }}</span>
+              </label>
             }
-          </li>
-        }
-      </ol>
-      @if (stopsError(); as message) {
-        <span id="trip-stops-error" class="field__error">{{ message }}</span>
-      }
-      <div>
-        <button
-          type="button"
-          class="button"
-          [disabled]="stopValues().length >= maxStops"
-          (click)="addStop()"
-        >
-          + Add stop
-        </button>
-      </div>
-    </fieldset>
+          </div>
+        </div>
+      </fieldset>
 
-    <div class="row">
-      <div class="field">
-        <label for="trip-date">Departure date</label>
-        <input
-          id="trip-date"
-          type="date"
-          formControlName="departureDate"
-          [min]="today"
-          [attr.aria-invalid]="errorFor('departureDate') ? 'true' : null"
-          [attr.aria-describedby]="errorFor('departureDate') ? 'trip-date-error' : null"
-        />
-        @if (errorFor('departureDate'); as message) {
-          <span id="trip-date-error" class="field__error">{{ message }}</span>
+      <div class="field notes">
+        <label for="trip-notes">Notes <span class="muted">(optional)</span></label>
+        <textarea
+          id="trip-notes"
+          formControlName="notes"
+          maxlength="1000"
+          [attr.aria-invalid]="errorFor('notes') ? 'true' : null"
+          [attr.aria-describedby]="errorFor('notes') ? 'trip-notes-error' : null"
+        ></textarea>
+        @if (errorFor('notes'); as message) {
+          <span id="trip-notes-error" class="field__error">{{ message }}</span>
         }
       </div>
-
-      <div class="field">
-        <label for="trip-travelers">Travelers</label>
-        <input
-          id="trip-travelers"
-          type="number"
-          formControlName="travelers"
-          min="1"
-          max="9"
-          step="1"
-          inputmode="numeric"
-          [attr.aria-invalid]="errorFor('travelers') ? 'true' : null"
-          [attr.aria-describedby]="
-            errorFor('travelers') ? 'trip-travelers-error' : 'trip-travelers-hint'
-          "
-        />
-        <span id="trip-travelers-hint" class="field__hint">1 to 9</span>
-        @if (errorFor('travelers'); as message) {
-          <span id="trip-travelers-error" class="field__error">{{ message }}</span>
-        }
-      </div>
-    </div>
-
-    <fieldset class="field priority">
-      <legend>What matters most?</legend>
-      <div class="segmented">
-        @for (priority of priorities; track priority) {
-          <label>
-            <input type="radio" formControlName="priority" [value]="priority" />
-            <span>{{ priorityLabels[priority] }}</span>
-          </label>
-        }
-      </div>
-    </fieldset>
-
-    <div class="field">
-      <label for="trip-notes">Notes <span class="muted">(optional)</span></label>
-      <textarea
-        id="trip-notes"
-        formControlName="notes"
-        maxlength="1000"
-        [attr.aria-invalid]="errorFor('notes') ? 'true' : null"
-        [attr.aria-describedby]="errorFor('notes') ? 'trip-notes-error' : null"
-      ></textarea>
-      @if (errorFor('notes'); as message) {
-        <span id="trip-notes-error" class="field__error">{{ message }}</span>
-      }
     </div>
 
     <div class="actions">

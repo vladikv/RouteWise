@@ -107,7 +107,7 @@ import { TripForm, TripPreset } from './trip-form';
       .layout {
         flex: 1;
         min-height: 0;
-        grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr) minmax(24rem, 27rem);
+        grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr) minmax(24rem, 30rem);
         grid-template-rows: minmax(0, 1fr);
         gap: var(--space-4);
         max-width: none;
@@ -118,6 +118,8 @@ import { TripForm, TripPreset } from './trip-form';
       }
 
       .draft {
+        display: flex;
+        flex-direction: column;
         min-height: 0;
         overflow-y: auto;
         scrollbar-color: var(--color-border-strong) transparent;

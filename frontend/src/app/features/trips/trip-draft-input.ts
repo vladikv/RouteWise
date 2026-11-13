@@ -82,6 +82,19 @@ export const DRAFT_EXAMPLES = [
     }
   `,
   styles: `
+    :host {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    form {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+    }
+
     .field {
       margin-bottom: var(--space-3);
     }
@@ -98,6 +111,19 @@ export const DRAFT_EXAMPLES = [
     textarea {
       min-height: 8rem;
       resize: vertical;
+    }
+
+    /* From 1280 px the card has a fixed height: the description grows into the free space and the
+       examples, the button and the result note stay below it. */
+    @media (min-width: 80rem) {
+      .field {
+        flex: 1;
+      }
+
+      textarea {
+        flex: 1;
+        resize: none;
+      }
     }
 
     .examples {
