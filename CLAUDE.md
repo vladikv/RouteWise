@@ -73,7 +73,10 @@ UI: http://localhost:4200
 ## Working rules for Claude
 
 - Ask before adding a new dependency; explain why it is needed.
-- No screenshots: milestones do not require them and reviews work from code and tokens.
+- Screenshots: `cd frontend && npm run screenshots` (Playwright, needs the app running) captures
+  every screen at 1920/1280/375 px. Step reviews go to `docs/screenshots/work/` (git-ignored);
+  final `before-*`/`after-*` sets of UI milestones go to `docs/screenshots/` and are committed.
+  `docs/photo.jpg` is a design reference: never commit, move or copy it.
 - Do not change public API contracts (paths, DTO fields) without saying so explicitly.
 - Run the relevant tests after changes and report the result honestly.
 - When unsure about a requirement, ask instead of guessing.

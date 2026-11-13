@@ -24,6 +24,7 @@ application-local.yml
 # Claude Code (local only)
 .claude/settings.local.json
 
-# Docs folder (new files stay local; already tracked files remain tracked)
+# Design reference (not ours, never commit)
 docs/photo.jpg
-docs/screenshots/
+# Working captures from step reviews
+docs/screenshots/work/
