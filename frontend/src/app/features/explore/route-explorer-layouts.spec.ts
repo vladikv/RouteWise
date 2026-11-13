@@ -185,6 +185,21 @@ describe('RouteExplorer layouts', () => {
       expect(count('.stage__toolbar')).toBe(0);
     });
 
+    it('lets the wheel zoom the map only where the page does not scroll around it', async () => {
+      const cooperative = () => count('.frame--cooperative');
+
+      await render(900); // stacked in a scrolling page
+      expect(cooperative()).toBe(1);
+
+      viewport.resize(1280); // beside a column that scrolls on its own
+      await fixture.whenStable();
+      expect(cooperative()).toBe(0);
+
+      viewport.resize(500); // map above the bottom sheet
+      await fixture.whenStable();
+      expect(cooperative()).toBe(0);
+    });
+
     it('shows Split below 1440 px without offering Map or overwriting the saved choice', async () => {
       await render(1280, 'map');
       expect(arrangement()).toEqual(['stage--split']);

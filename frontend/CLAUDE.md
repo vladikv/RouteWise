@@ -108,6 +108,15 @@ src/
   `--color-bar`). Neither may be the only way to get information: keep a
   text or form equivalent (dropdowns for the map, the table for the chart)
   and state selection in text and `aria-pressed`, not color alone.
+  Map details: one city is the tab stop (roving `tabindex`: last focused, else origin, else first; arrows move
+  between cities); click targets are capped at half the distance to the nearest neighbour; low-ranked cities
+  within 2.5 dot widths of a more important one are left out (still in the pickers); in `fill` mode only the
+  space between the docks is drawn and labelled, and `topZone` reserves the layout toolbar for labels.
+  `gestures`: `greedy` (default; the wheel always zooms except at the zoom limits) or `cooperative` for a map in a
+  scrolling page (Ctrl/Cmd + wheel zooms, a plain wheel scrolls and shows "Ctrl + scroll to zoom", `touch-action:
+  pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in tests); failure shows a note.
+  Unavailable modes (`unavailableCode` `DIFFERENT_LANDMASS` | `TOO_FAR`, else the raw reason) are shown muted
+  with a ⊘ icon and the words from `unavailableText`/`unavailableTotalsText` in `shared/util/labels.ts`.
   Mode icons (`ModeIcon`) are decorative and always sit next to the name.
 - **City choice:** `CityPicker` (ARIA combobox) next to every interactive map;
   priorities with `PriorityPicker`.

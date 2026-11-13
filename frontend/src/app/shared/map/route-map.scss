@@ -44,6 +44,11 @@
   touch-action: none; /* pinch and drag move the map, not the page */
 }
 
+/* In a scrolling page a vertical swipe scrolls it; a horizontal drag still turns the globe. */
+.frame--cooperative .map {
+  touch-action: pan-y;
+}
+
 .frame--interactive .map:active {
   cursor: grabbing;
 }
@@ -124,11 +129,16 @@
   font-weight: 700;
 }
 
-.city--dimmed {
+/* Only the mark fades: the name keeps its contrast. */
+.city--dimmed .city__dot {
   opacity: 0.55;
 }
 
-.city--dimmed.city--hovered {
+.city--dimmed .city__name {
+  fill: var(--color-text-muted);
+}
+
+.city--dimmed.city--hovered .city__dot {
   opacity: 1;
 }
 
@@ -158,7 +168,6 @@
 .route--halo {
   stroke: var(--map-route-halo);
   stroke-width: 7px;
-  stroke-dasharray: none;
   animation: none;
   opacity: 0.8;
 }
@@ -190,8 +199,8 @@
   box-shadow: var(--shadow-card);
 
   button {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.75rem;
+    height: 2.75rem;
     border: 0;
     background: transparent;
     color: var(--color-text);
@@ -203,6 +212,12 @@
 
   button + button {
     border-top: 1px solid var(--color-border);
+  }
+
+  /* Inside the clipped group, so the ring is drawn inward. */
+  button:focus-visible {
+    outline: 3px solid var(--color-focus);
+    outline-offset: -3px;
   }
 
   button:hover:not(:disabled) {

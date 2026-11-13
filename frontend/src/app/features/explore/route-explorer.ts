@@ -13,7 +13,7 @@ import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { CityApi } from '../../core/api/city-api';
 import { ComparisonApi } from '../../core/api/comparison-api';
 import { City, Comparison, ComparisonRequest, TripPriority } from '../../core/api/models';
-import { RouteMap, RouteSelection } from '../../shared/map/route-map';
+import { RouteMap, RouteSelection, TopZone } from '../../shared/map/route-map';
 import { BottomSheet, SheetState } from '../../shared/ui/bottom-sheet';
 import { CityPicker } from '../../shared/ui/city-picker';
 import { GlassPanel } from '../../shared/ui/glass-panel';
@@ -47,6 +47,8 @@ const DOCK_COLLAPSED_WIDTH = 14;
 const DOCK_OFFSET = 1.5;
 const DOCK_AIR = 1;
 const REM_PX = 16;
+/** The layout toggle floating over the map's top edge (its box with the margin above it), in pixels. */
+const TOOLBAR_ZONE = { width: 14 * REM_PX, height: 5 * REM_PX };
 
 const LAYOUT_OPTIONS: ToggleOption<HomeLayoutChoice>[] = [
   {
@@ -127,6 +129,19 @@ export class RouteExplorer {
   /** Pixels a floating panel covers at its side of the map (its width, offset and some air). */
   protected readonly insetStart = computed(() => this.dockInset(this.formCollapsed()));
   protected readonly insetEnd = computed(() => this.dockInset(this.resultsCollapsed()));
+  /**
+   * Inside a scrolling page (stacked Split) the wheel must scroll it; where the map fills the
+   * screen or sits beside a column that scrolls on its own, it zooms.
+   */
+  protected readonly mapGestures = computed(() =>
+    this.arrangement() === 'split' && !this.homeLayout.sideBySide() ? 'cooperative' : 'greedy',
+  );
+  /** Where labels keep clear of the layout toggle (only shown from 1440 px). */
+  protected readonly toolbarZone = computed<TopZone | null>(() =>
+    this.homeLayout.mapAvailable()
+      ? { ...TOOLBAR_ZONE, align: this.arrangement() === 'map' ? 'center' : 'start' }
+      : null,
+  );
   /** No comparison yet: in the Map layout the results panel is only a small hint. */
   protected readonly resultsIdle = computed(() => this.request() === undefined);
 

@@ -5,6 +5,7 @@
   [class.frame--interactive]="interactive()"
   [class.frame--fill]="fill()"
   [class.frame--controls-end]="controls() === 'bottom-end'"
+  [class.frame--cooperative]="cooperative()"
   [style.--inset-start.px]="insetStart()"
   [style.--inset-end.px]="insetEnd()"
 >
@@ -15,11 +16,8 @@
     [style.aspect-ratio]="fill() ? null : aspectRatio()"
     [attr.tabindex]="interactive() ? 0 : -1"
     [attr.role]="interactive() ? 'group' : 'img'"
-    [attr.aria-label]="
-      interactive()
-        ? 'Globe of cities. Choose an origin, then a destination. Arrow keys rotate, plus and minus zoom, zero resets the view.'
-        : description()
-    "
+    [attr.aria-label]="interactive() ? instructions() : description()"
+    [attr.aria-busy]="landState() === 'loading'"
     (wheel)="onWheel($event)"
     (pointerdown)="onPointerDown($event)"
     (pointermove)="onPointerMove($event)"
@@ -47,19 +45,24 @@
           [class.city--dimmed]="marker.dimmed"
           [class.city--hovered]="hoveredId() === marker.city.id"
           role="button"
-          tabindex="0"
+          [attr.tabindex]="marker.city.id === tabStopId() ? 0 : -1"
           [attr.aria-label]="marker.ariaLabel"
-          [attr.aria-pressed]="marker.role !== null"
+          [attr.aria-pressed]="stops() === null ? marker.role !== null : null"
           (click)="pick(marker.city)"
           (keydown.enter)="pickWithKey($event, marker.city)"
           (keydown.space)="pickWithKey($event, marker.city)"
           (keydown)="onCityArrow($event, marker.city)"
           (pointerenter)="hoveredId.set(marker.city.id)"
           (pointerleave)="hoveredId.set(null)"
-          (focus)="hoveredId.set(marker.city.id)"
+          (focus)="onCityFocus(marker.city.id)"
           (blur)="hoveredId.set(null)"
         >
-          <circle class="city__hit" [attr.cx]="marker.point.x" [attr.cy]="marker.point.y" r="17" />
+          <circle
+            class="city__hit"
+            [attr.cx]="marker.point.x"
+            [attr.cy]="marker.point.y"
+            [attr.r]="marker.hitRadius"
+          />
           @if (marker.role) {
             <circle
               class="city__ring"
@@ -145,7 +148,15 @@
       </button>
       <button type="button" aria-label="Reset view" title="Reset view" (click)="reset()">↺</button>
     </div>
-    <p class="hint" aria-hidden="true">Drag to rotate · scroll or pinch to zoom</p>
+    <p class="hint" aria-hidden="true">
+      Drag to rotate · {{ cooperative() ? 'Ctrl + scroll or pinch' : 'scroll or pinch' }} to zoom
+    </p>
+    @if (scrollHint()) {
+      <p class="scroll-hint" aria-hidden="true">Ctrl + scroll to zoom</p>
+    }
+    @if (landState() === 'failed') {
+      <p class="note" role="status">Coastlines could not be loaded</p>
+    }
 
     @if (card(); as card) {
       <div

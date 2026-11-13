@@ -91,4 +91,13 @@ describe('RouteMap with stops', () => {
       'Stop 1: Berlin. Add another stop.',
     );
   });
+
+  it('explains how to add a stop and does not claim a pressed state', async () => {
+    await show([3]);
+
+    expect(map.querySelector('svg')?.getAttribute('aria-label')).toContain(
+      'Select a city to add it as the next stop.',
+    );
+    expect(city('Berlin').hasAttribute('aria-pressed')).toBe(false);
+  });
 });

@@ -113,7 +113,8 @@ describe('RouteMap', () => {
 
   it('does not render a city on the far side, so it cannot take focus', () => {
     expect(maybeCity('Sydney')).toBeNull();
-    expect(map.querySelectorAll('g.city')).toHaveLength(4);
+    // Potsdam sits on top of Berlin at this zoom, so it is left out (the pickers still offer it).
+    expect(map.querySelectorAll('g.city')).toHaveLength(3);
   });
 
   it('swaps the sides when the globe is turned: Sydney appears and Berlin goes behind it', async () => {
@@ -486,10 +487,7 @@ describe('RouteMap', () => {
 
     it('labels the most important cities and holds back rank 3 until zoomed in', async () => {
       expect(labelled().sort()).toEqual(['Berlin', 'Paris', 'Vienna']);
-      expect(city('Potsdam').querySelector('.city__name')).toBeNull();
-      // A hidden label leaves a labelled button.
-      expect(city('Potsdam').getAttribute('aria-label')).toBe('Potsdam');
-      expect(city('Potsdam').getAttribute('role')).toBe('button');
+      expect(maybeCity('Potsdam')).toBeNull();
 
       // 1.6^3 = 4.1x
       for (let i = 0; i < 3; i++) {
@@ -497,6 +495,7 @@ describe('RouteMap', () => {
         await fixture.whenStable();
       }
       expect(labelled()).toContain('Potsdam');
+      expect(city('Potsdam').getAttribute('role')).toBe('button');
     });
 
     it('always labels the cities of the selected route', async () => {

@@ -25,7 +25,12 @@
       In travel order, {{ minStops }} to {{ maxStops }} stops. Pick cities below or on the map; a
       city picked on the map fills the next empty stop.
     </p>
-    <app-route-map [cities]="cities()" [stops]="mapStops()" (cityPick)="addCityFromMap($event)" />
+    <app-route-map
+      [cities]="cities()"
+      [stops]="mapStops()"
+      gestures="cooperative"
+      (cityPick)="addCityFromMap($event)"
+    />
 
     <ol class="stops">
       @for (cityId of stopValues(); track $index; let i = $index, first = $first, last = $last) {
