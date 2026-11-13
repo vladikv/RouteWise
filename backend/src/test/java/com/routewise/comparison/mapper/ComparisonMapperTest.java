@@ -25,6 +25,8 @@ import com.routewise.weather.domain.Location;
 import com.routewise.weather.domain.LocationForecast;
 import com.routewise.weather.domain.WeatherForecast;
 import com.routewise.weather.domain.WeatherHazard;
+import com.routewise.weather.domain.WeatherReport;
+import com.routewise.weather.domain.WeatherStatus;
 
 import org.junit.jupiter.api.Test;
 
@@ -57,14 +59,15 @@ class ComparisonMapperTest {
                                 "Leg 1 (Berlin to Vienna): too far")),
                 List.of(List.of(), List.of()), List.of(landmass));
 
-        ComparisonResponse response = mapper.toResponse(1L, DEPARTURE, 3, TripPriority.FASTEST, List.of(vienna),
-                routePlan);
+        ComparisonResponse response = mapper.toResponse(1L, DEPARTURE, 3, TripPriority.FASTEST,
+                new WeatherReport(WeatherStatus.PARTIAL, List.of(vienna)), routePlan);
 
         assertThat(response.tripId()).isEqualTo(1L);
         assertThat(response.departureDate()).isEqualTo(DEPARTURE);
         assertThat(response.travelers()).isEqualTo(3);
         assertThat(response.priority()).isEqualTo(TripPriority.FASTEST);
         assertThat(response.currency()).isEqualTo("EUR");
+        assertThat(response.weatherStatus()).isEqualTo(WeatherStatus.PARTIAL);
         // 523.549 + 523.549 = 1047.098
         assertThat(response.distanceKm()).isEqualByComparingTo("1047.1");
         assertThat(response.weather()).singleElement().satisfies(weather -> {
@@ -106,8 +109,8 @@ class ComparisonMapperTest {
         RoutePlan routePlan = new RoutePlan(List.of(new Leg(BERLIN, VIENNA, 523.5, List.of(bike))), null, List.of(),
                 List.of(List.of(tooFar)), List.of());
 
-        ComparisonResponse response = mapper.toResponse(null, DEPARTURE, 1, TripPriority.BALANCED, List.of(),
-                routePlan);
+        ComparisonResponse response = mapper.toResponse(null, DEPARTURE, 1, TripPriority.BALANCED,
+                new WeatherReport(WeatherStatus.OUT_OF_RANGE, List.of()), routePlan);
 
         assertThat(response.tripId()).isNull();
         assertThat(response.recommendedItinerary()).isNull();

@@ -35,6 +35,8 @@ routewise:
     base-url: ${ROUTEWISE_WEATHER_BASE_URL:https://api.open-meteo.com}
     connect-timeout: 2s
     read-timeout: 3s
+    # Forecasts are reused per city and date for this long (Caffeine cache).
+    cache-ttl: ${ROUTEWISE_WEATHER_CACHE_TTL:1h}
   advisor:
     # Optional. Without a key the advisor uses its built-in rules.
     api-key: ${ANTHROPIC_API_KEY:}

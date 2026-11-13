@@ -23,6 +23,7 @@ import com.routewise.trip.repository.TripRepository;
 import com.routewise.trip.service.StopResolver;
 import com.routewise.weather.domain.Location;
 import com.routewise.weather.domain.LocationForecast;
+import com.routewise.weather.domain.WeatherReport;
 import com.routewise.weather.service.WeatherService;
 
 import org.springframework.stereotype.Service;
@@ -83,12 +84,13 @@ public class ComparisonService {
         List<ModeParameters> modes = transportModeRepository.findAll().stream()
                 .map(comparisonMapper::toParameters)
                 .toList();
-        List<LocationForecast> forecasts = weatherService.forecasts(distinctLocations(stops), departureDate);
+        WeatherReport weather = weatherService.report(distinctLocations(stops), departureDate);
+        List<LocationForecast> forecasts = weather.forecasts();
         List<RouteStop> route = stops.stream()
                 .map(city -> new RouteStop(summary(city), city.getLatitude(), city.getLongitude(), city.getLandmass()))
                 .toList();
         RoutePlan plan = routePlanner.plan(route, travelers, priority, modes, forecasts);
-        return comparisonMapper.toResponse(tripId, departureDate, travelers, priority, forecasts, plan);
+        return comparisonMapper.toResponse(tripId, departureDate, travelers, priority, weather, plan);
     }
 
     /** Each stop city once, in route order (a round trip visits its first city twice). */

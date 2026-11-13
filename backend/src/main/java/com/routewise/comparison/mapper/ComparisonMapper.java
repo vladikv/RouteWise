@@ -24,6 +24,7 @@ import com.routewise.transportmode.domain.TransportMode;
 import com.routewise.trip.domain.TripPriority;
 import com.routewise.weather.domain.LocationForecast;
 import com.routewise.weather.domain.WeatherForecast;
+import com.routewise.weather.domain.WeatherReport;
 
 import org.springframework.stereotype.Component;
 
@@ -42,7 +43,7 @@ public class ComparisonMapper {
      * @param tripId {@code null} for a comparison that does not belong to a stored trip
      */
     public ComparisonResponse toResponse(Long tripId, LocalDate departureDate, int travelers, TripPriority priority,
-                                         List<LocationForecast> forecasts, RoutePlan plan) {
+                                         WeatherReport weather, RoutePlan plan) {
         List<Leg> legs = plan.legs();
         ItineraryTotals recommendedItinerary = plan.recommendedItinerary();
         double distanceKm = legs.stream().mapToDouble(Leg::greatCircleKm).sum();
@@ -53,7 +54,8 @@ public class ComparisonMapper {
                 priority,
                 oneDecimal(distanceKm),
                 CURRENCY,
-                forecasts.stream().map(ComparisonMapper::toSummary).toList(),
+                weather.forecasts().stream().map(ComparisonMapper::toSummary).toList(),
+                weather.status(),
                 IntStream.range(0, legs.size())
                         .mapToObj(i -> toResponse(i, legs.get(i), plan.legUnavailable().get(i)))
                         .toList(),

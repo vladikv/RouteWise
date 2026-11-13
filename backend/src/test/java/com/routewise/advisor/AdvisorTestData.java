@@ -16,6 +16,7 @@ import com.routewise.comparison.dto.ModeTotalsResponse;
 import com.routewise.comparison.dto.WeatherSummary;
 import com.routewise.transportmode.domain.TransportModeCode;
 import com.routewise.trip.domain.TripPriority;
+import com.routewise.weather.domain.WeatherStatus;
 import com.routewise.weather.domain.WeatherHazard;
 
 public final class AdvisorTestData {
@@ -55,7 +56,8 @@ public final class AdvisorTestData {
     public static ComparisonResponse comparison(List<WeatherSummary> weather, ModeOptionResponse... options) {
         LegResponse leg = leg(0, BERLIN, VIENNA, "523.6", options);
         return new ComparisonResponse(1L, DEPARTURE, 2, TripPriority.GREENEST, new BigDecimal("523.6"), "EUR",
-                weather, List.of(leg), itinerary(List.of(leg)), singleModeTotals(List.of(options)), List.of());
+                weather, WeatherStatus.AVAILABLE, List.of(leg), itinerary(List.of(leg)),
+                singleModeTotals(List.of(options)), List.of());
     }
 
     /** Train recommended, bus as alternative, bike unavailable, rain in Vienna. */
@@ -77,7 +79,7 @@ public final class AdvisorTestData {
                 option(TransportModeCode.BUS, 270, "18.00", "7.0", true),
                 option(TransportModeCode.TRAIN, 250, "45.00", "9.0", false));
         return new ComparisonResponse(1L, DEPARTURE, 2, TripPriority.BALANCED, new BigDecimal("532.0"), "EUR",
-                List.of(), List.of(first, second),
+                List.of(), WeatherStatus.OUT_OF_RANGE, List.of(first, second),
                 new ItineraryTotalsResponse(List.of(TransportModeCode.TRAIN, TransportModeCode.BUS), 510,
                         new BigDecimal("58.00"), new BigDecimal("17.0")),
                 List.of(new ModeTotalsResponse(TransportModeCode.TRAIN, true, null, null, 490, new BigDecimal("85.00"),
