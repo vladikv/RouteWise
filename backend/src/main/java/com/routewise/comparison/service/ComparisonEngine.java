@@ -17,8 +17,8 @@ import com.routewise.transportmode.domain.TransportModeCode;
 import org.springframework.stereotype.Component;
 
 /**
- * Pure comparison rules: route distance, duration, cost, CO2 and score per mode.
- * Holds no state and does no I/O.
+ * Pure comparison rules for one leg: availability ({@link ModeAvailability}), route distance,
+ * duration, cost, CO2 ({@link FlightEmissions}) and score per mode. Holds no state and does no I/O.
  */
 @Component
 public class ComparisonEngine {
@@ -38,11 +38,9 @@ public class ComparisonEngine {
         List<ModeOption> unavailable = new ArrayList<>();
         for (ModeParameters mode : input.modes()) {
             double routeKm = input.greatCircleKm() * routeFactor(mode.code());
-            if (routeKm > mode.maxDistanceKm()) {
-                unavailable.add(unavailableOption(mode, routeKm));
-            } else {
-                candidates.add(candidate(mode, routeKm, input));
-            }
+            ModeAvailability.check(mode, routeKm, input.sameLandmass()).ifPresentOrElse(
+                    why -> unavailable.add(unavailableOption(mode.code(), routeKm, why)),
+                    () -> candidates.add(candidate(mode, routeKm, input)));
         }
         return Stream.concat(
                         rank(candidates, input).stream(),
@@ -77,7 +75,8 @@ public class ComparisonEngine {
         int duration = (int) Math.round(mode.fixedOverheadMinutes() + routeKm / mode.avgSpeedKmh() * MINUTES_PER_HOUR);
         BigDecimal unitKm = BigDecimal.valueOf(routeKm * units);
         BigDecimal cost = mode.costPerKm().multiply(unitKm).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal co2Kg = BigDecimal.valueOf(mode.co2GramsPerKm()).multiply(unitKm)
+        int co2GramsPerKm = FlightEmissions.co2GramsPerKm(mode, input.greatCircleKm());
+        BigDecimal co2Kg = BigDecimal.valueOf(co2GramsPerKm).multiply(unitKm)
                 .divide(GRAMS_PER_KG, 1, RoundingMode.HALF_UP);
         WeatherImpact.Impact impact = WeatherImpact.assess(mode.code(), input.forecasts());
         notes.addAll(impact.notes());
@@ -108,15 +107,15 @@ public class ComparisonEngine {
 
     private static ModeOption toOption(Scored entry, boolean recommended) {
         Candidate candidate = entry.candidate();
-        return new ModeOption(candidate.mode(), true, null, candidate.routeKm(), candidate.durationMinutes(),
+        return new ModeOption(candidate.mode(), true, null, null, candidate.routeKm(), candidate.durationMinutes(),
                 candidate.cost(), candidate.co2Kg(), (int) Math.round(entry.rawScore()), recommended,
                 List.copyOf(candidate.notes()));
     }
 
-    private static ModeOption unavailableOption(ModeParameters mode, double routeKm) {
-        String reason = "Route of %d km exceeds the %s limit of %d km"
-                .formatted(Math.round(routeKm), mode.code(), mode.maxDistanceKm());
-        return new ModeOption(mode.code(), false, reason, routeKm, null, null, null, 0, false, List.of());
+    private static ModeOption unavailableOption(TransportModeCode mode, double routeKm,
+                                                ModeAvailability.Unavailable why) {
+        return new ModeOption(mode, false, why.code(), why.reason(), routeKm, null, null, null, 0, false,
+                List.of());
     }
 
     private record Candidate(TransportModeCode mode, double routeKm, int durationMinutes, BigDecimal cost,

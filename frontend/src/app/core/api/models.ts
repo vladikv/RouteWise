@@ -18,9 +18,18 @@ export interface CitySummary {
   country: string;
 }
 
+export type Continent =
+  'AFRICA' | 'ASIA' | 'EUROPE' | 'NORTH_AMERICA' | 'OCEANIA' | 'SOUTH_AMERICA';
+
 export interface City extends CitySummary {
   latitude: number;
   longitude: number;
+  continent: Continent;
+  /** Ground-connected region (e.g. EURASIA, JAPAN); ground modes need the same landmass. */
+  landmass: string;
+  capital: boolean;
+  /** 1 = labelled first on the map … 3 = only when zoomed in. */
+  labelRank: number;
 }
 
 /** Cost and CO₂ are per traveler, except CAR (per vehicle). */
@@ -82,11 +91,16 @@ export interface WeatherSummary {
   hazards: WeatherHazard[];
 }
 
+/** Why a mode is unavailable: the cities are on different landmasses, or the leg is beyond the mode's range. */
+export type UnavailableCode = 'DIFFERENT_LANDMASS' | 'TOO_FAR';
+
 /** One mode in a comparison. Metrics are null when the mode is unavailable. */
 export interface ModeOption {
   mode: TransportModeCode;
   available: boolean;
   unavailableReason: string | null;
+  /** Machine-readable cause; null when available. Show it as readable text, `unavailableReason` is English prose. */
+  unavailableCode: UnavailableCode | null;
   distanceKm: number;
   durationMinutes: number | null;
   totalCost: number | null;
@@ -124,6 +138,8 @@ export interface ModeTotals {
   mode: TransportModeCode;
   available: boolean;
   unavailableReason: string | null;
+  /** Cause on the first leg that rules the mode out; `unavailableReason` starts with "Leg N (A to B): ". */
+  unavailableCode: UnavailableCode | null;
   durationMinutes: number | null;
   totalCost: number | null;
   co2Kg: number | null;

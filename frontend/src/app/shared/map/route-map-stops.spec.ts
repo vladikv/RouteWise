@@ -1,22 +1,28 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { City } from '../../core/api/models';
+import { makeCity } from '../../core/api/city.testing';
 import { RouteMap, RouteSelection } from './route-map';
 
-const BERLIN: City = { id: 3, name: 'Berlin', country: 'DE', latitude: 52.52, longitude: 13.405 };
-const PRAGUE: City = {
+const BERLIN = makeCity({
+  id: 3,
+  name: 'Berlin',
+  country: 'DE',
+  latitude: 52.52,
+  longitude: 13.405,
+});
+const PRAGUE = makeCity({
   id: 18,
   name: 'Prague',
   country: 'CZ',
   latitude: 50.0755,
   longitude: 14.4378,
-};
-const VIENNA: City = {
+});
+const VIENNA = makeCity({
   id: 23,
   name: 'Vienna',
   country: 'AT',
   latitude: 48.2082,
   longitude: 16.3738,
-};
+});
 
 describe('RouteMap with stops', () => {
   let fixture: ComponentFixture<RouteMap>;
@@ -62,7 +68,8 @@ describe('RouteMap with stops', () => {
     expect(map.querySelector('[role="status"]')?.textContent).toMatch(
       /^Route Berlin → Prague → Vienna, \d+ km straight-line\.$/,
     );
-    expect(map.querySelectorAll('path.route:not(.route--halo)')).toHaveLength(1);
+    // One great-circle arc per leg.
+    expect(map.querySelectorAll('path.route:not(.route--halo)')).toHaveLength(2);
   });
 
   it('shows every visit of a city in its pin on a round trip', async () => {
@@ -83,5 +90,14 @@ describe('RouteMap with stops', () => {
     expect(map.querySelector('[role="status"]')?.textContent).toBe(
       'Stop 1: Berlin. Add another stop.',
     );
+  });
+
+  it('explains how to add a stop and does not claim a pressed state', async () => {
+    await show([3]);
+
+    expect(map.querySelector('svg')?.getAttribute('aria-label')).toContain(
+      'Select a city to add it as the next stop.',
+    );
+    expect(city('Berlin').hasAttribute('aria-pressed')).toBe(false);
   });
 });

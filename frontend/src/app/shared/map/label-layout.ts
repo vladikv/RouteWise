@@ -11,6 +11,8 @@ export interface LabelRequest {
   pinned?: boolean;
   /** Sides to try first, e.g. to keep a route's labels off the route line. */
   preferred?: LabelSide[];
+  /** Keeps its dot clear of other labels but gets no label (its label is not wanted at this zoom). */
+  dotOnly?: boolean;
 }
 
 export interface PlacedLabel {
@@ -47,8 +49,8 @@ const LABEL_GAP = 0.15;
 /**
  * Places a label beside each point, trying the preferred sides, then right, left,
  * top and bottom, and keeps the first box that overlaps no placed label and no
- * other dot. Pinned labels go first; a label that fits nowhere is `null`
- * (hidden at this zoom). Labels are placed in input order after the pinned ones.
+ * other dot. Pinned labels go first; a label that fits nowhere, or a `dotOnly`
+ * request, is `null` (hidden at this zoom). Labels are placed in input order after the pinned ones.
  */
 export function layoutLabels(
   requests: LabelRequest[],
@@ -65,6 +67,10 @@ export function layoutLabels(
   const result = new Map<number, PlacedLabel | null>();
 
   for (const request of ordered) {
+    if (request.dotOnly) {
+      result.set(request.id, null);
+      continue;
+    }
     const sides = [
       ...(request.preferred ?? []),
       ...SIDES.filter((s) => !request.preferred?.includes(s)),

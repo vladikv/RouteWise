@@ -1,10 +1,11 @@
-@let u = unit();
+@let d = disc();
 
 <div
   class="frame"
   [class.frame--interactive]="interactive()"
   [class.frame--fill]="fill()"
   [class.frame--controls-end]="controls() === 'bottom-end'"
+  [class.frame--cooperative]="cooperative()"
   [style.--inset-start.px]="insetStart()"
   [style.--inset-end.px]="insetEnd()"
 >
@@ -13,14 +14,10 @@
     class="map"
     [class.map--wide]="isWideView()"
     [style.aspect-ratio]="fill() ? null : aspectRatio()"
-    tabindex="-1"
-    [attr.viewBox]="viewBox()"
+    [attr.tabindex]="interactive() ? 0 : -1"
     [attr.role]="interactive() ? 'group' : 'img'"
-    [attr.aria-label]="
-      interactive()
-        ? 'Map of cities. Choose an origin, then a destination. Plus and minus keys zoom.'
-        : description()
-    "
+    [attr.aria-label]="interactive() ? instructions() : description()"
+    [attr.aria-busy]="landState() === 'loading'"
     (wheel)="onWheel($event)"
     (pointerdown)="onPointerDown($event)"
     (pointermove)="onPointerMove($event)"
@@ -28,74 +25,13 @@
     (pointercancel)="onPointerUp($event)"
     (keydown)="onMapKey($event)"
   >
-    @let whole = base();
-    <rect
-      class="sea"
-      [attr.x]="whole.x"
-      [attr.y]="whole.y"
-      [attr.width]="whole.width"
-      [attr.height]="whole.height"
-    />
+    <circle class="sea" [attr.cx]="d.cx" [attr.cy]="d.cy" [attr.r]="d.r" />
+    <path class="graticule" [attr.d]="graticule()" />
     <path class="land" [attr.d]="land()" />
-    @if (fades(); as f) {
-      <defs>
-        <linearGradient id="map-fade-start" x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0" class="fade-stop" stop-opacity="1" />
-          <stop offset="1" class="fade-stop" stop-opacity="0" />
-        </linearGradient>
-        <linearGradient id="map-fade-end" x1="1" x2="0" y1="0" y2="0">
-          <stop offset="0" class="fade-stop" stop-opacity="1" />
-          <stop offset="1" class="fade-stop" stop-opacity="0" />
-        </linearGradient>
-        <linearGradient id="map-fade-top" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" class="fade-stop" stop-opacity="1" />
-          <stop offset="1" class="fade-stop" stop-opacity="0" />
-        </linearGradient>
-        <linearGradient id="map-fade-bottom" x1="0" x2="0" y1="1" y2="0">
-          <stop offset="0" class="fade-stop" stop-opacity="1" />
-          <stop offset="1" class="fade-stop" stop-opacity="0" />
-        </linearGradient>
-      </defs>
-      <g class="fades">
-        <rect
-          [attr.x]="f.west"
-          [attr.y]="f.north"
-          [attr.width]="f.size"
-          [attr.height]="f.height"
-          fill="url(#map-fade-start)"
-        />
-        <rect
-          [attr.x]="f.east - f.size"
-          [attr.y]="f.north"
-          [attr.width]="f.size"
-          [attr.height]="f.height"
-          fill="url(#map-fade-end)"
-        />
-        <rect
-          [attr.x]="f.west"
-          [attr.y]="f.north"
-          [attr.width]="f.width"
-          [attr.height]="f.size"
-          fill="url(#map-fade-top)"
-        />
-        <rect
-          [attr.x]="f.west"
-          [attr.y]="f.south - f.size"
-          [attr.width]="f.width"
-          [attr.height]="f.size"
-          fill="url(#map-fade-bottom)"
-        />
-      </g>
-    }
 
-    @if (route(); as route) {
-      <path class="route route--halo" [attr.d]="route.path" />
-      <path class="route" [attr.d]="route.path" />
-      @if (!reducedMotion) {
-        <circle class="traveller" [attr.r]="4 * u">
-          <animateMotion dur="3.2s" repeatCount="indefinite" [attr.path]="route.path" />
-        </circle>
-      }
+    @for (leg of legPaths(); track $index) {
+      <path class="route route--halo" [attr.d]="leg" />
+      <path class="route" [attr.d]="leg" />
     }
 
     @for (marker of markers(); track marker.city.id) {
@@ -109,36 +45,36 @@
           [class.city--dimmed]="marker.dimmed"
           [class.city--hovered]="hoveredId() === marker.city.id"
           role="button"
-          tabindex="0"
+          [attr.tabindex]="marker.city.id === tabStopId() ? 0 : -1"
           [attr.aria-label]="marker.ariaLabel"
-          [attr.aria-pressed]="marker.role !== null"
+          [attr.aria-pressed]="stops() === null ? marker.role !== null : null"
           (click)="pick(marker.city)"
           (keydown.enter)="pickWithKey($event, marker.city)"
           (keydown.space)="pickWithKey($event, marker.city)"
           (keydown)="onCityArrow($event, marker.city)"
           (pointerenter)="hoveredId.set(marker.city.id)"
           (pointerleave)="hoveredId.set(null)"
-          (focus)="hoveredId.set(marker.city.id)"
+          (focus)="onCityFocus(marker.city.id)"
           (blur)="hoveredId.set(null)"
         >
           <circle
             class="city__hit"
             [attr.cx]="marker.point.x"
             [attr.cy]="marker.point.y"
-            [attr.r]="17 * u"
+            [attr.r]="marker.hitRadius"
           />
           @if (marker.role) {
             <circle
               class="city__ring"
               [attr.cx]="marker.point.x"
               [attr.cy]="marker.point.y"
-              [attr.r]="(marker.pin.length > 2 ? 14 : 10) * u"
+              [attr.r]="marker.pin.length > 2 ? 14 : 10"
             />
             <text
               class="city__letter"
               [attr.x]="marker.point.x"
-              [attr.y]="marker.point.y + 3.8 * u"
-              [attr.font-size]="(marker.pin.length > 2 ? 9 : 11) * u"
+              [attr.y]="marker.point.y + 3.8"
+              [attr.font-size]="marker.pin.length > 2 ? 9 : 11"
             >
               {{ marker.pin }}
             </text>
@@ -147,7 +83,7 @@
               class="city__dot"
               [attr.cx]="marker.point.x"
               [attr.cy]="marker.point.y"
-              [attr.r]="(hoveredId() === marker.city.id ? 6.5 : 4.5) * u"
+              [attr.r]="hoveredId() === marker.city.id ? 6.5 : 4.5"
             />
           }
           @if (marker.label; as label) {
@@ -156,8 +92,8 @@
               [attr.x]="label.x"
               [attr.y]="label.y"
               [attr.text-anchor]="label.anchor"
-              [attr.font-size]="13 * u"
-              [attr.stroke-width]="3.5 * u"
+              font-size="13"
+              stroke-width="3.5"
             >
               {{ marker.city.name }}
             </text>
@@ -169,40 +105,30 @@
           [class.city--origin]="marker.role === 'origin'"
           [class.city--destination]="marker.role === 'destination'"
           [class.city--stop]="marker.role === 'stop'"
-          [class.city--dimmed]="marker.dimmed"
           aria-hidden="true"
         >
-          @if (marker.role) {
-            <circle
-              class="city__ring"
-              [attr.cx]="marker.point.x"
-              [attr.cy]="marker.point.y"
-              [attr.r]="(marker.pin.length > 2 ? 14 : 10) * u"
-            />
-            <text
-              class="city__letter"
-              [attr.x]="marker.point.x"
-              [attr.y]="marker.point.y + 3.8 * u"
-              [attr.font-size]="(marker.pin.length > 2 ? 9 : 11) * u"
-            >
-              {{ marker.pin }}
-            </text>
-          } @else {
-            <circle
-              class="city__dot"
-              [attr.cx]="marker.point.x"
-              [attr.cy]="marker.point.y"
-              [attr.r]="3.5 * u"
-            />
-          }
+          <circle
+            class="city__ring"
+            [attr.cx]="marker.point.x"
+            [attr.cy]="marker.point.y"
+            [attr.r]="marker.pin.length > 2 ? 14 : 10"
+          />
+          <text
+            class="city__letter"
+            [attr.x]="marker.point.x"
+            [attr.y]="marker.point.y + 3.8"
+            [attr.font-size]="marker.pin.length > 2 ? 9 : 11"
+          >
+            {{ marker.pin }}
+          </text>
           @if (marker.label; as label) {
             <text
               class="city__name"
               [attr.x]="label.x"
               [attr.y]="label.y"
               [attr.text-anchor]="label.anchor"
-              [attr.font-size]="(marker.role ? 13 : 11) * u"
-              [attr.stroke-width]="3.5 * u"
+              font-size="13"
+              stroke-width="3.5"
             >
               {{ marker.city.name }}
             </text>
@@ -220,16 +146,17 @@
       <button type="button" aria-label="Zoom out" [disabled]="!canZoomOut()" (click)="zoomOut()">
         −
       </button>
-      <button
-        type="button"
-        [attr.aria-label]="route() ? 'Fit the route' : 'Show the whole map'"
-        [attr.title]="route() ? 'Fit the route' : 'Show the whole map'"
-        (click)="fit()"
-      >
-        ⤢
-      </button>
+      <button type="button" aria-label="Reset view" title="Reset view" (click)="reset()">↺</button>
     </div>
-    <p class="hint" aria-hidden="true">Scroll or pinch to zoom · drag to move</p>
+    <p class="hint" aria-hidden="true">
+      Drag to rotate · {{ cooperative() ? 'Ctrl + scroll or pinch' : 'scroll or pinch' }} to zoom
+    </p>
+    @if (scrollHint()) {
+      <p class="scroll-hint" aria-hidden="true">Ctrl + scroll to zoom</p>
+    }
+    @if (landState() === 'failed') {
+      <p class="note" role="status">Coastlines could not be loaded</p>
+    }
 
     @if (card(); as card) {
       <div

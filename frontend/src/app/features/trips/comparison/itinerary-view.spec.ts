@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { Comparison } from '../../../core/api/models';
+import { Comparison, ModeTotals } from '../../../core/api/models';
 import { ItineraryView } from './itinerary-view';
 import { MULTI_COMPARISON } from './comparison.testing';
 
@@ -58,6 +58,7 @@ describe('ItineraryView', () => {
               available: false,
               recommended: false,
               unavailableReason: 'too far',
+              unavailableCode: 'TOO_FAR',
             },
           ],
         },
@@ -71,5 +72,50 @@ describe('ItineraryView', () => {
     expect(view.querySelector('tbody')?.textContent).toContain(
       'Not possible: a leg has no available mode.',
     );
+    expect(view.querySelector('.leg--blocked')?.textContent).toContain(
+      'Bus: too far for this mode',
+    );
+  });
+
+  describe('modes that cannot be used on every leg', () => {
+    const bikeRow = async (code: ModeTotals['unavailableCode'], reason: string) => {
+      const view = await render({
+        ...MULTI_COMPARISON,
+        singleModeTotals: MULTI_COMPARISON.singleModeTotals.map((totals) =>
+          totals.mode === 'BIKE'
+            ? { ...totals, unavailableCode: code, unavailableReason: reason }
+            : totals,
+        ),
+      });
+      const row = Array.from(
+        view.querySelectorAll('[aria-label="Whole-trip totals"] tbody tr'),
+      ).find((tr) => tr.querySelector('th')?.textContent?.includes('Bike')) as Element;
+      return { row, text: row.querySelector('.reason')?.textContent?.replace(/\s+/g, ' ').trim() };
+    };
+
+    it.each([
+      [
+        'DIFFERENT_LANDMASS',
+        '⊘ Not available on leg 1 (Berlin to Prague): different continent or island',
+      ],
+      ['TOO_FAR', '⊘ Not available on leg 1 (Berlin to Prague): too far for this mode'],
+    ] as const)('shows %s as plain words with the leg, greyed out', async (code, expected) => {
+      const { row, text } = await bikeRow(code, 'Leg 1 (Berlin to Prague): English prose');
+
+      expect(text).toBe(expected);
+      expect(row.classList).toContain('unavailable');
+    });
+
+    it('falls back to the API reason when there is no code', async () => {
+      const { text } = await bikeRow(null, 'Leg 1 (Berlin to Prague): Route is closed');
+
+      expect(text).toBe('⊘ Not available on leg 1 (Berlin to Prague): Route is closed');
+    });
+
+    it('shows a reason without a leg prefix as it is', async () => {
+      const { text } = await bikeRow(null, 'Not offered');
+
+      expect(text).toBe('⊘ Not available: Not offered');
+    });
   });
 });

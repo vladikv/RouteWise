@@ -170,6 +170,8 @@
         [wide]="true"
         [fill]="true"
         controls="bottom-end"
+        [gestures]="mapGestures()"
+        [topZone]="toolbarZone()"
         [insetStart]="insetStart()"
         [insetEnd]="insetEnd()"
         (selectionChange)="select($event)"

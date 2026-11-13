@@ -185,6 +185,21 @@ describe('RouteExplorer layouts', () => {
       expect(count('.stage__toolbar')).toBe(0);
     });
 
+    it('lets the wheel zoom the map only where the page does not scroll around it', async () => {
+      const cooperative = () => count('.frame--cooperative');
+
+      await render(900); // stacked in a scrolling page
+      expect(cooperative()).toBe(1);
+
+      viewport.resize(1280); // beside a column that scrolls on its own
+      await fixture.whenStable();
+      expect(cooperative()).toBe(0);
+
+      viewport.resize(500); // map above the bottom sheet
+      await fixture.whenStable();
+      expect(cooperative()).toBe(0);
+    });
+
     it('shows Split below 1440 px without offering Map or overwriting the saved choice', async () => {
       await render(1280, 'map');
       expect(arrangement()).toEqual(['stage--split']);
@@ -295,17 +310,18 @@ describe('RouteExplorer layouts', () => {
 
     it('keeps the map view the user set', async () => {
       const svg = explorer.querySelector('app-route-map svg') as SVGElement;
-      const initial = svg.getAttribute('viewBox');
+      const radius = () => svg.querySelector('circle.sea')?.getAttribute('r');
+      const initial = radius();
       svg.dispatchEvent(new WheelEvent('wheel', { deltaY: -400, bubbles: true, cancelable: true }));
       await fixture.whenStable();
-      const viewBox = svg.getAttribute('viewBox');
-      expect(viewBox).not.toBe(initial);
+      const zoomed = radius();
+      expect(zoomed).not.toBe(initial);
 
       await choose('Split');
       await choose('Map');
 
       expect(explorer.querySelector('app-route-map svg')).toBe(svg);
-      expect(svg.getAttribute('viewBox')).toBe(viewBox);
+      expect(radius()).toBe(zoomed);
     });
   });
 });

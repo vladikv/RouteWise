@@ -134,7 +134,7 @@ describe('TripDetailsPage', () => {
     expect(totals[0]).toContain('Train, then bus');
     expect(totals[0]).toContain('8 h 30 min');
     expect(totals[1]).toContain('Train for every leg');
-    expect(totals[3]).toContain('Not possible: Leg 1 (Berlin to Prague)');
+    expect(totals[3]).toContain('Not available on leg 1 (Berlin to Prague): too far for this mode');
 
     const adviceLegs = Array.from(section('advice-heading').querySelectorAll('.legs li'), (li) =>
       li.textContent?.trim(),

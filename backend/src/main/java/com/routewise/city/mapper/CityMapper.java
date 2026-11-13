@@ -11,7 +11,8 @@ public class CityMapper {
 
     public CityResponse toResponse(City city) {
         return new CityResponse(city.getId(), city.getName(), city.getCountry(),
-                city.getLatitude(), city.getLongitude());
+                city.getLatitude(), city.getLongitude(), city.getContinent(), city.getLandmass(),
+                city.isCapital(), city.getLabelRank());
     }
 
     public CitySummary toSummary(City city) {

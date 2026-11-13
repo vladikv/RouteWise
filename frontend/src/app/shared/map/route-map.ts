@@ -3,6 +3,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  InjectionToken,
   afterNextRender,
   computed,
   effect,
@@ -13,22 +14,43 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { GeoPermissibleObjects, geoGraticule, geoPath } from 'd3-geo';
 import { City } from '../../core/api/models';
-import { LAND_RINGS } from './europe-land';
+import { hitRadii, thinOut } from './city-density';
 import { Box, LabelRequest, LabelSide, PlacedLabel, layoutLabels } from './label-layout';
-import { MapPoint, Projection, createProjection, haversineKm, routeArc } from './projection';
 import {
-  FitFrame,
+  DEFAULT_VIEW,
+  GlobeFrame,
+  GlobeView,
   MAX_ZOOM,
   MIN_ZOOM,
-  View,
-  clampView,
-  fitPoints,
+  MapPoint,
+  clampZoom,
+  createGlobeProjection,
+  fitRoute,
+  globeGeometry,
+  greatCircle,
+  haversineKm,
   interpolateView,
-  panBy,
-  zoomAt,
-  zoomOf,
-} from './viewport';
+  isVisible,
+  maxLabelRank,
+  rotateBy,
+  rotateByDegrees,
+} from './globe';
+
+/** Loads the land shapes; its own chunk. Replaced in tests. */
+export const LAND_LOADER = new InjectionToken<
+  () => Promise<{ LAND_RINGS: readonly (readonly number[])[] }>
+>('LAND_LOADER', { providedIn: 'root', factory: () => () => import('./world-land') });
+
+/** Something floating over the top of the map (the layout toolbar) that labels must keep clear of. */
+export interface TopZone {
+  /** CSS pixels. */
+  width: number;
+  height: number;
+  align: 'start' | 'center';
+}
 
 export interface RouteSelection {
   originId: number | null;
@@ -44,57 +66,58 @@ interface CityMarker {
   label: PlacedLabel | null;
   ariaLabel: string;
   dimmed: boolean;
+  /** Radius of the invisible click target, kept clear of the neighbouring cities. */
+  hitRadius: number;
 }
 
-const WIDTH = 640;
-const HEIGHT = 620;
-const PADDING = 64;
-const BASE: View = { x: 0, y: 0, width: WIDTH, height: HEIGHT };
-/** Longitudes covered by the land outline (see europe-land.ts); a wide map shows them all. */
-const LAND_WEST = -30;
-const LAND_EAST = 48;
-const LAND_SOUTH = 33;
-const LAND_NORTH = 63;
-/** Kept between the view and the edge of the land data (drawing units), so the clipped coast never shows. */
-const LAND_EDGE = 8;
-/** Width (CSS pixels) over which the land fades into the sea at the edge of its data. */
-const FADE_PX = 90;
-/** A `wide` map switches to the wide view from this rendered width on (CSS pixels). */
+/** Size used until the map has been measured (and where there is no layout, as in tests). */
+const DEFAULT_WIDTH = 640;
+const DEFAULT_HEIGHT = 620;
+/** A `wide` map switches to the landscape shape from this rendered width on (CSS pixels). */
 const WIDE_MIN_PX = 720;
-/** Space above the northernmost and below the southernmost city in the wide view (drawing units). */
-const WIDE_MARGIN_Y = 36;
-/** Space around the cities' bounding box in the fill view (drawing units). */
-const COVER_MARGIN = 48;
 
-/** Sizes in CSS pixels; they stay the same on screen at every zoom and map size. */
+/** Sizes in CSS pixels. */
 const LABEL_PX = 13;
 const DOT_PX = 4.5;
 /** Space kept around a route when the map zooms to it, in CSS pixels; more in fill mode, where controls float over the map. */
 const FIT_MARGIN_PX = 70;
 const FILL_FIT_MARGIN_PX = 96;
+/** Cities this far outside the drawing are not rendered (so they cannot take focus either). */
+const OFFSCREEN_PX = 24;
+/** The click target of a city: as large as the nearest neighbour allows, between these. */
+const HIT_MIN_PX = DOT_PX + 2;
+const HIT_MAX_PX = 17;
+/** Cities above the zoom's label rank are left out when they sit this close to a kept one. */
+const CROWDED_PX = DOT_PX * 2.5;
+/** What the zoom buttons cover (CSS pixels): labels keep clear of it. */
+const ZOOM_ZONE_WIDTH_PX = 68;
+const ZOOM_ZONE_HEIGHT_PX = 176;
+const SCROLL_HINT_MS = 1600;
 const ZOOM_STEP = 1.6;
+const KEY_ROTATE_DEGREES = 20;
 /** A pointer that moves further than this between press and release is a drag, not a click. */
 const DRAG_THRESHOLD_PX = 4;
-const ANIMATION_MS = 380;
+const ANIMATION_MS = 700;
+
+type LandState = 'loading' | 'ready' | 'failed';
 
 /**
- * Interactive map of the supported cities on a land outline. Pick a city for
- * the origin, another for the destination; a further pick starts a new route.
- * Zoom with the wheel, a pinch, the buttons or `+`/`-`/`0`; drag to move.
- * Labels never overlap: those that do not fit appear when zooming in. Arrow
- * keys move between cities. Presentational: the selection lives in the parent.
+ * Interactive globe of the supported cities. Pick a city for the origin, another for the
+ * destination; a further pick starts a new route. Drag to rotate; zoom with the wheel, a pinch,
+ * the buttons or `+`/`-`; `0` or "Reset view" goes back to the route (or Europe). Arrow keys
+ * rotate the globe, or move between cities when one has focus. Cities on the far side are not
+ * drawn. Labels never overlap: the less important ones appear when zooming in. Presentational:
+ * the selection lives in the parent.
  *
- * With `interactive` false it shows one route, zoomed to fit, as an image.
+ * With `interactive` false it shows one route, turned and zoomed to fit, as an image.
  * With `stops`, it draws that ordered route leg by leg (numbered pins) instead of
  * an origin and a destination; a picked city is then reported with `cityPick`.
- * With `wide`, a map at least 720 px wide shows the whole land outline in a
- * landscape view instead of the near-square one (same projection, more to the
- * west and east), so it can span a full-width layout without growing too tall.
+ * With `wide`, a map at least 720 px wide takes a landscape shape instead of the near-square one.
  */
 @Component({
   selector: 'app-route-map',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[class.fill]': 'fill()' },
+  host: { '[class.fill]': 'fill()', '(document:keydown.escape)': 'dismissCard()' },
   templateUrl: './route-map.html',
   styleUrls: ['./route-map.scss', './route-map-card.scss'],
 })
@@ -105,9 +128,8 @@ export class RouteMap {
   readonly interactive = input(true);
   readonly wide = input(false);
   /**
-   * Layout hook: fill the width and height of the host instead of following the drawing's
-   * aspect ratio. The view takes the host's aspect ratio and never leaves the land data, so
-   * the map has no letterbox bands and no visible edges at any size.
+   * Layout hook: fill the width and height of the host instead of following a fixed aspect
+   * ratio. The globe is centred in the space the panels leave free.
    */
   readonly fill = input(false);
   /**
@@ -116,11 +138,18 @@ export class RouteMap {
    */
   readonly controls = input<'corner' | 'bottom-end'>('corner');
   /**
-   * In fill mode: pixels at the left and right covered by floating panels. The map is centred
+   * In fill mode: pixels at the left and right covered by floating panels. The globe is centred
    * between them and a route is fitted into the space they leave free.
    */
   readonly insetStart = input(0);
   readonly insetEnd = input(0);
+  /**
+   * `greedy`: the wheel always zooms the globe. `cooperative` (a map inside a scrolling page):
+   * only Ctrl/Cmd + wheel zooms, a plain wheel scrolls the page, and a vertical swipe scrolls it too.
+   */
+  readonly gestures = input<'greedy' | 'cooperative'>('greedy');
+  /** A toolbar floating over the top of the map; labels stay clear of it. */
+  readonly topZone = input<TopZone | null>(null);
   /** An ordered route of city ids (2+ stops); replaces origin/destination when given. */
   readonly stops = input<number[] | null>(null);
   /** In stops mode: a city the user picked on the map. */
@@ -130,201 +159,178 @@ export class RouteMap {
   private readonly svg = viewChild<ElementRef<SVGSVGElement>>('svg');
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly document = inject(DOCUMENT);
+  private readonly loadLand = inject(LAND_LOADER);
 
-  protected readonly view = signal<View>({ ...BASE });
-  /** Rendered width of the drawing in CSS pixels; updated by a ResizeObserver. */
-  private readonly renderedWidth = signal(WIDTH);
-  private readonly renderedHeight = signal(0);
+  /** What the globe shows: the point in the middle of the disc and the zoom. Changes every frame while turning. */
+  protected readonly view = signal<GlobeView>({ ...DEFAULT_VIEW });
+  /** Rendered size of the drawing in CSS pixels; updated by a ResizeObserver. */
+  private readonly renderedWidth = signal(DEFAULT_WIDTH);
+  private readonly renderedHeight = signal(DEFAULT_HEIGHT);
   protected readonly hoveredId = signal<number | null>(null);
-  protected readonly reducedMotion = prefersReducedMotion();
+  /** Follows the system setting live, like the theme. */
+  private readonly reducedMotion = signal(false);
+  /** Land shapes as GeoJSON; loaded on demand (its own chunk), the globe shows only the sea until then. */
+  private readonly landShapes = signal<GeoPermissibleObjects | null>(null);
+  protected readonly landState = signal<LandState>('loading');
+  protected readonly scrollHint = signal(false);
+  /** The city that had focus last: it stays the one tab stop of the map. */
+  private readonly lastFocusedId = signal<number | null>(null);
 
-  protected readonly viewBox = computed(() => {
-    const { x, y, width, height } = this.view();
-    return `${x} ${y} ${width} ${height}`;
+  protected readonly cooperative = computed(() => this.gestures() === 'cooperative');
+  protected readonly instructions = computed(() => {
+    const choose =
+      this.stops() !== null
+        ? 'Select a city to add it as the next stop.'
+        : 'Choose an origin, then a destination.';
+    return `Globe of cities. ${choose} Tab to the cities, arrow keys move between them. Arrow keys rotate the globe when no city has focus, plus and minus zoom, zero resets the view.`;
   });
-  protected readonly zoom = computed(() => zoomOf(this.view(), this.base()));
+
+  protected readonly zoom = computed(() => this.view().zoom);
   protected readonly canZoomIn = computed(() => this.zoom() < MAX_ZOOM - 0.01);
   protected readonly canZoomOut = computed(() => this.zoom() > MIN_ZOOM + 0.01);
-  /** Drawing units per CSS pixel, so marks and text keep their on-screen size. */
-  protected readonly unit = computed(() => this.view().width / Math.max(this.renderedWidth(), 1));
 
-  private readonly projection = computed<Projection>(() =>
-    createProjection(this.cities(), WIDTH, HEIGHT, PADDING),
+  protected readonly isWideView = computed(
+    () => this.wide() && this.renderedWidth() >= WIDE_MIN_PX,
+  );
+  protected readonly aspectRatio = computed(() =>
+    this.isWideView() ? '16 / 9' : `${DEFAULT_WIDTH} / ${DEFAULT_HEIGHT}`,
   );
 
-  /** The whole-map view (zoom 1): near-square, or landscape for a wide map. */
-  protected readonly base = computed<View>(() => {
-    if (this.useFill()) {
-      return this.coverView();
-    }
-    if (!this.wide() || this.renderedWidth() < WIDE_MIN_PX) {
-      return BASE;
-    }
-    const project = this.projection();
-    const west = project({ longitude: LAND_WEST, latitude: 50 }).x;
-    const east = project({ longitude: LAND_EAST, latitude: 50 }).x;
-    // Only the band the cities occupy (plus room for their labels), so the map stays low.
-    const ys = this.cities().map((city) => project(city).y);
-    const top = Math.max(Math.min(...ys) - WIDE_MARGIN_Y, 0);
-    const bottom = Math.min(Math.max(...ys) + WIDE_MARGIN_Y, HEIGHT);
-    return {
-      x: Math.min(west, 0),
-      y: top,
-      width: Math.max(east, WIDTH) - Math.min(west, 0),
-      height: bottom - top,
-    };
-  });
-  /** The land data as a view, inset by {@link LAND_EDGE}: in fill mode the map never shows beyond it. */
-  private readonly landBox = computed<View>(() => {
-    const project = this.projection();
-    const northWest = project({ longitude: LAND_WEST, latitude: LAND_NORTH });
-    const southEast = project({ longitude: LAND_EAST, latitude: LAND_SOUTH });
-    return {
-      x: northWest.x + LAND_EDGE,
-      y: northWest.y + LAND_EDGE,
-      width: southEast.x - northWest.x - 2 * LAND_EDGE,
-      height: southEast.y - northWest.y - 2 * LAND_EDGE,
-    };
-  });
-  /** In fill mode the area the view may move in: all the land. Otherwise the base view. */
-  private readonly bounds = computed<View>(() => (this.useFill() ? this.landBox() : this.base()));
-  private readonly useFill = computed(() => this.fill() && this.renderedHeight() > 0);
-  /** The container as seen by the route fit; undefined outside fill mode. */
-  private readonly frame = computed<FitFrame | undefined>(() =>
-    this.useFill()
-      ? {
-          width: this.renderedWidth(),
-          height: this.renderedHeight(),
-          start: this.insetStart(),
-          end: this.insetEnd(),
-        }
-      : undefined,
-  );
-  /**
-   * Fill mode, the whole-map view (zoom 1): the container's aspect ratio (no letterbox), all
-   * cities in the area between the side insets. It may extend past the land data.
-   */
-  private readonly coverView = computed<View>(() => this.coverAt(this.fitUnit()));
-  /**
-   * Fill mode: the view shown at rest, the whole-map view but never larger than the land data,
-   * so no edge of it can show at any aspect ratio. Cities it leaves out are reached by panning.
-   */
-  private readonly restView = computed<View>(() => {
-    if (!this.useFill()) {
-      return this.base();
-    }
-    const box = this.landBox();
-    const unit = Math.min(
-      this.fitUnit(),
-      box.width / this.renderedWidth(),
-      box.height / this.renderedHeight(),
-    );
-    const view = this.coverAt(unit);
-    return clampView(view, view, box);
-  });
-  /** Drawing units per pixel at which all cities fit between the insets, with a margin. */
-  private readonly fitUnit = computed(() => {
-    const project = this.projection();
-    const points = this.cities().map((city) => project(city));
-    const xs = points.map((point) => point.x);
-    const ys = points.map((point) => point.y);
-    const free = this.freeWidth();
-    return Math.max(
-      (Math.max(...xs) - Math.min(...xs) + 2 * COVER_MARGIN) / free,
-      (Math.max(...ys) - Math.min(...ys) + 2 * COVER_MARGIN) / this.renderedHeight(),
-    );
-  });
-  /** Width in pixels the panels leave free (never less than a small strip). */
-  private freeWidth(): number {
-    const width = this.renderedWidth();
-    return Math.max(width - this.insetStart() - this.insetEnd(), Math.min(width, 240));
-  }
+  private readonly frame = computed<GlobeFrame>(() => ({
+    width: this.renderedWidth(),
+    height: this.renderedHeight(),
+    start: this.fill() ? this.insetStart() : 0,
+    end: this.fill() ? this.insetEnd() : 0,
+  }));
+  private readonly geometry = computed(() => globeGeometry(this.frame()));
+  private readonly projection = computed(() => createGlobeProjection(this.view(), this.geometry()));
+  private readonly pathOf = computed(() => geoPath(this.projection()));
 
-  /** A view with the container's aspect ratio at `unit`, with the cities' centre in the free area. */
-  private coverAt(unit: number): View {
-    const project = this.projection();
-    const points = this.cities().map((city) => project(city));
-    const xs = points.map((point) => point.x);
-    const ys = points.map((point) => point.y);
-    const width = this.renderedWidth();
-    const height = this.renderedHeight();
-    const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
-    const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
-    const freeCenter = this.insetStart() + this.freeWidth() / 2;
-    return {
-      x: centerX - unit * freeCenter,
-      y: centerY - (unit * height) / 2,
-      width: unit * width,
-      height: unit * height,
-    };
-  }
-  /**
-   * Where the fill view reaches past the land data (after a route fit that needed more room than
-   * the land has, or a zoom out), the land fades into the sea instead of ending in a hard edge.
-   */
-  protected readonly fades = computed(() => {
+  /** The globe's disc. */
+  protected readonly disc = computed(() => ({
+    cx: this.geometry().centerX,
+    cy: this.geometry().centerY,
+    r: this.geometry().baseRadius * this.view().zoom,
+  }));
+  protected readonly land = computed(() => {
+    const shapes = this.landShapes();
+    return shapes ? (this.pathOf()(shapes) ?? '') : '';
+  });
+  protected readonly graticule = computed(() => this.pathOf()(GRATICULE) ?? '');
+
+  /** Cities by importance: label rank, then capitals, then name. */
+  private readonly ranked = computed(() =>
+    [...this.cities()].sort(
+      (a, b) =>
+        a.labelRank - b.labelRank ||
+        Number(b.capital) - Number(a.capital) ||
+        a.name.localeCompare(b.name),
+    ),
+  );
+
+  /** The cities on the visible half of the globe and inside the drawing, in label priority order. */
+  private readonly placed = computed(() => {
     const view = this.view();
-    const box = this.landBox();
-    const tolerance = 0.01; // rounding: a view that exactly fits the box is not beyond it
-    const beyond =
-      view.x < box.x - tolerance ||
-      view.y < box.y - tolerance ||
-      view.x + view.width > box.x + box.width + tolerance ||
-      view.y + view.height > box.y + box.height + tolerance;
-    if (!this.useFill() || !beyond) {
-      return null;
+    const projection = this.projection();
+    const height = this.renderedHeight();
+    const free = this.freeSpan();
+    const placed: { city: City; point: MapPoint }[] = [];
+    for (const city of this.ranked()) {
+      if (!isVisible(city, view)) {
+        continue;
+      }
+      const projected = projection([city.longitude, city.latitude]);
+      if (
+        projected &&
+        projected[0] >= free.left &&
+        projected[0] <= free.right &&
+        projected[1] >= -OFFSCREEN_PX &&
+        projected[1] <= height + OFFSCREEN_PX
+      ) {
+        placed.push({ city, point: { x: projected[0], y: projected[1] } });
+      }
     }
-    const project = this.projection();
-    const northWest = project({ longitude: LAND_WEST, latitude: LAND_NORTH });
-    const southEast = project({ longitude: LAND_EAST, latitude: LAND_SOUTH });
-    const size = FADE_PX * this.unit();
-    // Reaches one stroke width past the data so the coast's clipped edge is covered completely.
-    const outside = 3 * this.unit();
-    return {
-      west: northWest.x - outside,
-      east: southEast.x + outside,
-      north: northWest.y - outside,
-      south: southEast.y + outside,
-      size: size + outside,
-      width: southEast.x - northWest.x + 2 * outside,
-      height: southEast.y - northWest.y + 2 * outside,
-    };
+    return placed;
   });
-  protected readonly isWideView = computed(() => this.base() !== BASE);
-  protected readonly aspectRatio = computed(() => `${this.base().width} / ${this.base().height}`);
-  private lastBase: View | null = null;
-  private lastRoute: unknown = null;
-  /** True once the user has zoomed or moved the map by hand since the last route or fit. */
-  private adjusted = false;
 
-  /** All land shapes as one SVG path in drawing coordinates. */
-  protected readonly land = computed(() => landPath(this.projection()));
-
-  private readonly points = computed(() => {
-    const project = this.projection();
-    return new Map(this.cities().map((city) => [city.id, project(city)]));
+  /**
+   * The horizontal span where cities are drawn: the drawing and a little beyond it, or, in fill
+   * mode, only the space the floating panels leave free (a city under a panel cannot be reached).
+   */
+  private readonly freeSpan = computed(() => {
+    const width = this.renderedWidth();
+    const left = this.insetStart();
+    const right = width - this.insetEnd();
+    // Panels that cover everything (a map not measured yet) limit nothing.
+    return this.fill() && right - left > OFFSCREEN_PX
+      ? { left, right }
+      : { left: -OFFSCREEN_PX, right: width + OFFSCREEN_PX };
   });
+
+  /**
+   * What is drawn: the placed cities without the crowded low-ranked ones (they stay reachable
+   * through the city pickers, and their dots would block better labels). A map that is only an
+   * image shows just the route.
+   */
+  private readonly shown = computed(() => {
+    const pins = this.pins();
+    const interactive = this.interactive();
+    return thinOut(
+      this.placed().filter(({ city }) => interactive || pins.has(city.id)),
+      {
+        point: (item) => item.point,
+        rank: (item) => item.city.labelRank,
+        pinned: (item) => pins.has(item.city.id),
+        maxRank: maxLabelRank(this.zoom()),
+        minDistance: CROWDED_PX,
+      },
+    );
+  });
+
+  /** Screen position of every city that is drawn (and so can be focused). */
+  private readonly points = computed(
+    () => new Map(this.shown().map(({ city, point }) => [city.id, point])),
+  );
 
   /** The cities on the route in order: the stops, or origin then destination. */
   private readonly routeCities = computed<City[]>(() => {
     const ids = this.stops() ?? [this.originId(), this.destinationId()];
     return ids.map((id) => this.cityById(id)).filter((city): city is City => city !== undefined);
   });
+  private readonly routeKey = computed(() =>
+    this.routeCities()
+      .map((city) => city.id)
+      .join(','),
+  );
+  /** The view that shows the whole route, or Europe when no city is chosen. */
+  private readonly homeView = computed(() =>
+    fitRoute(this.routeCities(), this.frame(), this.fill() ? FILL_FIT_MARGIN_PX : FIT_MARGIN_PX),
+  );
 
-  /** The drawn route through every stop, or null with fewer than two. */
+  /** The route through every stop as great-circle arcs, one per leg; null with fewer than two stops. */
   protected readonly route = computed(() => {
     const cities = this.routeCities();
     if (cities.length < 2) {
       return null;
     }
-    const points = cities.map((city) => this.points().get(city.id) as MapPoint);
-    let path = '';
-    let distanceKm = 0;
-    for (let i = 0; i + 1 < cities.length; i++) {
-      path += routeArc(points[i], points[i + 1]);
-      distanceKm += haversineKm(cities[i], cities[i + 1]);
-    }
-    return { points, from: points[0], to: points[points.length - 1], path, distanceKm };
+    const arcs = cities.slice(1).map((city, i) => greatCircle(cities[i], city));
+    const distanceKm = cities
+      .slice(1)
+      .reduce((sum, city, i) => sum + haversineKm(cities[i], city), 0);
+    return { arcs, distanceKm };
+  });
+
+  /** One SVG path per leg through the current projection; the part behind the horizon is cut off. */
+  protected readonly legPaths = computed(() => {
+    const route = this.route();
+    const pathOf = this.pathOf();
+    return route
+      ? route.arcs.map(
+          (coordinates) =>
+            pathOf({ type: 'LineString', coordinates } as GeoPermissibleObjects) ?? '',
+        )
+      : [];
   });
 
   /** Pin text per city: "A"/"B", or stop numbers ("1", or "1, 5" on a round trip). */
@@ -349,55 +355,60 @@ export class RouteMap {
   });
 
   protected readonly markers = computed<CityMarker[]>(() => {
-    const unit = this.unit();
     const view = this.view();
-    const points = this.points();
-    const route = this.route();
     const pins = this.pins();
+    const route = this.route();
     const stopsMode = this.stops() !== null;
-
-    const inView = (p: MapPoint) =>
-      p.x >= view.x && p.x <= view.x + view.width && p.y >= view.y && p.y <= view.y + view.height;
-    const requests: LabelRequest[] = this.cities()
-      .filter((city) => inView(points.get(city.id) as MapPoint))
-      .map((city) => {
-        const point = points.get(city.id) as MapPoint;
-        const pinned = pins.has(city.id);
-        return {
-          id: city.id,
-          x: point.x,
-          y: point.y,
-          text: city.name,
-          pinned,
-          preferred:
-            pinned && route && !stopsMode
-              ? routeLabelSides(point, route.from, route.to)
-              : undefined,
-        };
-      });
     const interactive = this.interactive();
-    const edge = 4 * unit;
-    const right = view.x + view.width;
-    const bottom = view.y + view.height;
+    const routeCities = this.routeCities();
+    const width = this.renderedWidth();
+    const height = this.renderedHeight();
+    const maxRank = maxLabelRank(view.zoom);
+    const origin = this.cityById(this.originId());
+    const destination = this.cityById(this.destinationId());
+    const screen = this.points();
+
+    const shown = this.shown();
+    const hitRadius = hitRadii(
+      shown.map(({ point }) => point),
+      HIT_MIN_PX,
+      HIT_MAX_PX,
+    );
+    const requests: LabelRequest[] = shown.map(({ city, point }) => {
+      const pinned = pins.has(city.id);
+      return {
+        id: city.id,
+        x: point.x,
+        y: point.y,
+        text: city.name,
+        pinned,
+        dotOnly: !pinned && city.labelRank > maxRank,
+        preferred:
+          pinned && route && !stopsMode && origin && destination
+            ? routeLabelSides(point, screen.get(city.id === origin.id ? destination.id : origin.id))
+            : undefined,
+      };
+    });
+    const edge = 4;
+    const free = this.freeSpan();
     const labels = layoutLabels(requests, {
-      fontSize: LABEL_PX * unit,
-      dotRadius: (DOT_PX + 2) * unit,
+      fontSize: LABEL_PX,
+      dotRadius: DOT_PX + 2,
       bounds: {
-        left: view.x + edge,
-        top: view.y + edge,
-        right: right - edge,
-        bottom: bottom - edge,
+        left: Math.max(edge, free.left + edge),
+        top: edge,
+        right: Math.min(width - edge, free.right - edge),
+        bottom: height - edge,
       },
-      reserved: interactive ? this.controlZones(view, unit) : [],
+      reserved: interactive ? this.controlZones(width, height) : [],
     });
 
-    const routeCities = this.routeCities();
-    return this.cities().map((city) => {
+    return shown.map(({ city, point }, index) => {
       const pin = pins.get(city.id) ?? '';
       const role = this.roleOf(city.id, stopsMode, routeCities);
       return {
         city,
-        point: points.get(city.id) as MapPoint,
+        point,
         role,
         pin,
         label: labels.get(city.id) ?? null,
@@ -407,41 +418,68 @@ export class RouteMap {
             ? `${city.name}, stop ${pin}`
             : `${city.name}, ${role}`,
         dimmed: route !== null && role === null,
+        hitRadius: hitRadius[index],
       };
     });
   });
 
   /** Where the zoom buttons and the hint cover the drawing, so no label is placed there. */
-  private controlZones(view: View, unit: number): Box[] {
-    const right = view.x + view.width;
-    const bottom = view.y + view.height;
-    if (this.controls() === 'corner') {
-      return [
-        { left: right - 60 * unit, top: view.y, right, bottom: view.y + 140 * unit },
-        { left: view.x, top: bottom - 30 * unit, right: view.x + 240 * unit, bottom },
-      ];
+  private controlZones(width: number, height: number): Box[] {
+    const zones =
+      this.controls() === 'corner' ? this.cornerZones(width, height) : this.endZones(width, height);
+    const top = this.topZone();
+    if (top) {
+      const left = top.align === 'center' ? (width - top.width) / 2 : 0;
+      zones.push({ left, top: 0, right: left + top.width, bottom: top.height });
     }
-    const end = right - this.insetEnd() * unit;
-    const middle =
-      view.x +
-      (this.insetStart() + (view.width / unit - this.insetStart() - this.insetEnd()) / 2) * unit;
+    return zones;
+  }
+
+  private cornerZones(width: number, height: number): Box[] {
     return [
-      { left: end - 60 * unit, top: bottom - 140 * unit, right: end, bottom },
-      { left: middle - 120 * unit, top: bottom - 30 * unit, right: middle + 120 * unit, bottom },
+      { left: width - ZOOM_ZONE_WIDTH_PX, top: 0, right: width, bottom: ZOOM_ZONE_HEIGHT_PX },
+      { left: 0, top: height - 30, right: 240, bottom: height },
     ];
   }
+
+  private endZones(width: number, height: number): Box[] {
+    const end = width - this.insetEnd();
+    const middle = this.insetStart() + (width - this.insetStart() - this.insetEnd()) / 2;
+    return [
+      {
+        left: end - ZOOM_ZONE_WIDTH_PX,
+        top: height - ZOOM_ZONE_HEIGHT_PX,
+        right: end,
+        bottom: height,
+      },
+      { left: middle - 120, top: height - 30, right: middle + 120, bottom: height },
+    ];
+  }
+
+  /** The one city that can be reached with Tab: the last one focused, else the origin, else the first. */
+  protected readonly tabStopId = computed(() => {
+    const markers = this.markers();
+    const last = this.lastFocusedId();
+    if (last !== null && markers.some((marker) => marker.city.id === last)) {
+      return last;
+    }
+    const start =
+      markers.find((marker) => marker.role === 'origin') ??
+      markers.find((marker) => marker.role !== null) ??
+      markers[0];
+    return start?.city.id ?? null;
+  });
 
   /** Details for the city under the pointer or keyboard focus, positioned over the map. */
   protected readonly card = computed(() => {
     const city = this.cityById(this.hoveredId());
-    if (!city || !this.interactive()) {
+    const point = city ? this.points().get(city.id) : undefined;
+    if (!city || !point || !this.interactive()) {
       return null;
     }
-    const point = this.points().get(city.id) as MapPoint;
-    const view = this.view();
     const origin = this.cityById(this.originId());
-    const left = ((point.x - view.x) / view.width) * 100;
-    const top = ((point.y - view.y) / view.height) * 100;
+    const left = (point.x / this.renderedWidth()) * 100;
+    const top = (point.y / this.renderedHeight()) * 100;
     let hint: string;
     if (this.stops() !== null) {
       const pin = this.pins().get(city.id);
@@ -490,46 +528,50 @@ export class RouteMap {
   });
 
   private animationFrame = 0;
+  /** Where the running animation ends, so a quick second click builds on it. */
+  private animationTarget: GlobeView | null = null;
+  private scrollHintTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly pointers = new Map<number, { x: number; y: number }>();
   private pressStart: { x: number; y: number } | null = null;
   private dragged = false;
   private pinchDistance = 0;
+  private lastRouteKey: string | null = null;
+  /** True once the user has turned or zoomed the globe by hand since the last route. */
+  private adjusted = false;
 
   constructor() {
     afterNextRender(() => this.observeSize());
-    this.destroyRef.onDestroy(() => this.stopAnimation());
+    this.destroyRef.onDestroy(() => {
+      this.stopAnimation();
+      clearTimeout(this.scrollHintTimer);
+    });
+    this.watchReducedMotion();
+    this.loadLand().then(
+      ({ LAND_RINGS }) => {
+        this.landShapes.set(landGeometry(LAND_RINGS));
+        this.landState.set('ready');
+      },
+      () => this.landState.set('failed'),
+    );
 
-    // Zoom to a newly chosen route; back out when it is cleared. When only the size of the map or
-    // the space the panels leave changes (a layout switch, a resize), a view the user has moved is
-    // kept (same centre, same zoom relative to the whole map) and otherwise the route is fitted
-    // again, without animation.
+    // Turn to a newly chosen route (smoothly), and back to Europe when it is cleared. When only the
+    // size of the map or the space the panels leave changes (a layout switch, a resize), a view the
+    // user has moved is kept (same centre, same zoom) and otherwise the route is fitted again,
+    // without animation.
     effect(() => {
-      const route = this.route();
+      const key = this.routeKey();
+      const home = this.homeView();
       const interactive = this.interactive();
-      const base = this.base();
-      const rest = this.restView();
-      const frame = this.frame();
-      const bounds = this.bounds();
       untracked(() => {
-        const routeChanged = route !== this.lastRoute;
-        const baseChanged = base !== this.lastBase;
-        const previousBase = this.lastBase;
-        this.lastRoute = route;
-        this.lastBase = base;
+        const routeChanged = key !== this.lastRouteKey;
+        const first = this.lastRouteKey === null;
+        this.lastRouteKey = key;
         if (routeChanged) {
           this.adjusted = false;
         } else if (this.adjusted) {
-          if (baseChanged && previousBase) {
-            this.keepView(previousBase, base, bounds);
-          }
           return;
         }
-        const animate = interactive && !baseChanged;
-        if (route) {
-          this.moveTo(fitPoints(route.points, base, this.fitMargin(base), frame, bounds), animate);
-        } else if (baseChanged || this.routeCities().length === 0) {
-          this.moveTo({ ...rest }, animate);
-        }
+        this.moveTo(home, routeChanged && !first && interactive);
       });
     });
   }
@@ -565,6 +607,7 @@ export class RouteMap {
 
   protected pickWithKey(event: Event, city: City): void {
     event.preventDefault(); // Space would otherwise scroll the page
+    this.dragged = false; // a key press is never the end of a drag
     this.pick(city);
   }
 
@@ -578,73 +621,76 @@ export class RouteMap {
     this.zoomBy(1 / ZOOM_STEP);
   }
 
-  private zoomBy(factor: number): void {
+  private zoomBy(factor: number, keepCityId: number | null = null): void {
     this.adjusted = true;
-    this.moveTo(zoomAt(this.view(), this.base(), factor, this.center(), this.bounds()), true);
+    const view = this.animationTarget ?? this.view();
+    const target = { ...view, zoom: clampZoom(view.zoom * factor) };
+    const city = this.cityById(keepCityId);
+    if (city) {
+      // A focused city must stay on screen (it would lose focus if it left the drawing), so the
+      // view turns to it when the new zoom would push it out. Applied at once: no frame without it.
+      this.moveTo(this.keepInView(target, city), false);
+      return;
+    }
+    this.moveTo(target, true);
   }
 
-  /** Shows the whole route, or the whole map when there is none. */
-  protected fit(): void {
-    const route = this.route();
-    const base = this.base();
+  private keepInView(target: GlobeView, city: City): GlobeView {
+    const projected = createGlobeProjection(
+      target,
+      this.geometry(),
+    )([city.longitude, city.latitude]);
+    const free = this.freeSpan();
+    const margin = FIT_MARGIN_PX / 2;
+    const inside =
+      isVisible(city, target) &&
+      projected !== null &&
+      projected[0] >= free.left + margin &&
+      projected[0] <= free.right - margin &&
+      projected[1] >= margin &&
+      projected[1] <= this.renderedHeight() - margin;
+    return inside ? target : { ...target, longitude: city.longitude, latitude: city.latitude };
+  }
+
+  /** Goes back to the route, or to Europe when there is none. */
+  protected reset(): void {
     this.adjusted = false;
-    this.moveTo(
-      route
-        ? fitPoints(route.points, base, this.fitMargin(base), this.frame(), this.bounds())
-        : { ...this.restView() },
-      true,
-    );
-  }
-
-  /** Space kept around a route, in drawing units at the whole-map scale. */
-  private fitMargin(base: View): number {
-    const margin = this.useFill() ? FILL_FIT_MARGIN_PX : FIT_MARGIN_PX;
-    return margin * (base.width / Math.max(this.renderedWidth(), 1));
-  }
-
-  /** After the whole-map view changed: same centre, same zoom relative to it. */
-  private keepView(previousBase: View, base: View, bounds: View): void {
-    const view = this.view();
-    const zoom = zoomOf(view, previousBase);
-    const width = base.width / zoom;
-    const height = base.height / zoom;
-    this.moveTo(
-      clampView(
-        {
-          x: view.x + view.width / 2 - width / 2,
-          y: view.y + view.height / 2 - height / 2,
-          width,
-          height,
-        },
-        base,
-        bounds,
-      ),
-      false,
-    );
+    this.moveTo(this.homeView(), true);
   }
 
   protected onMapKey(event: KeyboardEvent): void {
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      return; // browser shortcuts such as Ctrl+minus
+    }
+    const turn = ARROWS[event.key];
     if (event.key === '+' || event.key === '=') {
-      this.zoomIn();
+      this.zoomBy(ZOOM_STEP, this.focusedCityId());
     } else if (event.key === '-' || event.key === '_') {
-      this.zoomOut();
+      this.zoomBy(1 / ZOOM_STEP, this.focusedCityId());
     } else if (event.key === '0') {
-      this.fit();
+      // The focused city may not exist after the reset: focus moves to the map first.
+      this.svg()?.nativeElement.focus();
+      this.reset();
+    } else if (turn) {
+      this.adjusted = true;
+      const step = KEY_ROTATE_DEGREES / this.view().zoom;
+      this.moveTo(rotateByDegrees(this.view(), turn.x * step, -turn.y * step), false);
     } else {
       return;
     }
     event.preventDefault();
   }
 
-  /** Arrow keys move focus to the nearest city in that direction. */
+  /** Arrow keys on a city move focus to the nearest city in that direction; with none there, they rotate. */
   protected onCityArrow(event: KeyboardEvent, city: City): void {
     const direction = ARROWS[event.key];
-    if (!direction) {
+    if (!direction || event.ctrlKey || event.metaKey || event.altKey) {
       return;
     }
-    event.preventDefault();
     const next = nearestInDirection(city, direction, this.cities(), this.points());
     if (next) {
+      event.preventDefault();
+      event.stopPropagation();
       this.focusCity(next.id);
     }
   }
@@ -655,11 +701,37 @@ export class RouteMap {
     if (!this.interactive()) {
       return;
     }
-    event.preventDefault(); // zoom the map instead of scrolling the page
+    const modifier = event.ctrlKey || event.metaKey; // also how a trackpad pinch arrives
+    if (this.cooperative() && !modifier) {
+      this.showScrollHint(); // the page scrolls
+      return;
+    }
     const factor = Math.exp(-event.deltaY * 0.0018);
-    this.stopAnimation();
-    this.adjusted = true;
-    this.view.set(zoomAt(this.view(), this.base(), factor, this.toDrawing(event), this.bounds()));
+    const zoom = this.view().zoom;
+    const atLimit = factor > 1 ? zoom >= MAX_ZOOM : zoom <= MIN_ZOOM;
+    if (atLimit && !modifier) {
+      return; // nothing left to zoom: never trap the page's scrolling
+    }
+    event.preventDefault(); // zoom the globe instead of scrolling the page
+    this.setZoom(factor);
+  }
+
+  private showScrollHint(): void {
+    this.scrollHint.set(true);
+    clearTimeout(this.scrollHintTimer);
+    this.scrollHintTimer = setTimeout(() => this.scrollHint.set(false), SCROLL_HINT_MS);
+  }
+
+  /** Escape closes the hover/focus card (without moving the pointer or focus). */
+  protected dismissCard(): void {
+    if (this.hoveredId() !== null) {
+      this.hoveredId.set(null);
+    }
+  }
+
+  protected onCityFocus(id: number): void {
+    this.lastFocusedId.set(id);
+    this.hoveredId.set(id);
   }
 
   protected onPointerDown(event: PointerEvent): void {
@@ -685,12 +757,7 @@ export class RouteMap {
     if (this.pointers.size === 2) {
       const spread = this.pointerSpread();
       if (this.pinchDistance > 0 && spread > 0) {
-        const [a, b] = [...this.pointers.values()];
-        const middle = this.toDrawing({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 });
-        this.adjusted = true;
-        this.view.set(
-          zoomAt(this.view(), this.base(), spread / this.pinchDistance, middle, this.bounds()),
-        );
+        this.setZoom(spread / this.pinchDistance);
       }
       this.pinchDistance = spread;
       this.dragged = true;
@@ -709,15 +776,8 @@ export class RouteMap {
     }
     this.stopAnimation();
     this.adjusted = true;
-    const unit = this.unit();
     this.view.set(
-      panBy(
-        this.view(),
-        this.base(),
-        -(event.clientX - previous.x) * unit,
-        -(event.clientY - previous.y) * unit,
-        this.bounds(),
-      ),
+      rotateBy(this.view(), event.clientX - previous.x, event.clientY - previous.y, this.disc().r),
     );
   }
 
@@ -732,6 +792,13 @@ export class RouteMap {
   }
 
   // --- Helpers --------------------------------------------------------------------
+
+  private setZoom(factor: number): void {
+    this.stopAnimation();
+    this.adjusted = true;
+    const view = this.view();
+    this.view.set({ ...view, zoom: clampZoom(view.zoom * factor) });
+  }
 
   /** First stop is the origin, last the destination, the rest plain stops. */
   private roleOf(id: number, stopsMode: boolean, routeCities: City[]): CityMarker['role'] {
@@ -758,79 +825,63 @@ export class RouteMap {
     return wasDrag;
   }
 
-  private center(): MapPoint {
-    const view = this.view();
-    return { x: view.x + view.width / 2, y: view.y + view.height / 2 };
-  }
-
-  private toDrawing(event: { clientX: number; clientY: number }): MapPoint {
-    const rect = this.svg()?.nativeElement.getBoundingClientRect();
-    const view = this.view();
-    if (!rect || rect.width === 0 || rect.height === 0) {
-      return this.center();
-    }
-    return {
-      x: view.x + ((event.clientX - rect.left) / rect.width) * view.width,
-      y: view.y + ((event.clientY - rect.top) / rect.height) * view.height,
-    };
-  }
-
   private pointerSpread(): number {
     const [a, b] = [...this.pointers.values()];
     return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
   }
 
   private focusCity(id: number): void {
-    const element = this.host.nativeElement.querySelector<SVGGElement>(`g.city[data-id="${id}"]`);
-    element?.focus();
+    this.host.nativeElement.querySelector<SVGGElement>(`g.city[data-id="${id}"]`)?.focus();
     this.hoveredId.set(id);
-    const point = this.points().get(id);
-    const view = this.view();
-    if (
-      point &&
-      (point.x < view.x ||
-        point.x > view.x + view.width ||
-        point.y < view.y ||
-        point.y > view.y + view.height)
-    ) {
-      this.adjusted = true;
-      this.moveTo(
-        panBy(
-          view,
-          this.base(),
-          point.x - (view.x + view.width / 2),
-          point.y - (view.y + view.height / 2),
-          this.bounds(),
-        ),
-        true,
-      );
-    }
   }
 
-  private moveTo(target: View, animate: boolean): void {
+  /** The city that has keyboard focus right now, if any. */
+  private focusedCityId(): number | null {
+    const focused = this.host.nativeElement.querySelector<SVGGElement>('g.city:focus');
+    return focused ? Number(focused.getAttribute('data-id')) : null;
+  }
+
+  /** Shows `target`, turning there over {@link ANIMATION_MS} (one signal write per frame) unless `animate` is off. */
+  private moveTo(target: GlobeView, animate: boolean): void {
     this.stopAnimation();
-    if (!animate || this.reducedMotion || typeof requestAnimationFrame === 'undefined') {
+    if (!animate || this.reducedMotion() || typeof requestAnimationFrame === 'undefined') {
       this.view.set(target);
       return;
     }
+    this.animationTarget = target;
     const from = this.view();
-    const started = performance.now();
+    let started: number | null = null;
     const step = (now: number) => {
-      const t = Math.min(1, (now - started) / ANIMATION_MS);
+      started ??= now; // the first frame is the start, whatever clock the timestamps use
+      const t = Math.min(1, Math.max(0, (now - started) / ANIMATION_MS));
       const eased = 1 - Math.pow(1 - t, 3);
-      this.view.set(interpolateView(from, target, eased));
+      this.view.set(t < 1 ? interpolateView(from, target, eased) : target);
       if (t < 1) {
         this.animationFrame = requestAnimationFrame(step);
+      } else {
+        this.animationTarget = null;
       }
     };
     this.animationFrame = requestAnimationFrame(step);
   }
 
   private stopAnimation(): void {
+    this.animationTarget = null;
     if (this.animationFrame) {
       cancelAnimationFrame(this.animationFrame);
       this.animationFrame = 0;
     }
+  }
+
+  private watchReducedMotion(): void {
+    const media = this.document.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (!media) {
+      return;
+    }
+    this.reducedMotion.set(media.matches);
+    const update = (event: MediaQueryListEvent) => this.reducedMotion.set(event.matches);
+    media.addEventListener?.('change', update);
+    this.destroyRef.onDestroy(() => media.removeEventListener?.('change', update));
   }
 
   private observeSize(): void {
@@ -840,9 +891,9 @@ export class RouteMap {
     }
     const update = () => {
       const { width, height } = element.getBoundingClientRect();
-      if (width > 0) {
+      if (width > 0 && height > 0) {
         this.renderedWidth.set(width);
-        this.renderedHeight.set(this.fill() ? height : 0);
+        this.renderedHeight.set(height);
       }
     };
     update();
@@ -854,6 +905,8 @@ export class RouteMap {
     this.destroyRef.onDestroy(() => observer.disconnect());
   }
 }
+
+const GRATICULE = geoGraticule().step([30, 30])();
 
 const ARROWS: Record<string, MapPoint> = {
   ArrowRight: { x: 1, y: 0 },
@@ -895,8 +948,10 @@ export function nearestInDirection(
 }
 
 /** Keeps the two route labels on the outer side of each end, away from the line. */
-function routeLabelSides(point: MapPoint, from: MapPoint, to: MapPoint): LabelSide[] {
-  const other = point === from ? to : from;
+function routeLabelSides(point: MapPoint, other: MapPoint | undefined): LabelSide[] | undefined {
+  if (!other) {
+    return undefined;
+  }
   const dx = other.x - point.x;
   const dy = other.y - point.y;
   if (Math.abs(dy) >= Math.abs(dx)) {
@@ -905,19 +960,17 @@ function routeLabelSides(point: MapPoint, from: MapPoint, to: MapPoint): LabelSi
   return dx > 0 ? ['left', 'top', 'bottom'] : ['right', 'top', 'bottom'];
 }
 
-function landPath(project: Projection): string {
-  const parts: string[] = [];
-  for (const ring of LAND_RINGS) {
-    let segment = '';
-    for (let i = 0; i < ring.length; i += 2) {
-      const { x, y } = project({ longitude: ring[i], latitude: ring[i + 1] });
-      segment += `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
-    }
-    parts.push(segment + 'Z');
-  }
-  return parts.join('');
-}
-
-function prefersReducedMotion(): boolean {
-  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** The land rings (flat [longitude, latitude, ...]) as one GeoJSON multi-polygon. */
+function landGeometry(rings: readonly (readonly number[])[]): GeoPermissibleObjects {
+  return {
+    type: 'MultiPolygon',
+    coordinates: rings.map((ring) => {
+      const points: number[][] = [];
+      for (let i = 0; i < ring.length; i += 2) {
+        points.push([ring[i], ring[i + 1]]);
+      }
+      points.push(points[0]);
+      return [points];
+    }),
+  };
 }

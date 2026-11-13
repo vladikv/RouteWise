@@ -504,3 +504,39 @@ corrected manually, and why.
 - A visual milestone needs eyes on the running app at every step: lint and
   265 passing tests said nothing about a map that was not full-screen or a
   route that rendered as three dashes.
+
+## `feat/globe-map` (2026-11-13)
+
+**Delegated to AI**
+- Plan entry, migrations V6–V8 (150 cities with continent, landmass,
+  capital and label rank; split flight CO₂ factors), the pure
+  `ModeAvailability` and `FlightEmissions` rules, `unavailableCode` in the
+  API, and the rule parser's multi-word and accented names (main session).
+- Test fixes for the new record fields and new backend tests (migration,
+  availability edge cases, flight threshold, intercontinental itinerary):
+  `test-writer`; review: `backend-reviewer` (301 tests green).
+- The orthographic globe with `d3-geo`, world land from Natural Earth
+  1:110m in a lazy chunk, label rank by zoom: `ui-builder`; review:
+  `ui-reviewer` (1 blocker, 15 should-fix), then fixes and the greyed-out
+  unavailable modes by `ui-builder` (477 UI tests green).
+
+**Corrected manually / human decisions**
+- The DEFRA factors could not be confirmed online (only partial
+  third-party copies); the 2023 economy values with radiative forcing are
+  flagged for checking against the official spreadsheet.
+- The seed had 124 new cities, not 125; the test agent's migration test
+  caught it and Boston was added.
+- A subagent's `git rm` left deletions staged, and they went into the
+  `feat(db)` commit; the history was rebuilt with cherry-picks (the
+  sandbox blocks interactive rebase) before the first push.
+- The plane factors moved from the city seed to their own migration (V8)
+  after the backend review; a subagent's scratch scripts were deleted.
+- Human decision: `docs/` is ignored by git and screenshots are no longer
+  part of any milestone; the UI reviewer works from code and tokens.
+- One UI spec timed out once under machine load and passed on reruns.
+
+**Why**
+- Green tests did not catch what the review found on a 150-city globe:
+  neighbouring cities taking each other's clicks, 90 tab stops and page
+  scroll trapped by the map. A reviewer pass against the real data is
+  needed whenever a component's data grows by an order of magnitude.

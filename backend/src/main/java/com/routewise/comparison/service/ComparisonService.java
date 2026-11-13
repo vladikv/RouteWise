@@ -101,7 +101,8 @@ public class ComparisonService {
                             || f.location().name().equals(to.getName()))
                     .toList();
             List<ModeOption> options = comparisonEngine.compare(
-                    new ComparisonInput(distanceKm, travelers, priority, modes, legWeather));
+                    new ComparisonInput(distanceKm, from.getLandmass().equals(to.getLandmass()), travelers,
+                            priority, modes, legWeather));
             legs.add(new Leg(summary(from), summary(to), distanceKm, options));
         }
         return comparisonMapper.toResponse(tripId, departureDate, travelers, priority, forecasts, legs,

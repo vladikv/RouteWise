@@ -24,6 +24,10 @@ class RuleBasedTripParserTest {
             "Madrid", "Milan", "Munich", "Paris", "Prague", "Rome", "Stockholm", "Venice", "Vienna", "Warsaw",
             "Zurich");
 
+    /** A few multi-word and accented cities from the V7 migration, plus Paris. */
+    private static final List<String> WORLD_CITIES = List.of("Bogotá", "Lima", "Los Angeles", "Mexico City",
+            "New York", "Paris", "Rio de Janeiro", "São Paulo");
+
     private final RuleBasedTripParser parser = new RuleBasedTripParser();
 
     @Test
@@ -169,5 +173,33 @@ class RuleBasedTripParserTest {
     @Test
     void findPriority_noKeyword_isEmpty() {
         assertThat(RuleBasedTripParser.findPriority("after breakfast")).isEmpty();
+    }
+
+    @ParameterizedTest(name = "\"{0}\" -> {1}")
+    @CsvSource(delimiter = '|', value = {
+            "New York to São Paulo                    | New York,São Paulo",
+            "new york to sao paulo                    | New York,São Paulo",
+            "from Rio de Janeiro to Bogota then Lima  | Rio de Janeiro,Bogotá,Lima",
+            "NYC to Rio                               | New York,Rio de Janeiro",
+            "I fly to Los Angeles from Mexico City    | Mexico City,Los Angeles"
+    })
+    void parse_multiWordAndAccentedNames_matchTheSeededCity(String text, String expected) {
+        TripExtraction result = parser.parse(text, WORLD_CITIES, TODAY);
+
+        assertThat(result.stops()).containsExactly(expected.split(","));
+    }
+
+    @Test
+    void parse_unsupportedMultiWordPlace_isReportedAsWritten() {
+        TripExtraction result = parser.parse("Paris to New Orleans Friday", WORLD_CITIES, TODAY);
+
+        assertThat(result.stops()).containsExactly("Paris", "New Orleans");
+    }
+
+    @Test
+    void parse_unsupportedPlaceFollowedByAWeekday_dropsTheWeekdayFromTheName() {
+        TripExtraction result = parser.parse("Paris to Zakopane Sunday", WORLD_CITIES, TODAY);
+
+        assertThat(result.stops()).containsExactly("Paris", "Zakopane");
     }
 }

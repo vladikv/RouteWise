@@ -97,7 +97,7 @@
   /* Route map */
   --map-sea: #0e1118;
   --map-land: #191e28;
-  --map-border: #343b4a;
+  --map-border: #616b7f;
   --map-city: #b8bfcc;
   /* Dark outline under the route and pins so lime stays 3:1 against the land. */
   --map-route-halo: var(--map-land);
@@ -172,7 +172,7 @@
   --shadow-raised: 0 8px 24px rgb(11 13 18 / 16%);
   --map-sea: color-mix(in srgb, #0b0d12 9%, #ffffff);
   --map-land: color-mix(in srgb, #0b0d12 2%, #ffffff);
-  --map-border: color-mix(in srgb, #0b0d12 25%, #ffffff);
+  --map-border: color-mix(in srgb, #0b0d12 50%, #ffffff);
   --map-city: color-mix(in srgb, #0b0d12 70%, #ffffff);
   --map-route-halo: #0b0d12;
 }

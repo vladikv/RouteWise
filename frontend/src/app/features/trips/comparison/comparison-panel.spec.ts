@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { ModeOption } from '../../../core/api/models';
 import { LegComparison } from './leg-comparison';
 import { AdvicePanel } from './advice-panel';
 import { ComparisonPanel } from './comparison-panel';
@@ -42,8 +43,39 @@ describe('ComparisonPanel', () => {
     const row = render(LEG_COMPARISON).querySelectorAll('tbody tr')[2];
 
     expect(row.querySelector('th')?.textContent).toContain('Bike');
-    expect(cells(row)).toEqual(['Not available: Route of 681 km exceeds the BIKE limit of 150 km']);
+    expect(cells(row)).toEqual(['⊘ Not available: too far for this mode']);
     expect(row.querySelector('td')?.getAttribute('colspan')).toBe('4');
+  });
+
+  describe('unavailable modes', () => {
+    const withBike = (unavailableCode: ModeOption['unavailableCode'], reason: string | null) =>
+      render({
+        ...LEG_COMPARISON,
+        options: LEG_COMPARISON.options.map((option) =>
+          option.mode === 'BIKE'
+            ? { ...option, unavailableCode, unavailableReason: reason }
+            : option,
+        ),
+      }).querySelectorAll('tbody tr')[2];
+
+    it.each([
+      ['DIFFERENT_LANDMASS', 'Not available: different continent or island'],
+      ['TOO_FAR', 'Not available: too far for this mode'],
+    ] as const)('reads %s as plain words, greyed out', (code, text) => {
+      const row = withBike(code, 'English prose from the API');
+
+      expect(row.querySelector('.reason')?.textContent).toContain(text);
+      expect(row.textContent).not.toContain('English prose');
+      expect(row.classList).toContain('unavailable');
+      expect(row.querySelector('.reason__icon')?.getAttribute('aria-hidden')).toBe('true');
+    });
+
+    it('falls back to the API reason when there is no code', () => {
+      const row = withBike(null, 'Route is closed');
+
+      expect(cells(row)).toEqual(['⊘ Not available: Route is closed']);
+      expect(row.classList).toContain('unavailable');
+    });
   });
 
   it('shows the forecast with hazards as text', () => {

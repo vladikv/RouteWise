@@ -57,7 +57,8 @@ class TripRepositoryTest {
 
     @Test
     void seedData_containsCitiesAndAllTransportModes() {
-        assertThat(cityRepository.count()).isEqualTo(25);
+        // 25 cities from V2 plus the worldwide seed of V7 (the exact total is asserted in CityMigrationTest)
+        assertThat(cityRepository.count()).isGreaterThanOrEqualTo(25);
         assertThat(cityRepository.findByNameContainingIgnoreCaseOrderByNameAsc("VIE"))
                 .extracting(City::getName).containsExactly("Vienna");
         assertThat(transportModeRepository.findAll()).extracting(TransportMode::getCode)

@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Set;
 
 import com.routewise.city.dto.CitySummary;
+import com.routewise.comparison.domain.UnavailableCode;
 import com.routewise.comparison.dto.ComparisonResponse;
 import com.routewise.comparison.dto.ItineraryTotalsResponse;
 import com.routewise.comparison.dto.LegResponse;
@@ -31,18 +32,18 @@ public final class AdvisorTestData {
     }
 
     public static ModeOptionResponse train(boolean recommended) {
-        return new ModeOptionResponse(TransportModeCode.TRAIN, true, null, new BigDecimal("628.3"), 373,
+        return new ModeOptionResponse(TransportModeCode.TRAIN, true, null, null, new BigDecimal("628.3"), 373,
                 new BigDecimal("150.80"), new BigDecimal("44.0"), 87, recommended, List.of());
     }
 
     public static ModeOptionResponse bus() {
-        return new ModeOptionResponse(TransportModeCode.BUS, true, null, new BigDecimal("680.7"), 453,
+        return new ModeOptionResponse(TransportModeCode.BUS, true, null, null, new BigDecimal("680.7"), 453,
                 new BigDecimal("90.80"), new BigDecimal("54.0"), 71, false, List.of());
     }
 
     public static ModeOptionResponse bikeUnavailable() {
         return new ModeOptionResponse(TransportModeCode.BIKE, false,
-                "Route of 681 km exceeds the BIKE limit of 150 km", new BigDecimal("680.7"),
+                UnavailableCode.TOO_FAR, "Route of 681 km exceeds the BIKE limit of 150 km", new BigDecimal("680.7"),
                 null, null, null, 0, false, List.of());
     }
 
@@ -79,15 +80,15 @@ public final class AdvisorTestData {
                 List.of(), List.of(first, second),
                 new ItineraryTotalsResponse(List.of(TransportModeCode.TRAIN, TransportModeCode.BUS), 510,
                         new BigDecimal("58.00"), new BigDecimal("17.0")),
-                List.of(new ModeTotalsResponse(TransportModeCode.TRAIN, true, null, 490, new BigDecimal("85.00"),
+                List.of(new ModeTotalsResponse(TransportModeCode.TRAIN, true, null, null, 490, new BigDecimal("85.00"),
                                 new BigDecimal("19.0")),
-                        new ModeTotalsResponse(TransportModeCode.BUS, true, null, 570, new BigDecimal("38.00"),
+                        new ModeTotalsResponse(TransportModeCode.BUS, true, null, null, 570, new BigDecimal("38.00"),
                                 new BigDecimal("15.0"))));
     }
 
     public static ModeOptionResponse option(TransportModeCode mode, int minutes, String cost, String co2,
                                             boolean recommended) {
-        return new ModeOptionResponse(mode, true, null, new BigDecimal("300.0"), minutes, new BigDecimal(cost),
+        return new ModeOptionResponse(mode, true, null, null, new BigDecimal("300.0"), minutes, new BigDecimal(cost),
                 new BigDecimal(co2), recommended ? 80 : 60, recommended, List.of());
     }
 
@@ -114,9 +115,9 @@ public final class AdvisorTestData {
     private static List<ModeTotalsResponse> singleModeTotals(List<ModeOptionResponse> options) {
         return options.stream()
                 .map(option -> option.available()
-                        ? new ModeTotalsResponse(option.mode(), true, null, option.durationMinutes(),
+                        ? new ModeTotalsResponse(option.mode(), true, null, null, option.durationMinutes(),
                                 option.totalCost(), option.co2Kg())
-                        : new ModeTotalsResponse(option.mode(), false, "Leg 1 (Berlin to Vienna): "
+                        : new ModeTotalsResponse(option.mode(), false, option.unavailableCode(), "Leg 1 (Berlin to Vienna): "
                                 + option.unavailableReason(), null, null, null))
                 .toList();
     }

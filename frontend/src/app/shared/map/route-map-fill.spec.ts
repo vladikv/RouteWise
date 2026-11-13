@@ -1,14 +1,14 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { City } from '../../core/api/models';
+import { makeCity } from '../../core/api/city.testing';
 import { RouteMap } from './route-map';
 
-const CITIES: City[] = [
+const CITIES = [
   { id: 3, name: 'Berlin', country: 'DE', latitude: 52.52, longitude: 13.405 },
   { id: 23, name: 'Vienna', country: 'AT', latitude: 48.2082, longitude: 16.3738 },
   { id: 18, name: 'Paris', country: 'FR', latitude: 48.8566, longitude: 2.3522 },
   { id: 5, name: 'Lisbon', country: 'PT', latitude: 38.7223, longitude: -9.1393 },
   { id: 6, name: 'Stockholm', country: 'SE', latitude: 59.3293, longitude: 18.0686 },
-];
+].map((city) => makeCity(city));
 
 class FakeResizeObserver {
   static current: FakeResizeObserver | null = null;
@@ -80,38 +80,43 @@ describe('RouteMap fill mode', () => {
   }
 
   const svg = (): SVGSVGElement => element.querySelector('svg') as SVGSVGElement;
-  const viewBox = (): number[] => (svg().getAttribute('viewBox') ?? '').split(' ').map(Number);
+  const disc = () => {
+    const sea = element.querySelector('circle.sea') as SVGCircleElement;
+    return {
+      cx: Number(sea.getAttribute('cx')),
+      cy: Number(sea.getAttribute('cy')),
+      r: Number(sea.getAttribute('r')),
+    };
+  };
+  /** Zoom relative to the globe fitted into the free space (12 px margin). */
+  const zoomLevel = (free: number, height: number) => disc().r / (Math.min(free, height) / 2 - 12);
   const pin = (letter: string): { x: number; y: number } => {
-    const [x, y, width, height] = viewBox();
     const ring = Array.from(element.querySelectorAll('g.city'))
       .find((city) => city.querySelector('.city__letter')?.textContent?.trim() === letter)
       ?.querySelector('.city__ring') as SVGCircleElement;
-    return {
-      x: ((Number(ring.getAttribute('cx')) - x) / width) * size.width,
-      y: ((Number(ring.getAttribute('cy')) - y) / height) * size.height,
-    };
+    return { x: Number(ring.getAttribute('cx')), y: Number(ring.getAttribute('cy')) };
   };
 
   it.each([
     [1440, 826],
     [1920, 1006],
-    [2560, 1366],
     [800, 400],
     [375, 600],
-  ])('takes the aspect ratio of a %i x %i container, so there is no letterbox', async (w, h) => {
+  ])('centres the whole globe in a %i x %i container, inside it', async (w, h) => {
     await render({}, w, h);
-    const [, , width, height] = viewBox();
-    expect(width / height).toBeCloseTo(w / h, 3);
-    expect(element.querySelector('.fades')).toBeNull();
+    const { cx, cy, r } = disc();
+
+    expect(cx).toBe(w / 2);
+    expect(cy).toBe(h / 2);
+    expect(r).toBeLessThanOrEqual(Math.min(w, h) / 2);
+    expect(svg().hasAttribute('viewBox')).toBe(false);
   });
 
-  it('shows no edge of the land data at rest, and fades it into the sea only past it', async () => {
-    await render({ insetStart: 424, insetEnd: 424 });
-    expect(element.querySelector('.fades')).toBeNull();
+  it('centres the globe between the panels, and fits it to the space they leave free', async () => {
+    await render({ insetStart: 424, insetEnd: 200 });
 
-    svg().dispatchEvent(new WheelEvent('wheel', { deltaY: 3000, bubbles: true, cancelable: true }));
-    await settle();
-    expect(element.querySelector('.fades')).not.toBeNull();
+    expect(disc().cx).toBe(424 + (1440 - 424 - 200) / 2);
+    expect(disc().r).toBe((1440 - 424 - 200) / 2 - 12);
   });
 
   it('puts a route between the panels, clear of both', async () => {
@@ -137,33 +142,21 @@ describe('RouteMap fill mode', () => {
     await render({ originId: 3, destinationId: 23 });
     // Not touched: a new size refits the route into the new frame.
     await resize(1000, 700);
-    const [fx, fy, fw, fh] = viewBox();
-    expect(fw / fh).toBeCloseTo(1000 / 700, 3);
-    const refitCentre = { x: fx + fw / 2, y: fy + fh / 2 };
+    expect(disc().cx).toBe(500);
+    const fitted = zoomLevel(1000, 700);
+    const a = pin('A');
+    const b = pin('B');
+    expect((a.x + b.x) / 2).toBeCloseTo(500, 0);
 
-    // Zoomed out by hand, then resized: same centre, same zoom relative to the whole map.
-    // Zoomed out around the middle of the map, so the centre stays where it was.
-    svg().dispatchEvent(
-      new WheelEvent('wheel', {
-        deltaY: 300,
-        clientX: 500,
-        clientY: 350,
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
+    // Zoomed out by hand, then resized: same zoom relative to the globe.
+    svg().dispatchEvent(new WheelEvent('wheel', { deltaY: 300, bubbles: true, cancelable: true }));
     await settle();
-    const [mx, my, mw, mh] = viewBox();
-    const centre = { x: mx + mw / 2, y: my + mh / 2 };
-    expect(mw).toBeGreaterThan(fw);
-    expect(centre.x).toBeCloseTo(refitCentre.x, 3);
-    expect(centre.y).toBeCloseTo(refitCentre.y, 3);
+    const zoomed = zoomLevel(1000, 700);
+    expect(zoomed).toBeLessThan(fitted);
 
     await resize(1400, 700);
-    const [rx, ry, rw, rh] = viewBox();
-    expect(rw / rh).toBeCloseTo(1400 / 700, 3);
-    expect(rx + rw / 2).toBeCloseTo(centre.x, 3);
-    expect(ry + rh / 2).toBeCloseTo(centre.y, 3);
+    expect(zoomLevel(1400, 700)).toBeCloseTo(zoomed, 6);
+    expect(disc().cx).toBe(700);
   });
 
   it('puts the zoom buttons at the bottom right, beside the end inset', async () => {

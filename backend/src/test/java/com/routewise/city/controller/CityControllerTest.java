@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.List;
 
+import com.routewise.city.domain.Continent;
 import com.routewise.city.dto.CityResponse;
 import com.routewise.city.service.CityService;
 import com.routewise.common.config.SecurityConfig;
@@ -40,14 +41,20 @@ class CityControllerTest {
 
     @Test
     void findAll_returnsCities() throws Exception {
-        when(cityService.findAll(null)).thenReturn(List.of(new CityResponse(1L, "Berlin", "DE", 52.52, 13.405)));
+        when(cityService.findAll(null)).thenReturn(List.of(new CityResponse(1L, "Berlin", "DE", 52.52, 13.405,
+                Continent.EUROPE, "EURASIA", true, 1)));
 
         mockMvc.perform(get("/api/cities"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1))
                 .andExpect(jsonPath("$[0].name").value("Berlin"))
                 .andExpect(jsonPath("$[0].country").value("DE"))
-                .andExpect(jsonPath("$[0].latitude").value(52.52));
+                .andExpect(jsonPath("$[0].latitude").value(52.52))
+                .andExpect(jsonPath("$[0].longitude").value(13.405))
+                .andExpect(jsonPath("$[0].continent").value("EUROPE"))
+                .andExpect(jsonPath("$[0].landmass").value("EURASIA"))
+                .andExpect(jsonPath("$[0].capital").value(true))
+                .andExpect(jsonPath("$[0].labelRank").value(1));
     }
 
     @Test

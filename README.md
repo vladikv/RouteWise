@@ -41,3 +41,29 @@ Optional settings (environment variables):
 | `SERVER_PORT` | `8087` | API port |
 
 API documentation: http://localhost:8087/swagger-ui.html
+
+## Data & assumptions
+
+RouteWise gives estimates for comparing options, not quotes or timetables.
+
+- **Cities:** about 150 capitals and major transport hubs on every continent,
+  seeded by Flyway migrations (`V2`, `V7`; flight factors in `V8`). Coordinates are city centres.
+- **Distance:** great-circle (haversine) distance between the cities, times a
+  detour factor per mode (train 1.2; bus, car and bike 1.3; plane 1.0).
+- **Prices:** one cost per kilometre per mode, used worldwide. These are rough
+  global estimates; real fares vary widely by country, season and operator.
+- **Ground modes and landmasses:** train, bus, car and bike are only offered
+  when both cities are on the same *landmass*, a region joined by land, and the
+  route is within the mode's maximum distance. Fixed links count: the Channel
+  Tunnel and the Øresund and Great Belt bridges make Great Britain and the
+  Danish islands part of Eurasia. Ferries do not: Ireland, Iceland, Japan,
+  Australia, New Zealand and other islands are separate landmasses. Africa is
+  treated as separate from Eurasia. Otherwise the mode is shown as unavailable
+  with a reason (`DIFFERENT_LANDMASS` or `TOO_FAR`).
+- **Flight CO₂:** two factors per passenger-km from the UK DEFRA greenhouse
+  gas conversion factors 2023 (economy class, including radiative forcing):
+  short-haul 183 g up to 3,700 km great-circle distance (DEFRA's short/long-haul
+  boundary), long-haul 200 g above it. The factor depends on the leg's distance.
+- **Other CO₂ and speeds:** typical European averages per mode (car per
+  vehicle, shared by up to five travellers; others per traveller).
+- **Map:** land and borders from Natural Earth 1:110m (public domain).

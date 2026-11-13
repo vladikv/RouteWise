@@ -43,7 +43,9 @@ public class RuleBasedTripParser {
             Map.entry("venezia", "Venice"),
             Map.entry("bruxelles", "Brussels"),
             Map.entry("københavn", "Copenhagen"),
-            Map.entry("warszawa", "Warsaw"));
+            Map.entry("warszawa", "Warsaw"),
+            Map.entry("nyc", "New York"),
+            Map.entry("rio", "Rio de Janeiro"));
 
     private static final Map<String, Integer> MONTHS = Map.ofEntries(
             Map.entry("january", 1), Map.entry("jan", 1), Map.entry("february", 2), Map.entry("feb", 2),
@@ -99,19 +101,21 @@ public class RuleBasedTripParser {
             + "|sustainably|environment|environmental|climate|emissions?|co2|carbon)\\b");
     private static final Pattern BALANCED = Pattern.compile("\\bbalanced?\\b");
 
+    private static final String CAPITALISED_WORDS = "\\p{Lu}\\p{Ll}+(?:[ -]\\p{Lu}\\p{Ll}+)*";
+
     private static final Pattern ORIGIN_MARKER = Pattern.compile("\\bfrom\\s+$");
     /** Returning to the first stop: "back home Sunday", "and back", "return on Friday". */
     private static final Pattern RETURN_MARKER = Pattern.compile(
             "\\b(?:back home|and back|come back|coming back|go back|return(?:ing)?(?: home)?)\\b");
     /**
-     * A capitalised place name after a route word ("to Zakopane", "then Bratislava"), or the first
-     * word of an "X to Y" request. Used to report cities that are not supported instead of
+     * A capitalised place name of one or more words after a route word ("to Zakopane", "then
+     * New Orleans"), or at the start of an "X to Y" request. Used to report cities that are not supported instead of
      * silently dropping them. Matched on the text with diacritics removed but case kept.
      */
     private static final Pattern PLACE_AFTER_ROUTE_WORD = Pattern.compile(
-            "\\b(?:from|to|then|via|towards)\\s+(\\p{Lu}\\p{Ll}+(?:-\\p{Lu}\\p{Ll}+)?)");
+            "\\b(?:from|to|then|via|towards)\\s+(" + CAPITALISED_WORDS + ")");
     private static final Pattern PLACE_AT_START = Pattern.compile(
-            "^\\s*(\\p{Lu}\\p{Ll}+(?:-\\p{Lu}\\p{Ll}+)?)\\s+(?:to|-|->|→)\\s");
+            "^\\s*(" + CAPITALISED_WORDS + ")\\s+(?:to|-|->|→)\\s");
     /** Capitalised words that are not places. */
     private static final Set<String> NOT_PLACES = Set.of("monday", "tuesday", "wednesday", "thursday", "friday",
             "saturday", "sunday", "today", "tomorrow", "next", "this", "the", "my", "me", "we", "us", "i", "a",
@@ -187,17 +191,27 @@ public class RuleBasedTripParser {
             Matcher matcher = pattern.matcher(keepCase);
             while (matcher.find()) {
                 int start = matcher.start(1);
-                String word = matcher.group(1).toLowerCase(Locale.ROOT);
-                boolean isKnown = known.stream().anyMatch(mention -> mention.start() == start)
-                        || cityNames.stream().anyMatch(city -> normalize(city).equals(word))
-                        || CITY_ALIASES.containsKey(word);
-                if (!isKnown && !NOT_PLACES.contains(word)
-                        && unknown.stream().noneMatch(mention -> mention.start() == start)) {
-                    unknown.add(new CityMention(original.substring(start, matcher.end(1)), start));
+                int end = start + withoutTrailingNonPlaces(matcher.group(1)).length();
+                String words = keepCase.substring(start, end).toLowerCase(Locale.ROOT);
+                boolean isKnown = known.stream().anyMatch(mention -> mention.overlaps(start, end))
+                        || cityNames.stream().anyMatch(city -> normalize(city).equals(words))
+                        || CITY_ALIASES.containsKey(words);
+                if (end > start && !isKnown
+                        && unknown.stream().noneMatch(mention -> mention.overlaps(start, end))) {
+                    unknown.add(new CityMention(original.substring(start, end), start, end));
                 }
             }
         }
         return unknown;
+    }
+
+    /** "Zakopane Sunday" → "Zakopane"; a name made only of such words becomes empty. */
+    private static String withoutTrailingNonPlaces(String words) {
+        List<String> parts = new ArrayList<>(List.of(words.split(" ")));
+        while (!parts.isEmpty() && NOT_PLACES.contains(parts.getLast().toLowerCase(Locale.ROOT))) {
+            parts.removeLast();
+        }
+        return String.join(" ", parts);
     }
 
     private static List<CityMention> findMentions(String text, List<String> cityNames) {
@@ -210,14 +224,30 @@ public class RuleBasedTripParser {
                 addMentions(text, alias, city, mentions);
             }
         });
-        mentions.sort(Comparator.comparingInt(CityMention::start));
-        return mentions;
+        return longestMatches(mentions);
+    }
+
+    /**
+     * Keeps the longest mention where several overlap, so "Rio de Janeiro" is one stop
+     * and not also "Rio", in order of position.
+     */
+    private static List<CityMention> longestMatches(List<CityMention> mentions) {
+        List<CityMention> byLength = new ArrayList<>(mentions);
+        byLength.sort(Comparator.comparingInt((CityMention mention) -> mention.end() - mention.start()).reversed());
+        List<CityMention> kept = new ArrayList<>();
+        for (CityMention mention : byLength) {
+            if (kept.stream().noneMatch(other -> other.overlaps(mention.start(), mention.end()))) {
+                kept.add(mention);
+            }
+        }
+        kept.sort(Comparator.comparingInt(CityMention::start));
+        return kept;
     }
 
     private static void addMentions(String text, String term, String city, List<CityMention> mentions) {
         Matcher matcher = Pattern.compile("(?<!\\p{L})" + Pattern.quote(term) + "(?!\\p{L})").matcher(text);
         while (matcher.find()) {
-            mentions.add(new CityMention(city, matcher.start()));
+            mentions.add(new CityMention(city, matcher.start(), matcher.end()));
         }
     }
 
@@ -347,6 +377,11 @@ public class RuleBasedTripParser {
         return word != null ? word : Integer.parseInt(value);
     }
 
-    private record CityMention(String city, int start) {
+    /** A city found at [start, end) of the text. */
+    private record CityMention(String city, int start, int end) {
+
+        boolean overlaps(int otherStart, int otherEnd) {
+            return start < otherEnd && otherStart < end;
+        }
     }
 }

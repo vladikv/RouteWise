@@ -1,6 +1,6 @@
 ---
 name: ui-reviewer
-description: Senior frontend reviewer for the Angular app. Audits UI code and screenshots for UX, visual design, accessibility, responsiveness, Angular best practices, performance, security and tests, and proposes concrete fixes. Use after any frontend change and before merging a frontend milestone.
+description: Senior frontend reviewer for the Angular app. Audits UI code for UX, visual design, accessibility, responsiveness, Angular best practices, performance, security and tests, and proposes concrete fixes. Use after any frontend change and before merging a frontend milestone.
 tools: Read, Grep, Glob, Bash
 model: opus
 ---
@@ -15,8 +15,8 @@ propose precise, ready-to-apply fixes.
    the user names). Read changed files and what they depend on
    (services, tokens, shared components).
 2. Read frontend/CLAUDE.md and the design tokens to know the rules.
-3. Look at every screenshot in docs/screenshots/ that relates to the
-   change (all themes, layouts and widths) and judge them visually.
+3. Judge the visual result from templates, styles and tokens (all themes,
+   layouts and widths). Do not take or ask for screenshots (project rule).
 4. Run in frontend/: `npm run lint`, `npm test`, `npm run build`
    (note bundle size warnings and budget violations).
 5. Review against the checklist, then report.
@@ -83,7 +83,7 @@ propose precise, ready-to-apply fixes.
   - 🔴 Must fix: bugs, accessibility blockers, broken flows
   - 🟡 Should fix: convention violations, UX friction, missing states
   - 🟢 Polish: refinements that raise quality
-    Each finding: `file:line` (or screenshot name + area), the problem,
+    Each finding: `file:line`, the problem,
     why it matters for the user, and the fix as a concrete code snippet
     or exact CSS/Angular change.
 3. **Top 5 quick wins**: biggest improvement for the least effort.

@@ -26,6 +26,7 @@ import com.routewise.common.exception.FieldValidationException;
 import com.routewise.common.exception.ResourceNotFoundException;
 import com.routewise.common.exception.ValidationError;
 import com.routewise.comparison.domain.ModeParameters;
+import com.routewise.comparison.domain.UnavailableCode;
 import com.routewise.comparison.dto.ComparisonRequest;
 import com.routewise.comparison.dto.ComparisonResponse;
 import com.routewise.comparison.dto.LegResponse;
@@ -203,6 +204,58 @@ class ComparisonServiceTest {
     }
 
     @Test
+    void preview_intercontinentalLeg_usesPlaneThereAndReportsGroundModesUnavailable() {
+        City paris = TestCities.paris();
+        City london = TestCities.london();
+        City newYork = TestCities.newYork();
+        knownCities(paris, london, newYork);
+        when(transportModeRepository.findAll()).thenReturn(seededModes());
+        when(weatherService.forecasts(anyList(), eq(DEPARTURE))).thenReturn(List.of());
+
+        ComparisonResponse response = comparisonService.preview(request(DEPARTURE, 5L, 4L, 7L));
+
+        // Paris-London shares the Eurasian landmass (Channel Tunnel); London-New York does not.
+        LegResponse transatlantic = response.legs().get(1);
+        assertThat(transatlantic.recommendedMode()).isEqualTo(TransportModeCode.PLANE);
+        assertThat(transatlantic.options()).filteredOn(ModeOptionResponse::available)
+                .extracting(ModeOptionResponse::mode).containsExactly(TransportModeCode.PLANE);
+        assertThat(transatlantic.options()).filteredOn(option -> !option.available())
+                .extracting(ModeOptionResponse::unavailableCode)
+                .containsOnly(UnavailableCode.DIFFERENT_LANDMASS);
+        // London-New York is about 5570 km, above 3700 km: long-haul 200 g/km * 5570 km * 3 travelers / 1000
+        // is about 3342 kg.
+        assertThat(transatlantic.options().stream().filter(o -> o.mode() == TransportModeCode.PLANE)
+                .findFirst().orElseThrow().co2Kg()).isBetween(new BigDecimal("3300"), new BigDecimal("3380"));
+        assertThat(response.legs().getFirst().options()).filteredOn(ModeOptionResponse::available)
+                .extracting(ModeOptionResponse::mode).contains(TransportModeCode.TRAIN, TransportModeCode.PLANE);
+        assertThat(response.recommendedItinerary().modes()).hasSize(2).endsWith(TransportModeCode.PLANE);
+        assertThat(totalsFor(response, TransportModeCode.TRAIN)).satisfies(train -> {
+            assertThat(train.available()).isFalse();
+            assertThat(train.unavailableCode()).isEqualTo(UnavailableCode.DIFFERENT_LANDMASS);
+            assertThat(train.unavailableReason()).startsWith("Leg 2 (London to New York): ");
+            assertThat(train.totalCost()).isNull();
+        });
+        assertThat(totalsFor(response, TransportModeCode.PLANE).available()).isTrue();
+    }
+
+    @Test
+    void preview_dublinToLondon_groundModesUnavailableAcrossTheIrishSea() {
+        knownCities(TestCities.dublin(), TestCities.london());
+        when(transportModeRepository.findAll()).thenReturn(seededModes());
+        when(weatherService.forecasts(anyList(), eq(DEPARTURE))).thenReturn(List.of());
+
+        ComparisonResponse response = comparisonService.preview(request(DEPARTURE, 6L, 4L));
+
+        assertThat(response.legs().getFirst().options()).filteredOn(ModeOptionResponse::available)
+                .extracting(ModeOptionResponse::mode).containsExactly(TransportModeCode.PLANE);
+        assertThat(response.recommendedItinerary().modes()).containsExactly(TransportModeCode.PLANE);
+    }
+
+    private static ModeTotalsResponse totalsFor(ComparisonResponse response, TransportModeCode mode) {
+        return response.singleModeTotals().stream().filter(t -> t.mode() == mode).findFirst().orElseThrow();
+    }
+
+    @Test
     void preview_todayAsDepartureDate_isAllowed() {
         LocalDate today = LocalDate.of(2026, 11, 11);
         knownCities(berlin, vienna);
@@ -278,6 +331,7 @@ class ComparisonServiceTest {
         ReflectionTestUtils.setField(mode, "co2GramsPerKm", parameters.co2GramsPerKm());
         ReflectionTestUtils.setField(mode, "fixedOverheadMinutes", parameters.fixedOverheadMinutes());
         ReflectionTestUtils.setField(mode, "maxDistanceKm", parameters.maxDistanceKm());
+        ReflectionTestUtils.setField(mode, "longHaulCo2GramsPerKm", parameters.longHaulCo2GramsPerKm());
         return mode;
     }
 }
