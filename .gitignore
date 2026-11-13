@@ -23,3 +23,6 @@ application-local.yml
 
 # Claude Code (local only)
 .claude/settings.local.json
+
+# Docs folder (new files stay local; already tracked files remain tracked)
+docs/
