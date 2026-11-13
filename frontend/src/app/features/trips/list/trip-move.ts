@@ -28,13 +28,13 @@ export function moveRequest(trip: Trip, priority: TripPriority): TripRequest {
 }
 
 /** The list with one trip's priority changed in place, so its place in the order is kept. */
-export function withPriority(list: Trip[], id: number, priority: TripPriority): Trip[] {
+export function withPriority<T extends Trip>(list: T[], id: number, priority: TripPriority): T[] {
   return list.map((trip) => (trip.id === id ? { ...trip, priority } : trip));
 }
 
-/** The list with the trip of the same id replaced by `saved`. */
-export function replaceTrip(list: Trip[], saved: Trip): Trip[] {
-  return list.map((trip) => (trip.id === saved.id ? saved : trip));
+/** The list with the trip of the same id given the fields of `saved` (its other data, e.g. figures, kept). */
+export function replaceTrip<T extends Trip>(list: T[], saved: Trip): T[] {
+  return list.map((trip) => (trip.id === saved.id ? { ...trip, ...saved } : trip));
 }
 
 /** The priorities a trip can move to, in board order. */

@@ -85,7 +85,7 @@ const NO_DRAG_START = 'button, app-trip-menu, app-trip-actions, input, select, t
               {{ column.totalCost | currency: column.currency : 'symbol' : '1.0-0' }} total
             </p>
           }
-          @if (column.count === 0) {
+          @if (column.entries.length === 0) {
             <p class="column__empty muted">No trips</p>
           } @else {
             <ul class="column__list">
@@ -97,7 +97,7 @@ const NO_DRAG_START = 'button, app-trip-menu, app-trip-actions, input, select, t
                 >
                   <app-trip-card
                     [trip]="entry.trip"
-                    [state]="entry.state"
+                    [figures]="entry.figures"
                     [deleting]="deletingId() === entry.trip.id"
                     [moving]="movingIds().has(entry.trip.id)"
                     (deleted)="deleted.emit(entry.trip)"

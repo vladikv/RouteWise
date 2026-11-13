@@ -8,8 +8,6 @@ import {
   PRIORITY_LABELS,
   durationLabel,
   travelersLabel,
-  unavailableDetail,
-  unavailableTotalsText,
 } from '../../../shared/util/labels';
 import { ComparisonChart } from './comparison-chart';
 import { ComparisonPanel } from './comparison-panel';
@@ -35,19 +33,13 @@ export class ItineraryView {
   protected readonly priorityLabels = PRIORITY_LABELS;
   protected readonly durationLabel = durationLabel;
   protected readonly travelersLabel = travelersLabel;
-  protected readonly unavailableTotalsText = unavailableTotalsText;
 
   /** Each leg with its recommended option, if any. */
   protected readonly legs = computed(() =>
     this.comparison().legs.map((leg) => ({
       leg,
       best: leg.options.find((option) => option.recommended) ?? null,
-      reasons: leg.options
-        .filter((option) => !option.available)
-        .map(
-          (option) =>
-            `${MODE_LABELS[option.mode]}: ${unavailableDetail(option.unavailableCode, option.unavailableReason)}`,
-        ),
+      reasons: leg.unavailableGroups.map((group) => group.message),
     })),
   );
 

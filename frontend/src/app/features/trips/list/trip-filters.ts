@@ -1,5 +1,4 @@
-import { TransportModeCode, TripPriority } from '../../../core/api/models';
-import { BOARD_PRIORITIES, TripEntry, TripFilter, figuresOf } from './trip-figures';
+import { TransportModeCode, TripPage, TripPriority, TripSearch } from '../../../core/api/models';
 
 export type SortKey = 'date' | 'cost' | 'co2';
 export type SortDirection = 'asc' | 'desc';
@@ -9,28 +8,46 @@ export interface TripSort {
   direction: SortDirection;
 }
 
+export interface TripFilter {
+  search: string;
+  /** None selected means all. */
+  priorities: readonly TripPriority[];
+  /** None selected means all. */
+  modes: readonly TransportModeCode[];
+}
+
 export const DEFAULT_SORT: TripSort = { key: 'date', direction: 'asc' };
 
 export const FILTER_MODES: readonly TransportModeCode[] = ['TRAIN', 'BUS', 'CAR', 'BIKE', 'PLANE'];
 
-/** Trips per priority. */
-export function priorityCounts(entries: readonly TripEntry[]): Record<TripPriority, number> {
-  const counts = Object.fromEntries(BOARD_PRIORITIES.map((priority) => [priority, 0]));
-  for (const { trip } of entries) {
-    counts[trip.priority]++;
-  }
-  return counts as Record<TripPriority, number>;
+/** Trips the API reports per page; the page shows no paging controls yet, so this is the cap. */
+export const PAGE_SIZE = 100;
+
+/** The API query for the toolbar's filters and the table's sort. */
+export function tripSearch(filter: TripFilter, sort: TripSort): TripSearch {
+  return {
+    q: filter.search.trim(),
+    priority: filter.priorities,
+    mode: filter.modes,
+    sort: sort.key,
+    direction: sort.direction,
+    size: PAGE_SIZE,
+  };
 }
 
-/** Trips whose recommended itinerary uses each mode on at least one leg; trips without figures count nowhere. */
-export function modeCounts(entries: readonly TripEntry[]): Record<TransportModeCode, number> {
-  const counts = Object.fromEntries(FILTER_MODES.map((mode) => [mode, 0]));
-  for (const entry of entries) {
-    for (const mode of figuresOf(entry)?.modes ?? []) {
-      counts[mode]++;
-    }
-  }
-  return counts as Record<TransportModeCode, number>;
+/** The API's priority facet as chip counts. */
+export function priorityCounts(page: TripPage): Record<TripPriority, number> {
+  return Object.fromEntries(
+    page.facets.priorities.map(({ priority, count }) => [priority, count]),
+  ) as Record<TripPriority, number>;
+}
+
+/** The API's mode facet as chip counts. */
+export function modeCounts(page: TripPage): Record<TransportModeCode, number> {
+  return Object.fromEntries(page.facets.modes.map(({ mode, count }) => [mode, count])) as Record<
+    TransportModeCode,
+    number
+  >;
 }
 
 /** "3 of 5 trips" (and "1 of 1 trip"). */
@@ -54,26 +71,4 @@ export function toggleSort(current: TripSort, key: SortKey): TripSort {
     return { key, direction: current.direction === 'asc' ? 'desc' : 'asc' };
   }
   return { key, direction: 'asc' };
-}
-
-/**
- * The entries ordered by date, recommended cost or recommended CO₂. Ties and equal dates keep
- * the incoming order; entries without a figure (loading, failed, no route) sort last either way.
- */
-export function sortTrips(entries: readonly TripEntry[], sort: TripSort): TripEntry[] {
-  const sign = sort.direction === 'asc' ? 1 : -1;
-  const value = (entry: TripEntry): string | number | null => {
-    if (sort.key === 'date') {
-      return entry.trip.departureDate;
-    }
-    const figures = figuresOf(entry);
-    return figures ? (sort.key === 'cost' ? figures.cost : figures.co2Kg) : null;
-  };
-  return [...entries].sort((a, b) => {
-    const [first, second] = [value(a), value(b)];
-    if (first === null || second === null) {
-      return first === second ? 0 : first === null ? 1 : -1;
-    }
-    return first === second ? 0 : first < second ? -sign : sign;
-  });
 }

@@ -29,25 +29,12 @@
 
   @let plan = figures();
   <div class="trip__headline">
-    @switch (state().status) {
-      @case ('loading') {
-        <p class="trip__loading" aria-busy="true">
-          <span class="trip__placeholder" aria-hidden="true"></span>
-          <span class="visually-hidden">Loading figures</span>
-        </p>
-      }
-      @case ('failed') {
-        <p class="muted">Figures unavailable</p>
-      }
-      @default {
-        @if (plan) {
-          <p class="trip__value">
-            {{ plan.cost | currency: plan.currency : 'symbol' : '1.0-0' }}
-          </p>
-        } @else {
-          <p class="muted">No available route</p>
-        }
-      }
+    @if (plan) {
+      <p class="trip__value">
+        {{ plan.cost | currency: plan.currency : 'symbol' : '1.0-0' }}
+      </p>
+    } @else {
+      <p class="muted">No available route</p>
     }
     <app-trip-actions
       class="trip__actions"

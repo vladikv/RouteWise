@@ -56,13 +56,14 @@
   </ol>
 </div>
 
-@for (option of unavailable(); track option.mode) {
+@for (group of unavailable(); track group.code) {
   <p class="unavailable muted">
-    <app-mode-icon [mode]="option.mode" />
+    @for (mode of group.modes; track mode) {
+      <app-mode-icon [mode]="mode" />
+    }
     <span class="unavailable__text">
       <span aria-hidden="true">⊘</span>
-      {{ modeLabels[option.mode] }}:
-      {{ unavailableText(option.unavailableCode, option.unavailableReason) }}
+      {{ group.message }}
     </span>
   </p>
 }

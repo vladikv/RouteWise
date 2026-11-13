@@ -1,9 +1,10 @@
 <div class="trips-page">
   <header class="head">
     <h1>Trips</h1>
-    @if (trips.hasValue() && trips.value().length > 0) {
+    @if (stats.hasValue() && stats.value().tripsPlanned > 0) {
+      @let kpis = stats.value();
       <div class="kpis">
-        <app-stat-chip label="Trips planned" [value]="'' + kpis().planned">
+        <app-stat-chip label="Trips planned" [value]="'' + kpis.tripsPlanned">
           <svg
             icon
             viewBox="0 0 24 24"
@@ -21,8 +22,10 @@
         </app-stat-chip>
         <app-stat-chip
           label="CO₂ saved vs car"
-          [loading]="figuresLoading()"
-          [value]="kpis().co2Trips ? ((kpis().co2SavedKg | number: '1.0-0') ?? '') + ' kg' : '–'"
+          [loading]="stats.isLoading()"
+          [value]="
+            kpis.co2TripsCounted ? ((kpis.co2SavedVsCarKg | number: '1.0-0') ?? '') + ' kg' : '–'
+          "
         >
           <svg
             icon
@@ -40,12 +43,11 @@
         </app-stat-chip>
         <app-stat-chip
           label="Average cost per trip"
-          [loading]="figuresLoading()"
+          [loading]="stats.isLoading()"
           [value]="
-            kpis().averageCost === null
+            kpis.averageCost === null
               ? '–'
-              : ((kpis().averageCost | currency: kpis().currency ?? 'EUR' : 'symbol' : '1.0-0') ??
-                '')
+              : ((kpis.averageCost | currency: kpis.currency : 'symbol' : '1.0-0') ?? '')
           "
         >
           <svg
@@ -63,8 +65,10 @@
           </svg>
         </app-stat-chip>
       </div>
-      @if (!figuresLoading() && kpis().leftOut > 0) {
-        <p class="kpis__note muted">Based on {{ kpis().co2Trips }} of {{ kpis().planned }} trips</p>
+      @if (kpis.tripsLeftOut > 0) {
+        <p class="kpis__note muted">
+          Based on {{ kpis.co2TripsCounted }} of {{ kpis.tripsPlanned }} trips
+        </p>
       }
     }
   </header>
@@ -75,12 +79,10 @@
     </div>
   }
 
-  @if (trips.isLoading()) {
-    <app-spinner label="Loading trips…" />
-  } @else if (trips.error(); as error) {
+  @if (trips.error(); as error) {
     <app-error-message [error]="error" (retry)="trips.reload()" />
-  } @else if (trips.value(); as list) {
-    @if (list.length === 0) {
+  } @else if (page(); as data) {
+    @if (data.totalItems === 0 && !filtering()) {
       <section class="empty-state">
         <h2>No trips yet</h2>
         <p class="muted">Create your first trip to compare how to get there.</p>
@@ -93,13 +95,13 @@
         [(modes)]="modes"
         [view]="view()"
         (viewChange)="setView($event)"
-        [priorityCounts]="priorityCounts()"
-        [modeCounts]="modeCounts()"
+        [priorityCounts]="priorityCounts()!"
+        [modeCounts]="modeCounts()!"
         [total]="total()"
-        [shown]="visible().length"
+        [shown]="data.totalItems"
       />
 
-      @if (visible().length === 0) {
+      @if (data.totalItems === 0) {
         <section class="empty-state">
           <h2>No trips match your filters</h2>
           <p class="muted">Try another search or remove a filter.</p>
@@ -115,7 +117,7 @@
         />
       } @else {
         <app-trip-table
-          [entries]="visible()"
+          [entries]="entries()"
           [(sort)]="sort"
           [deletingId]="deletingId()"
           [movingIds]="movingIds()"
@@ -124,6 +126,8 @@
         />
       }
     }
+  } @else {
+    <app-spinner label="Loading trips…" />
   }
   <p class="visually-hidden" role="status">{{ announcement() }}</p>
 </div>

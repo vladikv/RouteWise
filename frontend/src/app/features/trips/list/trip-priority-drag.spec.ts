@@ -4,26 +4,18 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { API_BASE_URL } from '../../../core/api/api-config';
 import { apiErrorInterceptor } from '../../../core/api/api-error';
-import { Comparison, Trip } from '../../../core/api/models';
+import { HttpRequest } from '@angular/common/http';
+import { Trip, TripPage } from '../../../core/api/models';
 import { ToastService } from '../../../shared/ui/toast';
-import { COMPARISON, MULTI_COMPARISON } from '../comparison/comparison.testing';
 import { TripListPage } from '../trip-list-page';
 import { TRIP } from '../trip-form.testing';
+import { SOLO_TRIP, pageOf, statsOf } from '../trip-list.testing';
 
 const TRIPS_URL = 'http://api.test/api/trips';
-const SOLO_TRIP: Trip = {
-  ...TRIP,
-  id: 8,
-  title: 'Solo to Paris',
-  travelers: 1,
-  priority: 'FASTEST',
-  stops: [
-    { cityId: 3, cityName: 'Berlin', country: 'DE', position: 0 },
-    { cityId: 9, cityName: 'Paris', country: 'FR', position: 1 },
-  ],
-};
 const LATER: Trip = { ...SOLO_TRIP, id: 9, title: 'Later', priority: 'FASTEST' };
-const FIGURES: Record<number, Comparison> = { 7: COMPARISON, 8: MULTI_COMPARISON, 9: COMPARISON };
+const STATS_URL = `${TRIPS_URL}/stats`;
+const isSearch = (request: HttpRequest<unknown>): boolean =>
+  request.method === 'GET' && request.url === TRIPS_URL;
 
 function saved(trip: Trip, priority: Trip['priority']): Trip {
   return { ...trip, priority, updatedAt: '2026-11-12T08:00:00Z' };
@@ -62,11 +54,35 @@ describe('TripListPage priority change', () => {
     await new Promise((resolve) => setTimeout(resolve));
   }
 
+  let current: Trip[] = [];
+
+  /**
+   * The page as the API sends it. Every column count is at least 1 here, so the tests follow a card
+   * while its move is pending without depending on how the board counts.
+   */
+  function pageFor(trips: Trip[]): TripPage {
+    const page = pageOf(trips);
+    return {
+      ...page,
+      priorityTotals: page.priorityTotals.map((total) => ({
+        ...total,
+        count: Math.max(total.count, 1),
+      })),
+    };
+  }
+
   async function load(trips: Trip[]): Promise<void> {
-    httpTesting.expectOne(TRIPS_URL).flush(trips);
-    for (const trip of trips) {
-      httpTesting.expectOne(`${TRIPS_URL}/${trip.id}/comparison`).flush(FIGURES[trip.id]);
-    }
+    current = trips;
+    httpTesting.expectOne(isSearch).flush(pageFor(trips));
+    httpTesting.expectOne(STATS_URL).flush(statsOf(trips));
+    await settle();
+  }
+
+  /** The list and stats the page reloads after a saved move; the trips are as the API now has them. */
+  async function reloaded(trips: Trip[]): Promise<void> {
+    TestBed.tick();
+    httpTesting.expectOne(isSearch).flush(pageOf(trips));
+    httpTesting.expectOne(STATS_URL).flush(statsOf(trips));
     await settle();
   }
 
@@ -75,6 +91,9 @@ describe('TripListPage priority change', () => {
       (button) => button.textContent?.includes('Board'),
     );
     radio?.click();
+    TestBed.tick();
+    await Promise.resolve();
+    httpTesting.match(isSearch).forEach((request) => request.flush(pageFor(current)));
     await settle();
   }
 
@@ -160,12 +179,14 @@ describe('TripListPage priority change', () => {
     pointer(document, 'pointermove', x, 60);
   }
 
+  function afterMove(trip: Trip, priority: Trip['priority']): Trip[] {
+    return current.map((item) => (item.id === trip.id ? saved(item, priority) : item));
+  }
+
   async function finishMove(trip: Trip, priority: Trip['priority']): Promise<void> {
     TestBed.tick();
     expectPut(priority).flush(saved(trip, priority));
-    TestBed.tick();
-    httpTesting.expectOne(`${TRIPS_URL}/${trip.id}/comparison`).flush(COMPARISON);
-    await settle();
+    await reloaded(afterMove(trip, priority));
   }
 
   it('moves a trip from the menu: optimistic, then replaced by the response', async () => {
@@ -191,9 +212,7 @@ describe('TripListPage priority change', () => {
     );
 
     put.flush(saved(TRIP, 'CHEAPEST'));
-    TestBed.tick();
-    httpTesting.expectOne(`${TRIPS_URL}/7/comparison`).flush(COMPARISON);
-    await settle();
+    await reloaded(afterMove(TRIP, 'CHEAPEST'));
 
     expect(page.querySelector('tbody tr')?.getAttribute('aria-busy')).toBeNull();
     expect(page.querySelector('tbody tr')?.textContent).toContain('Cheapest');
@@ -252,9 +271,7 @@ describe('TripListPage priority change', () => {
     expect(column('CHEAPEST').querySelector('article')?.getAttribute('aria-busy')).toBe('true');
 
     put.flush(saved(TRIP, 'CHEAPEST'));
-    TestBed.tick();
-    httpTesting.expectOne(`${TRIPS_URL}/7/comparison`).flush(COMPARISON);
-    await settle();
+    await reloaded(afterMove(TRIP, 'CHEAPEST'));
     await afterClick();
 
     expect(titlesIn('CHEAPEST')).toEqual(['Berlin to Vienna']);
@@ -296,12 +313,41 @@ describe('TripListPage priority change', () => {
     const retry = httpTesting.expectOne({ method: 'PUT', url: `${TRIPS_URL}/8` });
     expect(retry.request.body.priority).toBe('CHEAPEST');
     retry.flush(saved(SOLO_TRIP, 'CHEAPEST'));
-    TestBed.tick();
-    httpTesting.expectOne(`${TRIPS_URL}/8/comparison`).flush(MULTI_COMPARISON);
-    await settle();
+    await reloaded(afterMove(SOLO_TRIP, 'CHEAPEST'));
     toasts.dismiss(toast.id);
 
     expect(titlesIn('CHEAPEST')).toEqual(['Solo to Paris']);
+  });
+
+  // Known defect: the column count comes from the API's totals and is not updated by the optimistic move.
+  it('shows a moved card in a column the API counts as empty while the move is pending', async () => {
+    await load([TRIP, SOLO_TRIP]);
+    httpTesting.expectNone(isSearch);
+    const radio = Array.from(page.querySelectorAll<HTMLButtonElement>('[role="radio"]')).find(
+      (button) => button.textContent?.includes('Board'),
+    );
+    radio?.click();
+    TestBed.tick();
+    await Promise.resolve();
+    httpTesting.match(isSearch).forEach((request) => request.flush(pageOf(current)));
+    await settle();
+
+    menuButton('Berlin to Vienna').click();
+    await settle();
+    const item = Array.from(page.querySelectorAll<HTMLButtonElement>('.menu-panel button')).find(
+      (button) => button.textContent?.includes('Move to Balanced'),
+    );
+    item?.click();
+    TestBed.tick();
+    const put = expectPut('BALANCED');
+    await settle();
+
+    try {
+      expect(titlesIn('BALANCED')).toEqual(['Berlin to Vienna']);
+    } finally {
+      put.flush(saved(TRIP, 'BALANCED'));
+      await reloaded(afterMove(TRIP, 'BALANCED'));
+    }
   });
 
   it('ignores a drop on the same column', async () => {
@@ -403,9 +449,7 @@ describe('TripListPage priority change', () => {
     expect(titlesIn('BALANCED')).toEqual(['Berlin to Vienna']);
 
     put.flush(saved(TRIP, 'BALANCED'));
-    TestBed.tick();
-    httpTesting.expectOne(`${TRIPS_URL}/7/comparison`).flush(COMPARISON);
-    await settle();
+    await reloaded(afterMove(TRIP, 'BALANCED'));
   });
 
   it('waits for a long press before a finger drags, and lets a moving finger scroll', async () => {

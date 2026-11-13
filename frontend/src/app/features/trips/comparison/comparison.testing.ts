@@ -69,6 +69,7 @@ export const COMPARISON: Comparison = {
       hazards: ['RAIN'],
     },
   ],
+  weatherStatus: 'PARTIAL',
   legs: [
     {
       index: 0,
@@ -77,6 +78,13 @@ export const COMPARISON: Comparison = {
       distanceKm: 523.6,
       options: [TRAIN, CAR, BIKE],
       recommendedMode: 'TRAIN',
+      unavailableGroups: [
+        {
+          code: 'TOO_FAR',
+          modes: ['BIKE'],
+          message: 'Too far between Berlin and Vienna for: bike',
+        },
+      ],
     },
   ],
   recommendedItinerary: { modes: ['TRAIN'], durationMinutes: 373, totalCost: 150.8, co2Kg: 44 },
@@ -110,6 +118,13 @@ export const COMPARISON: Comparison = {
       co2Kg: null,
     },
   ],
+  unavailableGroups: [
+    {
+      code: 'TOO_FAR',
+      modes: ['BIKE'],
+      message: 'Not possible for the whole trip: bike (too far between Berlin and Vienna)',
+    },
+  ],
 };
 
 /** The single leg of {@link COMPARISON}, as the chart and the table get it. */
@@ -124,6 +139,7 @@ export const MULTI_COMPARISON: Comparison = {
   priority: 'BALANCED',
   distanceKm: 532,
   weather: [],
+  weatherStatus: 'OUT_OF_RANGE',
   legs: [
     {
       index: 0,
@@ -140,6 +156,13 @@ export const MULTI_COMPARISON: Comparison = {
         },
       ],
       recommendedMode: 'TRAIN',
+      unavailableGroups: [
+        {
+          code: 'TOO_FAR',
+          modes: ['BIKE'],
+          message: 'Too far between Berlin and Prague for: bike',
+        },
+      ],
     },
     {
       index: 1,
@@ -148,6 +171,7 @@ export const MULTI_COMPARISON: Comparison = {
       distanceKm: 252,
       options: [option('BUS', 270, 18, 7, true), option('TRAIN', 250, 45, 9, false)],
       recommendedMode: 'BUS',
+      unavailableGroups: [],
     },
   ],
   recommendedItinerary: { modes: ['TRAIN', 'BUS'], durationMinutes: 510, totalCost: 58, co2Kg: 17 },
@@ -179,6 +203,13 @@ export const MULTI_COMPARISON: Comparison = {
       durationMinutes: null,
       totalCost: null,
       co2Kg: null,
+    },
+  ],
+  unavailableGroups: [
+    {
+      code: 'TOO_FAR',
+      modes: ['BIKE'],
+      message: 'Not possible for the whole trip: bike (too far between Berlin and Prague)',
     },
   ],
 };

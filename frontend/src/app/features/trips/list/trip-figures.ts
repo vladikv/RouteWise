@@ -1,10 +1,10 @@
-import { Comparison, Trip, TransportModeCode, TripPriority } from '../../../core/api/models';
+import { TransportModeCode, Trip, TripPage, TripPriority } from '../../../core/api/models';
 import { MODE_LABELS } from '../../../shared/util/labels';
 
 /** The recommended mode of a trip whose legs all use it, otherwise `MIXED`. */
 export type TripMode = TransportModeCode | 'MIXED';
 
-/** What the Trips page shows for one trip, taken from its comparison. */
+/** What the Trips page shows for one trip; every number comes from the API. */
 export interface TripFigures {
   currency: string;
   /** Recommended itinerary, for all travelers. */
@@ -12,6 +12,10 @@ export interface TripFigures {
   co2Kg: number;
   /** Car for the whole route; null when the car cannot do it. */
   carCo2Kg: number | null;
+  /** Signed change against the car, e.g. -81; null without a car figure. */
+  co2VsCarPercent: number | null;
+  /** The plan's CO₂ as a share (0–1) of the car's; null without a car figure. */
+  co2ShareOfCar: number | null;
   mode: TripMode;
   /** Distinct modes used, in leg order. */
   modes: TransportModeCode[];
@@ -19,43 +23,19 @@ export interface TripFigures {
   legModes: TransportModeCode[];
 }
 
-/** The comparison of one trip: still loading, failed, or loaded (null when no mode is available). */
-export type FigureState =
-  { status: 'loading' } | { status: 'failed' } | { status: 'ready'; figures: TripFigures | null };
-
+/** A trip and its figures (null when the API found no available route). */
 export interface TripEntry {
   trip: Trip;
-  state: FigureState;
-}
-
-export interface TripKpis {
-  /** All trips in the list. */
-  planned: number;
-  /** CO₂ not emitted compared with driving every trip; counts trips with a car alternative only. */
-  co2SavedKg: number;
-  /** Trips behind `co2SavedKg`. */
-  co2Trips: number;
-  /** Mean recommended cost over the trips whose comparison loaded; null when there are none. */
-  averageCost: number | null;
-  currency: string | null;
-  /** Trips not counted in the CO₂ figure (comparison failed or pending, or no car). */
-  leftOut: number;
-}
-
-export interface TripFilter {
-  search: string;
-  /** None selected means all. */
-  priorities: readonly TripPriority[];
-  /** None selected means all. */
-  modes: readonly TransportModeCode[];
+  figures: TripFigures | null;
 }
 
 export interface PriorityColumn {
   priority: TripPriority;
   entries: TripEntry[];
   count: number;
-  /** Recommended cost of the loaded trips in the column. */
+  /** Recommended cost of all matching trips in the column, from the API. */
   totalCost: number;
+  /** Null while no trip in the column has figures. */
   currency: string | null;
 }
 
@@ -68,86 +48,47 @@ export const BOARD_PRIORITIES: readonly TripPriority[] = [
   'BALANCED',
 ];
 
-/** Figures of a trip, or null when it has no available itinerary. */
-export function tripFigures(comparison: Comparison): TripFigures | null {
-  const itinerary = comparison.recommendedItinerary;
-  if (!itinerary) {
-    return null;
-  }
-  const modes = [...new Set(itinerary.modes)];
-  const car = comparison.singleModeTotals.find((totals) => totals.mode === 'CAR');
-  return {
-    currency: comparison.currency,
-    cost: itinerary.totalCost,
-    co2Kg: itinerary.co2Kg,
-    carCo2Kg: car?.available && car.co2Kg !== null ? car.co2Kg : null,
-    mode: modes.length === 1 ? modes[0] : 'MIXED',
-    modes,
-    legModes: itinerary.modes,
-  };
+/** The page's trips in API order, with their figures in the shape the cards and rows use. */
+export function tripEntries(page: TripPage): TripEntry[] {
+  return page.items.map(({ figures, ...trip }) => ({
+    trip,
+    figures: figures && {
+      currency: page.currency,
+      cost: figures.totalCost,
+      co2Kg: figures.co2Kg,
+      carCo2Kg: figures.carCo2Kg,
+      co2VsCarPercent: figures.co2VsCarPercent,
+      co2ShareOfCar: figures.co2ShareOfCar,
+      mode: figures.modes.length === 1 ? figures.modes[0] : 'MIXED',
+      modes: figures.modes,
+      legModes: figures.legModes,
+    },
+  }));
 }
 
-/** The figures of an entry, or null while loading, on failure and when none exist. */
-export function figuresOf(entry: TripEntry): TripFigures | null {
-  return entry.state.status === 'ready' ? entry.state.figures : null;
-}
-
-export function tripKpis(entries: readonly TripEntry[]): TripKpis {
-  const loaded = entries.map(figuresOf).filter((figures) => figures !== null);
-  const withCar = loaded.filter((figures) => figures.carCo2Kg !== null);
-  const co2SavedKg = withCar.reduce(
-    (sum, figures) => sum + Math.max(0, (figures.carCo2Kg ?? 0) - figures.co2Kg),
-    0,
-  );
-  const averageCost =
-    loaded.length === 0
-      ? null
-      : loaded.reduce((sum, figures) => sum + figures.cost, 0) / loaded.length;
-  return {
-    planned: entries.length,
-    co2SavedKg,
-    co2Trips: withCar.length,
-    averageCost,
-    currency: loaded[0]?.currency ?? null,
-    leftOut: entries.length - withCar.length,
-  };
-}
-
-export function filterTrips(entries: readonly TripEntry[], filter: TripFilter): TripEntry[] {
-  const search = filter.search.trim().toLowerCase();
-  return entries.filter(({ trip, state }) => {
-    if (filter.priorities.length > 0 && !filter.priorities.includes(trip.priority)) {
-      return false;
-    }
-    if (search && !matchesSearch(trip, search)) {
-      return false;
-    }
-    if (filter.modes.length === 0) {
-      return true;
-    }
-    const figures = state.status === 'ready' ? state.figures : null;
-    return figures !== null && figures.modes.some((mode) => filter.modes.includes(mode));
-  });
-}
-
-function matchesSearch(trip: Trip, search: string): boolean {
-  return (
-    trip.title.toLowerCase().includes(search) ||
-    trip.stops.some((stop) => stop.cityName.toLowerCase().includes(search))
-  );
-}
-
-/** One column per priority in board order, empty ones included. */
-export function groupByPriority(entries: readonly TripEntry[]): PriorityColumn[] {
-  return BOARD_PRIORITIES.map((priority) => {
+/**
+ * One board column per priority (only the selected ones, if any), in board order. The cards are
+ * the entries of that priority; the total cost is the API's `priorityTotals`. The count is the
+ * cards in the column while the page holds every matching trip (so an optimistic move shows at
+ * once), otherwise the API's count.
+ */
+export function boardColumns(
+  entries: readonly TripEntry[],
+  page: TripPage,
+  selected: readonly TripPriority[],
+): PriorityColumn[] {
+  const complete = page.items.length === page.totalItems;
+  return BOARD_PRIORITIES.filter(
+    (priority) => selected.length === 0 || selected.includes(priority),
+  ).map((priority) => {
     const inColumn = entries.filter(({ trip }) => trip.priority === priority);
-    const loaded = inColumn.map(figuresOf).filter((figures) => figures !== null);
+    const totals = page.priorityTotals.find((item) => item.priority === priority);
     return {
       priority,
       entries: inColumn,
-      count: inColumn.length,
-      totalCost: loaded.reduce((sum, figures) => sum + figures.cost, 0),
-      currency: loaded[0]?.currency ?? null,
+      count: complete || !totals ? inColumn.length : totals.count,
+      totalCost: totals?.totalCost ?? 0,
+      currency: inColumn.some(({ figures }) => figures !== null) ? page.currency : null,
     };
   });
 }
@@ -166,16 +107,4 @@ export function modeSummary(figures: TripFigures): string {
     return MODE_LABELS[figures.mode];
   }
   return `Mixed: ${figures.modes.map((mode) => MODE_LABELS[mode].toLowerCase()).join(', ')}`;
-}
-
-/** The plan's CO₂ as a share (0–1) of going by car; null without a car figure. */
-export function co2ShareOfCar(figures: TripFigures): number | null {
-  const car = figures.carCo2Kg;
-  return car && car > 0 ? Math.min(figures.co2Kg / car, 1) : null;
-}
-
-/** Signed change against going by car, e.g. -81 for 61 kg against 323 kg; null without a car figure. */
-export function co2VsCarPercent(figures: TripFigures): number | null {
-  const car = figures.carCo2Kg;
-  return car && car > 0 ? Math.round((figures.co2Kg / car - 1) * 100) : null;
 }

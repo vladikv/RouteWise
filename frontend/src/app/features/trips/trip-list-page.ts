@@ -8,13 +8,20 @@ import {
   afterNextRender,
   computed,
   inject,
+  linkedSignal,
   signal,
 } from '@angular/core';
-import { rxResource, takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { rxResource, takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { tap } from 'rxjs';
+import { debounceTime } from 'rxjs';
 import { ApiError } from '../../core/api/api-error';
-import { TransportModeCode, Trip, TripPriority } from '../../core/api/models';
+import {
+  TransportModeCode,
+  Trip,
+  TripListItem,
+  TripPage,
+  TripPriority,
+} from '../../core/api/models';
 import { TripApi } from '../../core/api/trip-api';
 import { ErrorMessage } from '../../shared/ui/error-message';
 import { ToastService } from '../../shared/ui/toast';
@@ -22,15 +29,15 @@ import { Spinner } from '../../shared/ui/spinner';
 import { StatChip } from '../../shared/ui/stat-chip';
 import { LayoutBreakpoint } from '../../shared/util/layout-breakpoint';
 import { TripBoard } from './list/trip-board';
+import { boardColumns, tripEntries } from './list/trip-figures';
 import {
-  FigureState,
-  TripEntry,
-  filterTrips,
-  groupByPriority,
-  tripFigures,
-  tripKpis,
-} from './list/trip-figures';
-import { DEFAULT_SORT, TripSort, modeCounts, priorityCounts } from './list/trip-filters';
+  DEFAULT_SORT,
+  TripSort,
+  hasActiveFilters,
+  modeCounts,
+  priorityCounts,
+  tripSearch,
+} from './list/trip-filters';
 import { TripTable } from './list/trip-table';
 import {
   TripMove,
@@ -42,11 +49,13 @@ import {
 } from './list/trip-move';
 import { TripToolbar, TripView } from './list/trip-toolbar';
 
-const LOADING: FigureState = { status: 'loading' };
+/** Typing pauses this long before the search goes to the API. */
+const SEARCH_DEBOUNCE_MS = 300;
 
 /**
- * All saved trips with KPIs, filters and a board or list view. Each trip's figures
- * come from its own comparison request, started once the list has arrived.
+ * All saved trips with KPIs, filters and a board or list view. The API searches, filters,
+ * sorts and computes every figure (`GET /api/trips`, `GET /api/trips/stats`); the page only
+ * keeps the query and shows the answer. While a new answer loads, the previous one stays.
  */
 @Component({
   selector: 'app-trip-list-page',
@@ -73,16 +82,6 @@ export class TripListPage {
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  protected readonly trips = rxResource({
-    stream: () => this.tripApi.findAll().pipe(tap((list) => this.loadFigures(list))),
-  });
-  protected readonly deletingId = signal<number | null>(null);
-  protected readonly deleteError = signal<unknown>(null);
-  /** Trips whose priority change is waiting for the API. */
-  protected readonly movingIds = signal<ReadonlySet<number>>(new Set());
-  /** Spoken by a polite live region after a move. */
-  protected readonly announcement = signal('');
-
   protected readonly search = signal('');
   protected readonly priorities = signal<TripPriority[]>([]);
   protected readonly modes = signal<TransportModeCode[]>([]);
@@ -93,51 +92,102 @@ export class TripListPage {
     () => this.chosenView() ?? (this.layout() === 'wide' ? 'board' : 'list'),
   );
 
-  private readonly figures = signal<Record<number, FigureState>>({});
-  private readonly entries = computed<TripEntry[]>(() =>
-    (this.trips.hasValue() ? this.trips.value() : []).map((trip) => ({
-      trip,
-      state: this.figures()[trip.id] ?? LOADING,
-    })),
+  /** The search text the API sees: typing is debounced, clearing applies at once. */
+  private readonly appliedSearch = signal('');
+  /**
+   * The board keeps date order; the table's sort only applies to the list. Compared by value,
+   * so a change that leaves the query the same (e.g. switching views) sends no request.
+   */
+  private readonly query = computed(
+    () =>
+      tripSearch(
+        { search: this.appliedSearch(), priorities: this.priorities(), modes: this.modes() },
+        this.view() === 'list' ? this.sort() : DEFAULT_SORT,
+      ),
+    { equal: (a, b) => JSON.stringify(a) === JSON.stringify(b) },
   );
-  protected readonly kpis = computed(() => tripKpis(this.entries()));
-  protected readonly figuresLoading = computed(() =>
-    this.entries().some((entry) => entry.state.status === 'loading'),
-  );
-  protected readonly priorityCounts = computed(() => priorityCounts(this.entries()));
-  protected readonly modeCounts = computed(() => modeCounts(this.entries()));
-  protected readonly total = computed(() => this.entries().length);
-  protected readonly visible = computed(() =>
-    filterTrips(this.entries(), {
+
+  protected readonly trips = rxResource({
+    params: () => this.query(),
+    stream: ({ params }) => this.tripApi.search(params),
+  });
+  protected readonly stats = rxResource({ stream: () => this.tripApi.stats() });
+
+  /** The latest page; kept while the next one loads, and changed in place by moves and deletes. */
+  protected readonly page = linkedSignal<TripPage | undefined, TripPage | undefined>({
+    source: () => (this.trips.hasValue() ? this.trips.value() : undefined),
+    computation: (next, previous) => next ?? previous?.value,
+  });
+
+  protected readonly deletingId = signal<number | null>(null);
+  protected readonly deleteError = signal<unknown>(null);
+  /** Trips whose priority change is waiting for the API. */
+  protected readonly movingIds = signal<ReadonlySet<number>>(new Set());
+  /** Spoken by a polite live region after a move or a restore. */
+  protected readonly announcement = signal('');
+
+  protected readonly filtering = computed(() =>
+    hasActiveFilters({
       search: this.search(),
       priorities: this.priorities(),
       modes: this.modes(),
     }),
   );
+  protected readonly entries = computed(() => {
+    const page = this.page();
+    return page ? tripEntries(page) : [];
+  });
+  protected readonly priorityCounts = computed(() => {
+    const page = this.page();
+    return page ? priorityCounts(page) : null;
+  });
+  protected readonly modeCounts = computed(() => {
+    const page = this.page();
+    return page ? modeCounts(page) : null;
+  });
+  /** All of the user's trips (from the stats), else the matching ones. */
+  protected readonly total = computed(
+    () =>
+      (this.stats.hasValue() ? this.stats.value().tripsPlanned : null) ??
+      this.page()?.totalItems ??
+      0,
+  );
   protected readonly columns = computed(() => {
-    const selected = this.priorities();
-    return groupByPriority(this.visible()).filter(
-      (column) => selected.length === 0 || selected.includes(column.priority),
-    );
+    const page = this.page();
+    return page ? boardColumns(this.entries(), page, this.priorities()) : [];
   });
 
   protected setView(view: TripView): void {
     this.chosenView.set(view);
   }
 
+  constructor() {
+    toObservable(this.search)
+      .pipe(debounceTime(SEARCH_DEBOUNCE_MS), takeUntilDestroyed())
+      .subscribe((text) => this.appliedSearch.set(text));
+  }
+
   protected clearFilters(): void {
     this.search.set('');
+    this.appliedSearch.set('');
     this.priorities.set([]);
     this.modes.set([]);
   }
 
+  /** Deletes at once and offers Undo in a toast while the API can still restore the trip. */
   protected delete(trip: Trip): void {
     this.deletingId.set(trip.id);
     this.deleteError.set(null);
     this.tripApi.delete(trip.id).subscribe({
       next: () => {
         this.deletingId.set(null);
-        this.trips.update((list) => list?.filter((item) => item.id !== trip.id));
+        this.updateItems((items) => items.filter((item) => item.id !== trip.id));
+        this.refresh();
+        this.toasts.show({
+          kind: 'info',
+          message: `Deleted "${trip.title}"`,
+          action: { label: 'Undo', run: () => this.restore(trip) },
+        });
       },
       error: (error: unknown) => {
         this.deletingId.set(null);
@@ -148,19 +198,17 @@ export class TripListPage {
 
   /**
    * Gives a trip another priority. The page shows it in the new column at once; the API call
-   * (a PUT with all of the trip's fields) then replaces it with the saved trip, or the trip goes
-   * back to where it was and an error toast offers a retry.
+   * (a PUT with all of the trip's fields) is followed by a fresh list and stats, because the
+   * priority weights the recommendation. On failure the trip goes back and a toast offers a retry.
    */
   protected move({ trip, priority, focus }: TripMove): void {
-    const current = this.trips.hasValue()
-      ? this.trips.value().find((item) => item.id === trip.id)
-      : undefined;
+    const current = this.page()?.items.find((item) => item.id === trip.id);
     if (!current || current.priority === priority || this.movingIds().has(current.id)) {
       return;
     }
     const previous = current.priority;
     this.setMoving(current.id, true);
-    this.trips.update((list) => list && withPriority(list, current.id, priority));
+    this.updateItems((items) => withPriority(items, current.id, priority));
     this.announcement.set(movedMessage(current, priority));
     if (focus) {
       this.focusTitle(current.id);
@@ -171,12 +219,12 @@ export class TripListPage {
       .subscribe({
         next: (saved) => {
           this.setMoving(current.id, false);
-          this.trips.update((list) => list && replaceTrip(list, saved));
-          this.requestFigures(saved.id, false);
+          this.updateItems((items) => replaceTrip(items, saved));
+          this.refresh();
         },
         error: (error: unknown) => {
           this.setMoving(current.id, false);
-          this.trips.update((list) => list && withPriority(list, current.id, previous));
+          this.updateItems((items) => withPriority(items, current.id, previous));
           this.announcement.set('');
           if (focus) {
             this.focusTitle(current.id);
@@ -189,6 +237,35 @@ export class TripListPage {
           });
         },
       });
+  }
+
+  private restore(trip: Trip): void {
+    this.tripApi
+      .restore(trip.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.announcement.set(`Restored "${trip.title}"`);
+          this.refresh();
+        },
+        error: (error: unknown) => {
+          const reason = error instanceof ApiError ? error.message : 'Please try again.';
+          this.toasts.show({
+            kind: 'error',
+            message: `Couldn't restore "${trip.title}". ${reason}`,
+          });
+        },
+      });
+  }
+
+  /** New list and stats from the API; the current page stays visible meanwhile. */
+  private refresh(): void {
+    this.trips.reload();
+    this.stats.reload();
+  }
+
+  private updateItems(change: (items: TripListItem[]) => TripListItem[]): void {
+    this.page.update((page) => page && { ...page, items: change(page.items) });
   }
 
   /** After the list re-rendered, puts focus on the trip's title link (card or row) in its new place. */
@@ -214,36 +291,5 @@ export class TripListPage {
       }
       return next;
     });
-  }
-
-  /** One comparison request per trip, all in parallel. */
-  private loadFigures(trips: Trip[]): void {
-    this.figures.set(Object.fromEntries(trips.map((trip) => [trip.id, LOADING])));
-    for (const trip of trips) {
-      this.requestFigures(trip.id, true);
-    }
-  }
-
-  /**
-   * Fetches one trip's comparison. After a move it runs again, because the priority weights the
-   * recommendation; then the old figures stay if it fails (`showFailure` is false).
-   */
-  private requestFigures(id: number, showFailure: boolean): void {
-    this.tripApi
-      .compare(id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (comparison) =>
-          this.setFigures(id, { status: 'ready', figures: tripFigures(comparison) }),
-        error: () => {
-          if (showFailure) {
-            this.setFigures(id, { status: 'failed' });
-          }
-        },
-      });
-  }
-
-  private setFigures(id: number, state: FigureState): void {
-    this.figures.update((current) => ({ ...current, [id]: state }));
   }
 }

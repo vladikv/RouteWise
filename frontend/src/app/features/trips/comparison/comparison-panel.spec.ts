@@ -1,5 +1,4 @@
 import { TestBed } from '@angular/core/testing';
-import { ModeOption } from '../../../core/api/models';
 import { LegComparison } from './leg-comparison';
 import { AdvicePanel } from './advice-panel';
 import { ComparisonPanel } from './comparison-panel';
@@ -39,43 +38,28 @@ describe('ComparisonPanel', () => {
     expect(cells(rows[1])).toEqual(['8 h 4 min', '€136.14', '115.7 kg', '52 out of 100']);
   });
 
-  it('explains why a mode is unavailable instead of showing metrics', () => {
+  it('says only "Not available" for an unavailable mode, without metrics', () => {
     const row = render(LEG_COMPARISON).querySelectorAll('tbody tr')[2];
 
     expect(row.querySelector('th')?.textContent).toContain('Bike');
-    expect(cells(row)).toEqual(['⊘ Not available: too far for this mode']);
+    expect(cells(row)).toEqual(['⊘ Not available']);
     expect(row.querySelector('td')?.getAttribute('colspan')).toBe('4');
+    expect(row.classList).toContain('unavailable');
+    expect(row.querySelector('.reason__icon')?.getAttribute('aria-hidden')).toBe('true');
   });
 
-  describe('unavailable modes', () => {
-    const withBike = (unavailableCode: ModeOption['unavailableCode'], reason: string | null) =>
-      render({
-        ...LEG_COMPARISON,
-        options: LEG_COMPARISON.options.map((option) =>
-          option.mode === 'BIKE'
-            ? { ...option, unavailableCode, unavailableReason: reason }
-            : option,
-        ),
-      }).querySelectorAll('tbody tr')[2];
+  it('leaves the reason out of the row whatever the API sent', () => {
+    const row = render({
+      ...LEG_COMPARISON,
+      options: LEG_COMPARISON.options.map((option) =>
+        option.mode === 'BIKE'
+          ? { ...option, unavailableCode: null, unavailableReason: 'Route is closed' }
+          : option,
+      ),
+    }).querySelectorAll('tbody tr')[2];
 
-    it.each([
-      ['DIFFERENT_LANDMASS', 'Not available: different continent or island'],
-      ['TOO_FAR', 'Not available: too far for this mode'],
-    ] as const)('reads %s as plain words, greyed out', (code, text) => {
-      const row = withBike(code, 'English prose from the API');
-
-      expect(row.querySelector('.reason')?.textContent).toContain(text);
-      expect(row.textContent).not.toContain('English prose');
-      expect(row.classList).toContain('unavailable');
-      expect(row.querySelector('.reason__icon')?.getAttribute('aria-hidden')).toBe('true');
-    });
-
-    it('falls back to the API reason when there is no code', () => {
-      const row = withBike(null, 'Route is closed');
-
-      expect(cells(row)).toEqual(['⊘ Not available: Route is closed']);
-      expect(row.classList).toContain('unavailable');
-    });
+    expect(cells(row)).toEqual(['⊘ Not available']);
+    expect(row.textContent).not.toContain('Route is closed');
   });
 
   it('shows the forecast with hazards as text', () => {

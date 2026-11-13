@@ -1,29 +1,26 @@
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpRequest, provideHttpClient, withInterceptors } from '@angular/common/http';
+import {
+  HttpTestingController,
+  TestRequest,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { apiErrorInterceptor } from '../../core/api/api-error';
 import { API_BASE_URL } from '../../core/api/api-config';
-import { Comparison, Trip } from '../../core/api/models';
-import { COMPARISON, MULTI_COMPARISON } from './comparison/comparison.testing';
+import { Trip, TripPage, TripStats } from '../../core/api/models';
+import { ToastService } from '../../shared/ui/toast';
 import { TripListPage } from './trip-list-page';
 import { TRIP } from './trip-form.testing';
+import { SOLO_TRIP, listItem, pageOf, statsOf } from './trip-list.testing';
 
 const TRIPS_URL = 'http://api.test/api/trips';
-const SOLO_TRIP: Trip = {
-  ...TRIP,
-  id: 8,
-  title: 'Solo to Paris',
-  travelers: 1,
-  priority: 'FASTEST',
-  stops: [
-    { cityId: 3, cityName: 'Berlin', country: 'DE', position: 0 },
-    { cityId: 9, cityName: 'Paris', country: 'FR', position: 1 },
-  ],
-};
+const STATS_URL = `${TRIPS_URL}/stats`;
+/** A little more than the page's search debounce. */
+const DEBOUNCE_WAIT_MS = 350;
 
-/** Train on one leg with a car alternative (saves 71.7 kg); mixed train and bus without a car. */
-const FIGURES: Record<number, Comparison> = { 7: COMPARISON, 8: MULTI_COMPARISON };
+const isSearch = (request: HttpRequest<unknown>): boolean =>
+  request.method === 'GET' && request.url === TRIPS_URL;
 
 describe('TripListPage', () => {
   let fixture: ComponentFixture<TripListPage>;
@@ -48,22 +45,48 @@ describe('TripListPage', () => {
 
   afterEach(() => httpTesting.verify());
 
-  /** Flushes the list, then one comparison per trip (`null` makes that request fail). */
+  function expectSearch(): TestRequest {
+    return httpTesting.expectOne(isSearch);
+  }
+
+  /** Flushes the first list and stats requests. */
   async function load(
     trips: Trip[],
-    comparisons: Record<number, Comparison | null> = FIGURES,
+    overrides: { page?: Partial<TripPage>; stats?: Partial<TripStats> } = {},
   ): Promise<void> {
-    httpTesting.expectOne(TRIPS_URL).flush(trips);
-    for (const trip of trips) {
-      const request = httpTesting.expectOne(`${TRIPS_URL}/${trip.id}/comparison`);
-      const comparison = comparisons[trip.id];
-      if (comparison) {
-        request.flush(comparison);
-      } else {
-        request.error(new ProgressEvent('error'));
-      }
-    }
-    await fixture.whenStable();
+    expectSearch().flush(pageOf(trips, overrides.page));
+    httpTesting.expectOne(STATS_URL).flush(statsOf(trips, overrides.stats));
+    await settle();
+  }
+
+  /** Answers the list request a changed query sends; returns the params that were sent. */
+  async function answerSearch(trips: Trip[], overrides: Partial<TripPage> = {}) {
+    TestBed.tick();
+    const request = expectSearch();
+    request.flush(pageOf(trips, overrides));
+    await settle();
+    return request.request.params;
+  }
+
+  /** Answers whatever list requests a view switch sends (it may re-send the same query). */
+  async function switchView(
+    label: string,
+    trips: Trip[],
+    overrides: Partial<TripPage> = {},
+  ): Promise<void> {
+    radio(label).click();
+    TestBed.tick();
+    await Promise.resolve();
+    httpTesting.match(isSearch).forEach((request) => request.flush(pageOf(trips, overrides)));
+    await settle();
+  }
+
+  /** Answers the list and stats requests that follow a change (delete, restore, move). */
+  async function answerReload(trips: Trip[]): Promise<void> {
+    TestBed.tick();
+    expectSearch().flush(pageOf(trips));
+    httpTesting.expectOne(STATS_URL).flush(statsOf(trips));
+    await settle();
   }
 
   async function settle(): Promise<void> {
@@ -98,15 +121,25 @@ describe('TripListPage', () => {
     return button as HTMLButtonElement;
   }
 
-  async function search(text: string): Promise<void> {
+  /** Types into the search box without waiting for the debounce. */
+  function type(text: string): void {
     const input = page.querySelector<HTMLInputElement>('input[type="search"]')!;
     input.value = text;
     input.dispatchEvent(new Event('input'));
-    await settle();
+    TestBed.tick();
+  }
+
+  async function waitForDebounce(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, DEBOUNCE_WAIT_MS));
+    TestBed.tick();
   }
 
   function rows(): HTMLElement[] {
     return Array.from(page.querySelectorAll<HTMLElement>('tbody tr'));
+  }
+
+  function rowTitles(): (string | null | undefined)[] {
+    return rows().map((row) => row.querySelector('th a')?.textContent);
   }
 
   function kpiValues(): string[] {
@@ -118,6 +151,29 @@ describe('TripListPage', () => {
   function menuButton(title: string): HTMLButtonElement {
     return page.querySelector<HTMLButtonElement>(`button[aria-label="Actions for ${title}"]`)!;
   }
+
+  function summary(): string | undefined {
+    return page.querySelector('app-trip-toolbar [role="status"]')?.textContent?.trim();
+  }
+
+  function radio(label: string): HTMLButtonElement {
+    return Array.from(page.querySelectorAll<HTMLButtonElement>('[role="radio"]')).find((button) =>
+      button.textContent?.includes(label),
+    )!;
+  }
+
+  it('asks the API for the first 100 trips by date and for the stats, once each', async () => {
+    const request = expectSearch();
+    expect(request.request.params.get('sort')).toBe('date');
+    expect(request.request.params.get('direction')).toBe('asc');
+    expect(request.request.params.get('size')).toBe('100');
+    expect(request.request.params.has('q')).toBe(false);
+    expect(request.request.params.has('priority')).toBe(false);
+    expect(request.request.params.has('mode')).toBe(false);
+    request.flush(pageOf([TRIP]));
+    httpTesting.expectOne(STATS_URL).flush(statsOf([TRIP]));
+    await settle();
+  });
 
   it('shows a loading state, then the trips as a list with links and labels', async () => {
     expect(page.querySelector('[role="status"]')?.textContent).toContain('Loading trips');
@@ -137,18 +193,24 @@ describe('TripListPage', () => {
     expect(page.querySelector('a[href="/trips/new"]')?.textContent).toContain('New trip');
   });
 
-  it('shows KPIs from the comparisons and a note about left-out trips', async () => {
-    httpTesting.expectOne(TRIPS_URL).flush([TRIP, SOLO_TRIP]);
+  it('shows a trip without an available route as such', async () => {
+    expectSearch().flush({ ...pageOf([TRIP]), items: [listItem(TRIP, null)] });
+    httpTesting.expectOne(STATS_URL).flush(statsOf([TRIP]));
+    await settle();
+
+    expect(rows()[0].textContent).toContain('No available route');
+  });
+
+  it('shows the KPIs from the stats and a note about left-out trips', async () => {
+    expectSearch().flush(pageOf([TRIP, SOLO_TRIP]));
     TestBed.tick();
     await Promise.resolve();
     fixture.detectChanges();
 
-    expect(page.querySelector('app-stat-chip[aria-busy="true"]')).not.toBeNull();
-    expect(page.querySelector('[aria-busy="true"] .visually-hidden')?.textContent).toBeTruthy();
-    expect(page.querySelector('.kpis__note')).toBeNull();
+    expect(page.querySelector('app-stat-chip')).toBeNull();
+    expect(rows()).toHaveLength(2);
 
-    httpTesting.expectOne(`${TRIPS_URL}/7/comparison`).flush(COMPARISON);
-    httpTesting.expectOne(`${TRIPS_URL}/8/comparison`).flush(MULTI_COMPARISON);
+    httpTesting.expectOne(STATS_URL).flush(statsOf([TRIP, SOLO_TRIP]));
     await settle();
 
     expect(kpiValues()).toEqual(['2', '72 kg', '€104']);
@@ -158,138 +220,217 @@ describe('TripListPage', () => {
     expect(page.querySelector('.kpis__note')?.textContent).toContain('Based on 1 of 2 trips');
   });
 
-  it('shows a placeholder while a trip is loading and a message when its comparison failed', async () => {
-    httpTesting.expectOne(TRIPS_URL).flush([TRIP, SOLO_TRIP]);
-    TestBed.tick();
-    await Promise.resolve();
-    fixture.detectChanges();
+  it('shows dashes for the CO2 and cost KPIs when no trip has figures and no note when none is left out', async () => {
+    await load([TRIP], {
+      stats: { co2TripsCounted: 0, co2SavedVsCarKg: 0, averageCost: null, tripsLeftOut: 0 },
+    });
 
-    expect(rows()[0].querySelector('[aria-busy="true"]')).not.toBeNull();
-
-    httpTesting.expectOne(`${TRIPS_URL}/7/comparison`).flush(COMPARISON);
-    httpTesting.expectOne(`${TRIPS_URL}/8/comparison`).error(new ProgressEvent('error'));
-    await settle();
-
-    expect(rows()[0].querySelector('[aria-busy="true"]')).toBeNull();
-    expect(rows()[1].textContent).toContain('Figures unavailable');
-    expect(kpiValues()).toEqual(['2', '72 kg', '€151']);
-    expect(page.querySelector('.kpis__note')?.textContent).toContain('Based on 1 of 2 trips');
+    expect(kpiValues()).toEqual(['1', '–', '–']);
+    expect(page.querySelector('.kpis__note')).toBeNull();
   });
 
   it('shows an empty state with a call to action', async () => {
     await load([]);
 
     expect(page.textContent).toContain('No trips yet');
+    expect(page.textContent).not.toContain('No trips match your filters');
     expect(page.querySelector('.empty-state a')?.getAttribute('href')).toBe('/trips/new');
     expect(page.querySelector('app-stat-chip')).toBeNull();
     expect(page.querySelector('input[type="search"]')).toBeNull();
   });
 
   it('shows the load error and retries', async () => {
-    httpTesting.expectOne(TRIPS_URL).error(new ProgressEvent('error'));
-    await fixture.whenStable();
+    expectSearch().error(new ProgressEvent('error'));
+    httpTesting.expectOne(STATS_URL).flush(statsOf([TRIP]));
+    await settle();
 
+    expect(page.querySelector('[role="alert"]')).not.toBeNull();
     buttonByText(page, 'Try again').click();
     TestBed.tick();
-    await load([TRIP]);
+    expectSearch().flush(pageOf([TRIP]));
+    await settle();
 
     expect(rows()).toHaveLength(1);
+    expect(page.querySelector('[role="alert"]')).toBeNull();
   });
 
-  it('searches titles and stop cities, ignoring case', async () => {
+  it('sends the search text to the API after the debounce, with the other filters', async () => {
+    await load([TRIP, SOLO_TRIP]);
+    chip('Fastest').click();
+    await answerSearch([SOLO_TRIP]);
+
+    type('PARIS');
+    await waitForDebounce();
+    const params = await answerSearch([SOLO_TRIP]);
+
+    expect(params.get('q')).toBe('PARIS');
+    expect(params.getAll('priority')).toEqual(['FASTEST']);
+    expect(rowTitles()).toEqual(['Solo to Paris']);
+  });
+
+  it('sends one request for a burst of typing, after the pause', async () => {
     await load([TRIP, SOLO_TRIP]);
 
-    await search('PARIS');
-    expect(rows().map((row) => row.querySelector('th a')?.textContent)).toEqual(['Solo to Paris']);
+    type('p');
+    type('pa');
+    type('par');
+    httpTesting.expectNone(isSearch);
+    await waitForDebounce();
+    const params = await answerSearch([SOLO_TRIP]);
 
-    await search('vienna');
-    expect(rows().map((row) => row.querySelector('th a')?.textContent)).toEqual([
-      'Berlin to Vienna',
-    ]);
-    expect(page.querySelector('app-stat-chip .value')?.textContent).toContain('2');
+    expect(params.get('q')).toBe('par');
+    expect(rowTitles()).toEqual(['Solo to Paris']);
   });
 
-  it('filters by priority and by recommended mode with pressed chips', async () => {
+  it('trims the search text and sends nothing for a blank search', async () => {
+    await load([TRIP, SOLO_TRIP]);
+
+    type('  vienna ');
+    await waitForDebounce();
+    expect((await answerSearch([TRIP])).get('q')).toBe('vienna');
+
+    type('   ');
+    await waitForDebounce();
+    TestBed.tick();
+    const blank = expectSearch();
+    expect(blank.request.params.has('q')).toBe(false);
+    blank.flush(pageOf([TRIP, SOLO_TRIP]));
+    await settle();
+  });
+
+  it('sends the selected priorities and modes as repeated params and shows pressed chips', async () => {
     await load([TRIP, SOLO_TRIP]);
 
     chip('Fastest').click();
-    await settle();
+    const first = await answerSearch([SOLO_TRIP]);
+    expect(first.getAll('priority')).toEqual(['FASTEST']);
     expect(chip('Fastest').getAttribute('aria-pressed')).toBe('true');
     expect(rows()).toHaveLength(1);
-    expect(rows()[0].textContent).toContain('Solo to Paris');
+
+    chip('Greenest').click();
+    const second = await answerSearch([TRIP, SOLO_TRIP]);
+    expect(second.getAll('priority')).toEqual(['FASTEST', 'GREENEST']);
+
+    chip('Bus').click();
+    chip('Train').click();
+    const third = await answerSearch([SOLO_TRIP]);
+    expect(third.getAll('mode')).toEqual(['BUS', 'TRAIN']);
+
     chip('Fastest').click();
-    await settle();
+    chip('Greenest').click();
+    const fourth = await answerSearch([SOLO_TRIP]);
+    expect(fourth.has('priority')).toBe(false);
+    expect(chip('Fastest').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('keeps showing the previous trips while a new page loads', async () => {
+    await load([TRIP, SOLO_TRIP]);
+
+    chip('Fastest').click();
+    TestBed.tick();
+    await Promise.resolve();
+    fixture.detectChanges();
+    const pending = expectSearch();
+
     expect(rows()).toHaveLength(2);
+    expect(page.querySelector('app-spinner')).toBeNull();
 
-    chip('Bus').click();
+    pending.flush(pageOf([SOLO_TRIP]));
     await settle();
-    expect(rows().map((row) => row.querySelector('th a')?.textContent)).toEqual(['Solo to Paris']);
-
-    chip('Plane').click();
-    chip('Bus').click();
-    await settle();
-    expect(page.textContent).toContain('No trips match your filters');
+    expect(rows()).toHaveLength(1);
   });
 
   it('shows a no-matches state and clears the filters', async () => {
     await load([TRIP, SOLO_TRIP]);
     chip('Cheapest').click();
-    await search('nowhere');
+    await answerSearch([]);
 
     expect(page.textContent).toContain('No trips match your filters');
+    expect(page.textContent).not.toContain('No trips yet');
     expect(rows()).toHaveLength(0);
+    expect(summary()).toBe('0 of 2 trips');
 
     buttonByText(page, 'Clear filters').click();
-    await settle();
+    const params = await answerSearch([TRIP, SOLO_TRIP]);
 
+    expect(params.has('priority')).toBe(false);
     expect(rows()).toHaveLength(2);
-    expect(page.querySelector<HTMLInputElement>('input[type="search"]')?.value).toBe('');
     expect(chip('Cheapest').getAttribute('aria-pressed')).toBe('false');
   });
 
-  it('shows "N of M trips" that follows the filters, and Clear filters resets search and chips', async () => {
+  it('clears a search after the debounce and shows all trips again', async () => {
     await load([TRIP, SOLO_TRIP]);
-    const summary = () =>
-      page.querySelector('app-trip-toolbar [role="status"]')?.textContent?.trim();
+    type('nowhere');
+    await waitForDebounce();
+    await answerSearch([]);
+    expect(page.textContent).toContain('No trips match your filters');
+
+    buttonByText(page, 'Clear filters').click();
+    await waitForDebounce();
+    const sent = httpTesting.match(isSearch).filter((request) => !request.cancelled);
+    expect(sent).toHaveLength(1);
+    sent[0].flush(pageOf([TRIP, SOLO_TRIP]));
+    await settle();
+    const params = sent[0].request.params;
+
+    expect(params.has('q')).toBe(false);
+    expect(page.querySelector<HTMLInputElement>('input[type="search"]')?.value).toBe('');
+    expect(rows()).toHaveLength(2);
+  });
+
+  it('shows "N of M trips" with M from the stats, and Clear filters only while filtering', async () => {
+    await load([TRIP, SOLO_TRIP]);
     expect(summary()).toBe('2 of 2 trips');
     expect(buttonOrNull('Clear filters')).toBeNull();
 
     chip('Fastest').click();
-    await search('paris');
+    await answerSearch([SOLO_TRIP]);
+
     expect(summary()).toBe('1 of 2 trips');
+    expect(buttonOrNull('Clear filters')).not.toBeNull();
 
     buttonByText(page, 'Clear filters').click();
-    await settle();
+    await answerSearch([TRIP, SOLO_TRIP]);
 
     expect(summary()).toBe('2 of 2 trips');
-    expect(page.querySelector<HTMLInputElement>('input[type="search"]')?.value).toBe('');
-    expect(chip('Fastest').getAttribute('aria-pressed')).toBe('false');
     expect(buttonOrNull('Clear filters')).toBeNull();
   });
 
-  it('counts trips per priority and per recommended mode from the full list', async () => {
-    await load([TRIP, SOLO_TRIP]);
-    chip('Bus').click();
-    await settle();
+  it('takes the chip counts from the API facets, not from the trips shown', async () => {
+    await load([TRIP, SOLO_TRIP], {
+      page: {
+        facets: {
+          priorities: [
+            { priority: 'FASTEST', count: 5 },
+            { priority: 'CHEAPEST', count: 0 },
+            { priority: 'GREENEST', count: 1 },
+            { priority: 'BALANCED', count: 1 },
+          ],
+          modes: [
+            { mode: 'TRAIN', count: 6 },
+            { mode: 'BUS', count: 1 },
+            { mode: 'CAR', count: 0 },
+            { mode: 'BIKE', count: 0 },
+            { mode: 'PLANE', count: 0 },
+          ],
+        },
+      },
+    });
 
-    expect(chip('Fastest').getAttribute('aria-label')).toBe('Fastest, 1 trip');
+    expect(chip('Fastest').getAttribute('aria-label')).toBe('Fastest, 5 trips');
     expect(chip('Cheapest').getAttribute('aria-label')).toBe('Cheapest, 0 trips');
-    expect(chip('Train').getAttribute('aria-label')).toBe('Train, 2 trips');
+    expect(chip('Greenest').getAttribute('aria-label')).toBe('Greenest, 1 trip');
+    expect(chip('Train').getAttribute('aria-label')).toBe('Train, 6 trips');
     expect(chip('Bus').getAttribute('aria-label')).toBe('Bus, 1 trip');
     expect(chip('Plane').getAttribute('aria-label')).toBe('Plane, 0 trips');
   });
 
   it('switches between the board and the list', async () => {
     await load([TRIP, SOLO_TRIP]);
-    const radio = (label: string) =>
-      Array.from(page.querySelectorAll<HTMLButtonElement>('[role="radio"]')).find((button) =>
-        button.textContent?.includes(label),
-      )!;
 
     expect(page.querySelector('app-trip-board')).toBeNull();
 
-    radio('Board').click();
-    await settle();
+    await switchView('Board', [TRIP, SOLO_TRIP]);
 
     const board = page.querySelector('app-trip-board')!;
     expect(page.querySelector('table')).toBeNull();
@@ -308,13 +449,43 @@ describe('TripListPage', () => {
     expect(board.textContent).toContain('No trips');
 
     chip('Greenest').click();
-    await settle();
+    await answerSearch([TRIP]);
     expect(board.querySelectorAll('h2')).toHaveLength(1);
 
-    radio('List').click();
-    await settle();
+    await switchView('List', [TRIP]);
     expect(page.querySelector('app-trip-board')).toBeNull();
     expect(page.querySelector('table')).not.toBeNull();
+  });
+
+  it('takes the board column counts and totals from the API when trips are beyond the page', async () => {
+    await load([TRIP, SOLO_TRIP], {
+      page: {
+        totalItems: 52,
+        priorityTotals: [
+          { priority: 'FASTEST', count: 40, totalCost: 2300 },
+          { priority: 'CHEAPEST', count: 0, totalCost: 0 },
+          { priority: 'GREENEST', count: 12, totalCost: 1800 },
+          { priority: 'BALANCED', count: 0, totalCost: 0 },
+        ],
+      },
+    });
+    await switchView('Board', [TRIP, SOLO_TRIP], {
+      totalItems: 52,
+      priorityTotals: [
+        { priority: 'FASTEST', count: 40, totalCost: 2300 },
+        { priority: 'CHEAPEST', count: 0, totalCost: 0 },
+        { priority: 'GREENEST', count: 12, totalCost: 1800 },
+        { priority: 'BALANCED', count: 0, totalCost: 0 },
+      ],
+    });
+
+    const board = page.querySelector('app-trip-board')!;
+    const headings = Array.from(board.querySelectorAll('h2')).map((h) =>
+      h.textContent?.replace(/\s+/g, ' ').trim(),
+    );
+    expect(headings[0]).toBe('Fastest 40 trips');
+    expect(headings[2]).toBe('Greenest 12 trips');
+    expect(board.textContent).toContain('€1,800 total');
   });
 
   it('opens the actions menu, closes it with Escape and returns focus', async () => {
@@ -368,49 +539,51 @@ describe('TripListPage', () => {
     return sortButton(label).closest('th')!.getAttribute('aria-sort');
   }
 
-  function rowTitles(): (string | null | undefined)[] {
-    return rows().map((row) => row.querySelector('th a')?.textContent);
-  }
-
-  it('sorts the list by date at first and marks the sorted column', async () => {
+  it('lists the trips in the order the API returns and marks the date sort', async () => {
     const later: Trip = { ...TRIP, id: 9, title: 'Later', departureDate: '2099-07-01' };
-    await load([later, TRIP, SOLO_TRIP], { ...FIGURES, 9: COMPARISON });
+    await load([SOLO_TRIP, TRIP, later]);
 
-    expect(rowTitles()).toEqual(['Berlin to Vienna', 'Solo to Paris', 'Later']);
+    expect(rowTitles()).toEqual(['Solo to Paris', 'Berlin to Vienna', 'Later']);
     expect(ariaSort('Date')).toBe('ascending');
     expect(ariaSort('Cost')).toBe('none');
     expect(ariaSort('CO₂')).toBe('none');
   });
 
-  it('toggles the sort of a column on click and reorders the rows', async () => {
+  it('asks the API for the sort a column click selects and shows the answer in its order', async () => {
     await load([TRIP, SOLO_TRIP]);
 
     sortButton('Cost').click();
-    await settle();
+    const byCost = await answerSearch([SOLO_TRIP, TRIP]);
+    expect(byCost.get('sort')).toBe('cost');
+    expect(byCost.get('direction')).toBe('asc');
     expect(ariaSort('Cost')).toBe('ascending');
     expect(ariaSort('Date')).toBe('none');
     expect(rowTitles()).toEqual(['Solo to Paris', 'Berlin to Vienna']);
 
     sortButton('Cost').click();
-    await settle();
+    const descending = await answerSearch([TRIP, SOLO_TRIP]);
+    expect(descending.get('sort')).toBe('cost');
+    expect(descending.get('direction')).toBe('desc');
     expect(ariaSort('Cost')).toBe('descending');
     expect(rowTitles()).toEqual(['Berlin to Vienna', 'Solo to Paris']);
 
     sortButton('CO₂').click();
-    await settle();
+    const byCo2 = await answerSearch([SOLO_TRIP, TRIP]);
+    expect(byCo2.get('sort')).toBe('co2');
+    expect(byCo2.get('direction')).toBe('asc');
     expect(ariaSort('CO₂')).toBe('ascending');
-    expect(rowTitles()).toEqual(['Solo to Paris', 'Berlin to Vienna']);
   });
 
-  it('sorts trips whose figures failed last', async () => {
-    await load([TRIP, SOLO_TRIP], { 7: null, 8: MULTI_COMPARISON });
+  it('keeps the board in date order even when the list is sorted by cost', async () => {
+    await load([TRIP, SOLO_TRIP]);
+    sortButton('Cost').click();
+    await answerSearch([SOLO_TRIP, TRIP]);
 
-    sortButton('Cost').click();
-    await settle();
-    expect(rowTitles()).toEqual(['Solo to Paris', 'Berlin to Vienna']);
-    sortButton('Cost').click();
-    await settle();
-    expect(rowTitles()).toEqual(['Solo to Paris', 'Berlin to Vienna']);
+    radio('Board').click();
+    const params = await answerSearch([TRIP, SOLO_TRIP]);
+
+    expect(params.get('sort')).toBe('date');
+    expect(params.get('direction')).toBe('asc');
   });
 
   it('opens the trip from the whole row: the title link covers it', async () => {
@@ -462,73 +635,153 @@ describe('TripListPage', () => {
     ]);
   });
 
-  it('deletes from the quick action only after confirmation', async () => {
-    await load([TRIP, SOLO_TRIP]);
-    const quick = rows()[0].querySelector('app-trip-actions') as HTMLElement;
+  describe('deleting', () => {
+    let toasts: ToastService;
 
-    quick.querySelector<HTMLButtonElement>('button[aria-label^="Delete"]')!.click();
-    await settle();
-    httpTesting.expectNone({ method: 'DELETE' });
-    expect(quick.textContent).toContain('Delete this trip?');
-
-    buttonByText(quick, 'Yes, delete').click();
-    TestBed.tick();
-    httpTesting.expectOne({ method: 'DELETE', url: `${TRIPS_URL}/7` }).flush(null, {
-      status: 204,
-      statusText: 'No Content',
+    beforeEach(() => {
+      toasts = TestBed.inject(ToastService);
     });
-    await settle();
 
-    expect(rowTitles()).toEqual(['Solo to Paris']);
-  });
+    afterEach(() => toasts.toasts().forEach((toast) => toasts.dismiss(toast.id)));
 
-  it('deletes a trip only after confirmation and removes it from the list', async () => {
-    await load([TRIP, SOLO_TRIP]);
+    async function confirmDelete(): Promise<void> {
+      const quick = rows()[0].querySelector('app-trip-actions') as HTMLElement;
+      quick.querySelector<HTMLButtonElement>('button[aria-label^="Delete"]')!.click();
+      await settle();
+      httpTesting.expectNone({ method: 'DELETE' });
+      expect(quick.textContent).toContain('Delete this trip?');
 
-    menuButton('Berlin to Vienna').click();
-    await settle();
-    const menu = page.querySelector('.menu-panel') as HTMLElement;
-    buttonByText(menu, 'Delete').click();
-    await settle();
-    httpTesting.expectNone({ method: 'DELETE' });
-    expect(menu.textContent).toContain('Delete this trip?');
+      buttonByText(quick, 'Yes, delete').click();
+      TestBed.tick();
+    }
 
-    buttonByText(menu, 'Yes, delete').click();
-    TestBed.tick();
-    httpTesting.expectOne({ method: 'DELETE', url: `${TRIPS_URL}/7` }).flush(null, {
-      status: 204,
-      statusText: 'No Content',
+    /** Answers the DELETE; the page then reloads, so the reload requests stay open. */
+    async function flushDelete(): Promise<void> {
+      httpTesting.expectOne({ method: 'DELETE', url: `${TRIPS_URL}/7` }).flush(null, {
+        status: 204,
+        statusText: 'No Content',
+      });
+      TestBed.tick();
+      await Promise.resolve();
+      fixture.detectChanges();
+    }
+
+    it('deletes only after confirmation, removes the trip and reloads the list and stats', async () => {
+      await load([TRIP, SOLO_TRIP]);
+
+      await confirmDelete();
+      await flushDelete();
+      expect(rowTitles()).toEqual(['Solo to Paris']);
+
+      await answerReload([SOLO_TRIP]);
+
+      expect(rowTitles()).toEqual(['Solo to Paris']);
+      expect(summary()).toBe('1 of 1 trip');
+      expect(kpiValues()[0]).toBe('1');
     });
-    await settle();
 
-    expect(rows().map((row) => row.querySelector('th a')?.textContent)).toEqual(['Solo to Paris']);
-  });
+    it('deletes from the actions menu after confirmation too', async () => {
+      await load([TRIP, SOLO_TRIP]);
 
-  it('keeps the trip and shows an error when deleting fails; cancel asks nothing of the API', async () => {
-    await load([TRIP]);
+      menuButton('Berlin to Vienna').click();
+      await settle();
+      const menu = page.querySelector('.menu-panel') as HTMLElement;
+      buttonByText(menu, 'Delete').click();
+      await settle();
+      httpTesting.expectNone({ method: 'DELETE' });
+      expect(menu.textContent).toContain('Delete this trip?');
 
-    menuButton('Berlin to Vienna').click();
-    await settle();
-    const menu = page.querySelector('.menu-panel') as HTMLElement;
-    buttonByText(menu, 'Delete').click();
-    await settle();
-    buttonByText(menu, 'Cancel').click();
-    await settle();
-    expect(menu.textContent).not.toContain('Delete this trip?');
+      buttonByText(menu, 'Yes, delete').click();
+      TestBed.tick();
+      await flushDelete();
+      await answerReload([SOLO_TRIP]);
 
-    buttonByText(menu, 'Delete').click();
-    await settle();
-    buttonByText(menu, 'Yes, delete').click();
-    TestBed.tick();
-    httpTesting
-      .expectOne({ method: 'DELETE', url: `${TRIPS_URL}/7` })
-      .flush(
-        { title: 'Not Found', detail: 'Trip with id 7 not found', status: 404 },
-        { status: 404, statusText: 'Not Found' },
+      expect(rowTitles()).toEqual(['Solo to Paris']);
+    });
+
+    it('shows an info toast with Undo after a delete', async () => {
+      await load([TRIP, SOLO_TRIP]);
+      await confirmDelete();
+      await flushDelete();
+      await answerReload([SOLO_TRIP]);
+
+      const [toast] = toasts.toasts();
+      expect(toast.kind).toBe('info');
+      expect(toast.message).toBe('Deleted "Berlin to Vienna"');
+      expect(toast.action?.label).toBe('Undo');
+    });
+
+    it('restores the trip on Undo and reloads the list and stats', async () => {
+      await load([TRIP, SOLO_TRIP]);
+      await confirmDelete();
+      await flushDelete();
+      await answerReload([SOLO_TRIP]);
+
+      toasts.toasts()[0].action?.run();
+      const restore = httpTesting.expectOne({ method: 'POST', url: `${TRIPS_URL}/7/restore` });
+      restore.flush(TRIP);
+      TestBed.tick();
+      await Promise.resolve();
+      await answerReload([TRIP, SOLO_TRIP]);
+
+      expect(rowTitles()).toEqual(['Berlin to Vienna', 'Solo to Paris']);
+      expect(summary()).toBe('2 of 2 trips');
+      expect(page.querySelector('p[role="status"].visually-hidden')?.textContent).toBe(
+        'Restored "Berlin to Vienna"',
       );
-    await settle();
+    });
 
-    expect(page.querySelector('[role="alert"]')?.textContent).toContain('Trip with id 7 not found');
-    expect(rows()).toHaveLength(1);
+    it('reports a failed restore in an error toast', async () => {
+      await load([TRIP, SOLO_TRIP]);
+      await confirmDelete();
+      await flushDelete();
+      await answerReload([SOLO_TRIP]);
+
+      toasts.toasts()[0].action?.run();
+      httpTesting
+        .expectOne({ method: 'POST', url: `${TRIPS_URL}/7/restore` })
+        .flush(
+          { title: 'Conflict', detail: 'The restore window has passed.', status: 409 },
+          { status: 409, statusText: 'Conflict' },
+        );
+      await settle();
+
+      const error = toasts.toasts().find((toast) => toast.kind === 'error');
+      expect(error?.message).toBe(
+        'Couldn\'t restore "Berlin to Vienna". The restore window has passed.',
+      );
+      expect(rowTitles()).toEqual(['Solo to Paris']);
+    });
+
+    it('keeps the trip and shows an error when deleting fails; cancel asks nothing of the API', async () => {
+      await load([TRIP]);
+
+      menuButton('Berlin to Vienna').click();
+      await settle();
+      const menu = page.querySelector('.menu-panel') as HTMLElement;
+      buttonByText(menu, 'Delete').click();
+      await settle();
+      buttonByText(menu, 'Cancel').click();
+      await settle();
+      expect(menu.textContent).not.toContain('Delete this trip?');
+
+      buttonByText(menu, 'Delete').click();
+      await settle();
+      buttonByText(menu, 'Yes, delete').click();
+      TestBed.tick();
+      httpTesting
+        .expectOne({ method: 'DELETE', url: `${TRIPS_URL}/7` })
+        .flush(
+          { title: 'Not Found', detail: 'Trip with id 7 not found', status: 404 },
+          { status: 404, statusText: 'Not Found' },
+        );
+      await settle();
+
+      expect(page.querySelector('[role="alert"]')?.textContent).toContain(
+        'Trip with id 7 not found',
+      );
+      expect(rows()).toHaveLength(1);
+      expect(toasts.toasts()).toHaveLength(0);
+    });
   });
 });
