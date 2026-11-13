@@ -1,6 +1,6 @@
 <div class="trips-page">
   <header class="head">
-    <h1>Trips</h1>
+    <h1 #heading tabindex="-1">Trips</h1>
     @if (stats.hasValue() && stats.value().tripsPlanned > 0) {
       @let kpis = stats.value();
       <div class="kpis">
@@ -73,12 +73,6 @@
     }
   </header>
 
-  @if (deleteError(); as error) {
-    <div class="delete-error">
-      <app-error-message [error]="error" [retryable]="false" />
-    </div>
-  }
-
   @if (trips.error(); as error) {
     <app-error-message [error]="error" (retry)="trips.reload()" />
   } @else if (page(); as data) {
@@ -110,24 +104,43 @@
       } @else if (view() === 'board') {
         <app-trip-board
           [columns]="columns()"
-          [deletingId]="deletingId()"
           [movingIds]="movingIds()"
-          (deleted)="delete($event)"
+          (deleteRequested)="deletion.request($event)"
           (moved)="move($event)"
         />
       } @else {
         <app-trip-table
           [entries]="entries()"
           [(sort)]="sort"
-          [deletingId]="deletingId()"
           [movingIds]="movingIds()"
-          (deleted)="delete($event)"
+          [details]="details()"
+          [expandedId]="expandedId()"
+          (expandedIdChange)="expand($event)"
+          (detailRetry)="retryDetail($event)"
+          (deleteRequested)="deletion.request($event)"
           (moved)="move($event)"
+        />
+        <app-pagination
+          [page]="data.page"
+          [totalPages]="data.totalPages"
+          [totalItems]="data.totalItems"
+          [pageSize]="data.size"
+          [itemCount]="data.items.length"
+          noun="trips"
+          (pageChange)="pageIndex.set($event)"
         />
       }
     }
   } @else {
     <app-spinner label="Loading trips…" />
   }
+  <app-trip-delete-dialog
+    [trip]="deletion.pending()"
+    [busy]="deletion.busy()"
+    [fallbackFocus]="heading"
+    [error]="deletion.error()"
+    (confirmed)="confirmDelete()"
+    (cancelled)="deletion.cancel()"
+  />
   <p class="visually-hidden" role="status">{{ announcement() }}</p>
 </div>

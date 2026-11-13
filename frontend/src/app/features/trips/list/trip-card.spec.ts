@@ -12,13 +12,13 @@ import { TripCard } from './trip-card';
   template: `<app-trip-card
     [trip]="trip()"
     [figures]="figures()"
-    (deleted)="deleted = deleted + 1"
+    (deleteRequested)="deleteRequests = deleteRequests + 1"
   />`,
 })
 class Host {
   readonly trip = signal<Trip>(TRIP);
   readonly figures = signal<TripFigures | null>(null);
-  deleted = 0;
+  deleteRequests = 0;
 }
 
 /** Figures as the API delivers them: the car share and percentage derive from the two CO2 values. */
@@ -112,7 +112,7 @@ describe('TripCard', () => {
     expect(card.querySelector('button[aria-label="Actions for Berlin to Vienna"]')).not.toBeNull();
   });
 
-  it('asks before deleting from the quick action and emits only on confirmation', async () => {
+  it('asks the page to delete from the quick action and from the menu, without confirming itself', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
     const fixture = TestBed.createComponent(Host);
     fixture.componentInstance.figures.set(ready());
@@ -120,19 +120,18 @@ describe('TripCard', () => {
     const card = (fixture.nativeElement as HTMLElement).querySelector('article')!;
 
     card.querySelector<HTMLButtonElement>('app-trip-actions button[aria-label^="Delete"]')!.click();
-    await fixture.whenStable();
-    expect(fixture.componentInstance.deleted).toBe(0);
-    expect(card.querySelector('app-trip-actions')?.textContent).toContain('Delete this trip?');
+    expect(fixture.componentInstance.deleteRequests).toBe(1);
+    expect(card.querySelector('.button--danger')).toBeNull();
 
-    const buttons = Array.from(card.querySelectorAll<HTMLButtonElement>('app-trip-actions button'));
-    buttons.find((button) => button.textContent?.includes('Cancel'))!.click();
+    card.querySelector<HTMLButtonElement>('button[aria-label^="Actions for"]')!.click();
     await fixture.whenStable();
-    expect(card.querySelector('app-trip-actions')?.textContent).not.toContain('Delete this trip?');
+    card
+      .querySelector<HTMLButtonElement>('app-trip-menu .menu-panel button[aria-label^="Delete"]')!
+      .click();
+    await fixture.whenStable();
 
-    card.querySelector<HTMLButtonElement>('app-trip-actions button[aria-label^="Delete"]')!.click();
-    await fixture.whenStable();
-    card.querySelector<HTMLButtonElement>('app-trip-actions .button--danger')!.click();
-    expect(fixture.componentInstance.deleted).toBe(1);
+    expect(fixture.componentInstance.deleteRequests).toBe(2);
+    expect(card.querySelector('.menu-panel')).toBeNull();
   });
 
   it('draws a dot per stop and the recommended mode of each leg, hidden from assistive tech', async () => {

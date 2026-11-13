@@ -27,7 +27,7 @@ export class MenuContent {
 const ITEM_SELECTOR = 'a[href], button:not(:disabled), [role="menuitem"]';
 
 /**
- * Disclosure menu. The trigger is either the built-in round `IconButton` (set `label`, project the
+ * Disclosure menu, also used as a popover (the account panel: `focusOnOpen`). The trigger is either the built-in round `IconButton` (set `label`, project the
  * icon with the `menuIcon` attribute) or your own button projected with the `menuTrigger` attribute
  * (leave `label` unset). The panel content is an `<ng-template appMenuContent>` child, rendered only while open.
  *
@@ -120,6 +120,8 @@ export class Menu {
   /** Close (and refocus the trigger) after a link, button or `menuitem` in the panel is activated. */
   readonly closeOnSelect = input(true);
   readonly panelId = input(`menu-${nextId++}`);
+  /** Move focus to the first item whenever the panel opens (for a popover with its own content). */
+  readonly focusOnOpen = input(false);
 
   protected readonly content = contentChild.required(MenuContent);
 
@@ -132,6 +134,11 @@ export class Menu {
       const custom = this.trigger().nativeElement.querySelector('[menutrigger]');
       custom?.setAttribute('aria-expanded', String(this.open()));
       custom?.setAttribute('aria-controls', this.panelId());
+    });
+    afterRenderEffect(() => {
+      if (this.open() && this.focusOnOpen()) {
+        this.items()[0]?.focus();
+      }
     });
   }
 

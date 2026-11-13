@@ -1,0 +1,71 @@
+:host {
+  display: block;
+}
+
+.details {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.heading {
+  margin: 0 0 var(--space-2);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+p {
+  margin: 0;
+}
+
+.legs__list,
+.weather__list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.leg {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+}
+
+.leg__route {
+  font-weight: 700;
+}
+
+/* Mode, time, cost and CO₂ side by side; they wrap in pairs on a phone. */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+
+dt {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+}
+
+dd {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  font-weight: 700;
+}
+
+.weather__list {
+  gap: var(--space-1);
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

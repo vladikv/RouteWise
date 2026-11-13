@@ -54,6 +54,42 @@ describe('ToastOutlet', () => {
     expect(toasts()).toHaveLength(0);
   });
 
+  it('stays as long as the toast asks for, instead of the default', async () => {
+    service.show({ message: 'Trip deleted', kind: 'info', durationMs: 10_000 });
+    await settle();
+
+    vi.advanceTimersByTime(TOAST_DURATION_MS + 1);
+    await settle();
+    expect(toasts()).toHaveLength(1);
+
+    vi.advanceTimersByTime(10_000 - TOAST_DURATION_MS);
+    await settle();
+    expect(toasts()).toHaveLength(0);
+  });
+
+  it('moves focus to the action of a toast that asks for it, which also pauses its timer', async () => {
+    document.body.append(root);
+    service.show({
+      message: 'Deleted "Trip"',
+      kind: 'info',
+      focus: true,
+      durationMs: 10_000,
+      action: { label: 'Undo', run: () => undefined },
+    });
+    service.show({
+      message: 'Other',
+      kind: 'info',
+      action: { label: 'Open', run: () => undefined },
+    });
+    await settle();
+    await Promise.resolve();
+
+    const undo = root.querySelector<HTMLButtonElement>('.toast__action')!;
+    expect(undo.textContent).toContain('Undo');
+    expect(document.activeElement).toBe(undo);
+    root.remove();
+  });
+
   it('waits while hovered and continues with the time left', async () => {
     service.show({ message: 'Trip moved', kind: 'info' });
     await settle();

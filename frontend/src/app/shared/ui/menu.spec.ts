@@ -19,6 +19,14 @@ import { Menu, MenuContent } from './menu';
       <button type="button" menuTrigger id="custom-trigger">Custom</button>
       <ng-template appMenuContent><button type="button">Item</button></ng-template>
     </app-menu>
+    <app-menu panelId="popover" [focusOnOpen]="true">
+      <button type="button" menuTrigger id="popover-trigger">Popover</button>
+      <ng-template appMenuContent>
+        <p>Signed in</p>
+        <a href="#first" id="first-item">First</a>
+        <button type="button">Second</button>
+      </ng-template>
+    </app-menu>
   `,
 })
 class Host {
@@ -166,5 +174,36 @@ describe('Menu', () => {
     await settle();
     expect(root.querySelector('#custom')).toBeNull();
     expect(document.activeElement).toBe(custom);
+  });
+
+  it('moves focus into the panel on open with focusOnOpen, and back to the trigger on Escape', async () => {
+    const trigger = root.querySelector<HTMLButtonElement>('#popover-trigger')!;
+    const outside = root.querySelector<HTMLButtonElement>('#outside')!;
+    document.body.append(root);
+
+    trigger.focus();
+    trigger.click();
+    await settle();
+    expect(document.activeElement?.id).toBe('first-item');
+
+    key(document.activeElement!, 'Escape');
+    await settle();
+    expect(root.querySelector('#popover')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+
+    outside.click();
+    root.remove();
+  });
+
+  it('leaves focus on the trigger when focusOnOpen is off', async () => {
+    document.body.append(root);
+    const custom = root.querySelector<HTMLButtonElement>('#custom-trigger')!;
+
+    custom.focus();
+    custom.click();
+    await settle();
+
+    expect(document.activeElement).toBe(custom);
+    root.remove();
   });
 });

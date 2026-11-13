@@ -8,9 +8,21 @@ import { AuthApi } from '../../core/api/auth-api';
 import { ALICE } from '../../core/auth/auth.testing';
 import { Session } from '../../core/auth/session';
 import { HOME_LAYOUT_STORAGE_KEY, HomeLayout } from '../../features/explore/home-layout';
+import { TripStats } from '../../core/api/models';
 import { mockViewport } from '../../shared/util/viewport.testing';
 import { SearchFocus } from '../../shared/util/search-focus';
 import { Header } from './header';
+
+const STATS_URL = 'http://api.test/api/trips/stats';
+const STATS: TripStats = {
+  tripsPlanned: 4,
+  co2SavedVsCarKg: 123.4,
+  co2TripsCounted: 3,
+  tripsLeftOut: 1,
+  averageCost: 80,
+  currency: 'EUR',
+  nextTrip: null,
+};
 
 describe('Header', () => {
   let fixture: ComponentFixture<Header>;
@@ -49,9 +61,11 @@ describe('Header', () => {
     return header.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
   }
 
+  /** Renders and lets effects and microtasks run, without waiting for stats requests left open. */
   async function render(): Promise<void> {
     fixture.detectChanges();
-    await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve));
+    fixture.detectChanges();
   }
 
   function linkHrefs(root: ParentNode): (string | null)[] {
@@ -105,6 +119,89 @@ describe('Header', () => {
     other.remove();
   });
 
+  describe('account popover', () => {
+    const panel = () => header.querySelector('#account-menu app-account-panel') as HTMLElement;
+
+    it('does not ask for stats until the popover opens', async () => {
+      logInAsAlice();
+      await render();
+
+      TestBed.inject(HttpTestingController).expectNone(STATS_URL);
+    });
+
+    it('shows avatar initials, name, email and the stats once they load, and moves focus in', async () => {
+      logInAsAlice();
+      await render();
+      document.body.append(header);
+
+      button('Account menu').click();
+      await render();
+      expect(panel().textContent).toContain('Loading your stats');
+      TestBed.inject(HttpTestingController).expectOne(STATS_URL).flush(STATS);
+      await fixture.whenStable();
+
+      expect(panel().textContent).toContain('Alice');
+      expect(panel().textContent).toContain('alice@example.com');
+      expect(panel().querySelector('.who__avatar')?.textContent?.trim()).toBe('A');
+      expect(panel().querySelector('dl')?.textContent).toContain('Trips planned');
+      expect(panel().querySelector('dl')?.textContent).toContain('4');
+      expect(panel().querySelector('dl')?.textContent).toContain('123 kg');
+      expect(panel().querySelector('a[href="/trips"]')?.textContent).toContain('My trips');
+      expect(document.activeElement).toBe(panel().querySelector('a[href="/trips"]'));
+      header.remove();
+    });
+
+    it('asks again on every opening', async () => {
+      logInAsAlice();
+      await render();
+      const http = TestBed.inject(HttpTestingController);
+
+      button('Account menu').click();
+      await render();
+      http.expectOne(STATS_URL).flush(STATS);
+      await fixture.whenStable();
+      header.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await render();
+
+      button('Account menu').click();
+      await render();
+
+      http.expectOne(STATS_URL).flush({ ...STATS, tripsPlanned: 5 });
+      await fixture.whenStable();
+      expect(panel().querySelector('dl')?.textContent).toContain('5');
+    });
+
+    it('keeps the links and Log out when the stats fail', async () => {
+      logInAsAlice();
+      await render();
+
+      button('Account menu').click();
+      await render();
+      TestBed.inject(HttpTestingController).expectOne(STATS_URL).error(new ProgressEvent('error'));
+      await fixture.whenStable();
+
+      expect(panel().textContent).toContain('Your stats are not available right now.');
+      expect(panel().querySelector('dl')).toBeNull();
+      expect(panel().querySelector('a[href="/trips"]')).not.toBeNull();
+      expect(buttonNamed('Log out')).toBeDefined();
+    });
+
+    it('shows the same account section in the phone menu and loads its stats on open', async () => {
+      logInAsAlice();
+      await render();
+
+      button('Menu').click();
+      await render();
+      TestBed.inject(HttpTestingController).expectOne(STATS_URL).flush(STATS);
+      await fixture.whenStable();
+
+      const section = header.querySelector('#nav-menu app-account-panel')!;
+      expect(section.textContent).toContain('alice@example.com');
+      expect(section.querySelector('dl')?.textContent).toContain('4');
+      expect(section.querySelector('a[href="/trips"]')).not.toBeNull();
+    });
+  });
+
   it('closes the account menu on a click outside', async () => {
     logInAsAlice();
     await render();
@@ -124,10 +221,10 @@ describe('Header', () => {
 
     button('Account menu').click();
     await render();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(STATS_URL).flush(STATS);
     buttonNamed('Log out')?.click();
-    TestBed.inject(HttpTestingController)
-      .expectOne({ method: 'POST', url: 'http://api.test/api/auth/logout' })
-      .flush(null);
+    http.expectOne({ method: 'POST', url: 'http://api.test/api/auth/logout' }).flush(null);
     await fixture.whenStable();
 
     expect(TestBed.inject(Session).loggedIn()).toBe(false);

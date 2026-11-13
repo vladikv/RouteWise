@@ -20,18 +20,32 @@ export const DEFAULT_SORT: TripSort = { key: 'date', direction: 'asc' };
 
 export const FILTER_MODES: readonly TransportModeCode[] = ['TRAIN', 'BUS', 'CAR', 'BIKE', 'PLANE'];
 
-/** Trips the API reports per page; the page shows no paging controls yet, so this is the cap. */
+/** Trips the board loads at once (the API's maximum); the board has no paging controls. */
 export const PAGE_SIZE = 100;
 
-/** The API query for the toolbar's filters and the table's sort. */
-export function tripSearch(filter: TripFilter, sort: TripSort): TripSearch {
+/** Trips per page in the list view, which has paging controls. */
+export const LIST_PAGE_SIZE = 20;
+
+/** Which page of how many trips to ask for (`page` is zero-based). */
+export interface TripPaging {
+  page: number;
+  size: number;
+}
+
+/** The API query for the toolbar's filters, the table's sort and the page asked for (default: the board's single page). */
+export function tripSearch(
+  filter: TripFilter,
+  sort: TripSort,
+  paging: TripPaging = { page: 0, size: PAGE_SIZE },
+): TripSearch {
   return {
     q: filter.search.trim(),
     priority: filter.priorities,
     mode: filter.modes,
     sort: sort.key,
     direction: sort.direction,
-    size: PAGE_SIZE,
+    page: paging.page,
+    size: paging.size,
   };
 }
 

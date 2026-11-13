@@ -13,12 +13,12 @@ src/
     ├── core/
     │   ├── api/         typed API layer: models, one service per resource, ApiError
     │   └── auth/        Session (who is logged in), authGuard, credentialsInterceptor
-    ├── layout/          app chrome: the header inside the shell (strict 3-column grid `1fr auto 1fr`: logo tile
+    ├── layout/          app chrome (`header/`: the header, `AccountPanel`): the header inside the shell (strict 3-column grid `1fr auto 1fr`: logo tile
     │                    plus, on Home from 1440 px, the Map/Split toggle | centred pill nav Home, Trips, Modes |
     │                    round search and new-trip buttons, account menu; 24 px gutter, 16 px on phones)
     ├── shared/ui/       presentational building blocks: app shell, icon rail, glass panel, pill nav, stat chip, tabs,
-    │                    segmented toggle, filter chip, filter group, menu, toast outlet, icon button, bottom sheet, spinner,
-    │                    error message, confirm action, pickers, mode icon
+    │                    segmented toggle, filter chip, filter group, menu (also the popover), toast outlet, icon button, bottom sheet,
+    │                    spinner, error message, dialog, pagination, pickers, mode icon
     ├── shared/map/      interactive globe map (SVG, `d3-geo`) and its pure maths (`globe.ts`)
     ├── shared/util/     pure helpers (dates, labels, `LayoutBreakpoint`)
     ├── features/<name>/ routed pages and their child components
@@ -171,51 +171,98 @@ pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in te
   `TripCard`, `TripMenu` (built on `Menu`). The API does the work: `GET /api/trips` (`TripApi.search`) searches,
   filters, sorts and returns each trip's `figures` (computed without weather), the chip counts (`facets`) and the
   board column totals (`priorityTotals`); `GET /api/trips/stats` the KPIs. The page keeps only the query
-  (search debounced 300 ms, chips, the table's sort, which applies only in the list view; `PAGE_SIZE` 100, no
-  paging controls yet) and keeps the previous page visible while the next loads (`linkedSignal`).
+  (search debounced 300 ms, chips, the table's sort, which applies only in the list view, and the list's page)
+  and keeps the previous page visible while the next loads (`linkedSignal`). The board loads up to `PAGE_SIZE`
+  (100) trips and has no paging controls; the list pages by `LIST_PAGE_SIZE` (20), see Pagination below.
   `trip-figures.ts` maps the page to entries (`tripEntries`) and board columns (`boardColumns`) and holds the
   wording helpers (`modeSummary`, `tintFor`); `trip-filters.ts` builds the query (`tripSearch`), reads the
   facets and keeps `toggleSort`/`resultSummary`. No business maths in the UI.
-  Cards and rows open the trip as a whole: the title link carries an `::after` stretched over the card/row
-  (one tab stop; the focus ring is drawn on the card via `:has(a:focus-visible)`), the "⋯" menu and
-  `TripActions` (quick icon buttons Open, Edit, Duplicate, Delete) sit above it with a higher z-index. Quick
-  actions show on hover and on focus within, never under `(hover: none)`; Delete swaps them for the inline
-  `ConfirmAction` (`asking`, `showTrigger`). Hover/focus lifts the card 2 px with an edge in its tint
+  Cards open the trip as a whole: the title link carries an `::after` stretched over the card (one tab stop;
+  the focus ring is drawn on the card via `:has(a:focus-visible)`), the "⋯" menu and `TripActions` (quick icon
+  buttons Open, Edit, Duplicate, Delete) sit above it with a higher z-index. A list row is different: a click on
+  it expands it (see List view) and only the title link opens the trip. Quick actions show on hover and on focus
+  within, never under `(hover: none)`; Delete only asks the page to delete (`deleteRequested`). Hover/focus lifts the card 2 px with an edge in its tint
   (`--color-highlight-edge`) and no motion under reduced motion. `TripRoute` is the
   decorative (`aria-hidden`) mini route line: a dot per stop, the leg's mode icon between them (`legModes`).
   The CO₂ bar shows the plan against the car (car = 100 %, from `co2ShareOfCar`/`co2VsCarPercent`) with text.
   `TripTable` shows the rows in API order; its Date, Cost and CO₂ header buttons (`aria-sort` on the `<th>`)
   change the page's sort, which goes to the API.
-  **Delete** is a soft delete: after the confirmed DELETE an info toast "Deleted …" offers Undo
-  (`TripApi.restore`, possible for 30 s), then list and stats reload.
+  **Delete** is a soft delete and always goes through the glass confirm `Dialog` (card quick action, "⋯" menu,
+  list row, expanded row, trip details). Each of them emits `deleteRequested`; the page keeps a `TripDeletion`
+  (`features/trips/trip-deletion.ts`, provided per page: `pending`, `busy`, `error`, `request`, `cancel`,
+  `confirm(hooks)`) and renders `<app-trip-delete-dialog>` ("Delete trip?", the trip title, Cancel and a danger
+  Delete). A failed DELETE stays in the dialog as an error message. On success the dialog closes, the page's
+  `deleted` hook runs (Trips: the trip leaves the list, a page that became empty steps back one page, list and
+  stats reload; details: navigate to `/trips`) and an info toast
+  `Deleted "<title>"` with Undo shows for `UNDO_TOAST_MS` (10 s, shorter than the API's 30 s restore window) and
+  takes focus on its Undo button (`ToastRequest.focus`), because the deleted trip's own button is gone. The
+  dialog also returns focus to `fallbackFocus` (the Trips heading, `tabindex="-1"`) when its opener was removed. Undo calls `TripApi.restore` and then the
+  `restored` hook (Trips: announce, reload list and stats; details: navigate to `/trips/:id`); if the restore
+  fails (e.g. 409) an error toast says "Couldn't restore "<title>". <API message>". The toast and the restore
+  outlive the page that deleted.
   **Duplicate** is a link to `/trips/new` with router navigation state `{ draft }` (`duplicateState`);
   `TripFormPage` reads it once (`presetFromState`: invalid fields dropped, ignored when editing) and the
   user still saves.
+- **List view** (`TripTable`, `TripRowDetails`, `TripPrioritySelect`, `Pagination`): a click on a row, Enter or
+  Space on a focused row, or its disclosure button expands it inline (one row at a time, `expandedId`; the button
+  has `aria-expanded`, and `aria-controls` while open). The page loads that trip's `TripApi.compare(id)` on the
+  first expand only, keeps the result in `details` (`RowDetail`: loading, error with retry, ready) for its
+  lifetime and reloads it after a priority change. `TripRowDetails` shows each leg's recommended option side by
+  side (mode icon and name, time, cost, CO₂), the weather lines and Open on map (`/trips/:id`), Edit and Delete;
+  the buttons are there while loading or after an error; API values only, no maths. The Priority column is a
+  native `<select>` (`TripPrioritySelect`) that reports the choice; the page's `move` applies it optimistically
+  and rolls it back with an error toast and Retry. Below 768 px the Date, Mode, Priority and CO₂ columns fold
+  into the second line under the title (priority is changed in the "⋯" menu there) and the expanded row stacks.
+  **Keyboard model:** a table with a disclosure button per row and a roving tabindex on those buttons. The
+  table body is one tab stop: the `.toggle` button of the active row (last focused, else the first) has
+  `tabindex="0"`, the others `-1`, and so do the links, buttons and selects inside the other rows (an
+  `afterRenderEffect` re-applies this when rows, details or the active row change; controls that appear in the
+  active row, such as an opened menu panel, are tabbable as usual). Tab from the active toggle goes through its
+  own row's controls and then leaves the table. ArrowUp/ArrowDown, Home and End move focus between the toggles
+  (also from a title link, not from a select); Enter and Space are the native button's, with `aria-expanded`;
+  Escape collapses the expanded row (from the toggle or from inside its details) and keeps focus on the toggle,
+  unless one of its menus is open (Escape closes that first). Focus entering any control of a row makes that row
+  the tab stop. A click on the row's own cells expands it; clicks inside links, buttons, the priority select or a
+  menu panel do not. The title link keeps working. An expanded row hides its hover quick actions (its details
+  have Open on map, Edit and Delete); the "⋯" menu stays. Under `(pointer: coarse)` the toggle, priority select
+  and quick actions are 44 px.
+- **Pagination:** the board loads up to 100 trips; the list asks the API for 20 per page (`page`, `size`) and
+  `Pagination` (`shared/ui/`: zero-based `page`, `totalPages`, `totalItems`, `pageSize`, `itemCount`) shows
+  "21–40 of 45 trips", Previous, "Page 2 of 3" and Next (wraps on phones, hidden for one page; at an end the
+  button is `aria-disabled`, not `disabled`, so focus stays). A change of search, chips, sort or view goes back to
+  page 0 (`pageIndex` is a `linkedSignal` over those); the previous page stays visible while the next loads.
 - **Changing a trip's priority** (Trips page): `TripListPage.move` builds the existing update request from the
   trip in the list (`moveRequest`, `list/trip-move.ts`: all fields, stops as city ids, date unchanged) and calls
   `TripApi.update`. It is optimistic (`withPriority` in place, so the order is kept; `aria-busy` on the card/row
   while pending), merges the response into the item and reloads the list and stats (the priority weights
   the recommendation), and on failure restores the priority and shows an error `ToastService` toast with Retry.
-  Two ways in: the "Move to …" items of `TripMenu` (keyboard, touch) and dragging on `TripBoard`, which is
+  Three ways in: the list row's priority select, the "Move to …" items of `TripMenu` (keyboard, touch) and dragging on `TripBoard`, which is
   hand-written with pointer events (no CDK): a mouse/pen drag starts after `DRAG_THRESHOLD_PX`, a finger after a
   `LONG_PRESS_MS` press (moving earlier means scrolling); `board-drag.ts` holds the pure hit test (`columnAt`
   over the columns' rects). The ghost is a clone of the card on `<body>`; the original stays as a dashed
   placeholder, the column under the pointer gets `column--target`; Escape or a drop outside cancels, a drop on
   the own column is ignored, and the click after a drag is swallowed. A polite live region on the page announces
   "Moved "<title>" to …".
-- **Menu, filter group, toast** (`shared/ui/`): `Menu` is a disclosure (built-in `IconButton` trigger via
+- **Menu, popover, dialog, filter group, toast** (`shared/ui/`): `Menu` is a disclosure (built-in `IconButton` trigger via
   `label` + `menuIcon`, or your own `menuTrigger` button; panel content in `<ng-template appMenuContent>`,
-  rendered only while open; Escape and outside click close, an item click closes unless
-  `closeOnSelect` is off; arrow keys move between items). `FilterGroup` is a `role="group"` of
+  rendered only while open; Escape and outside click close (Escape returns focus to the trigger), an item
+  click closes unless `closeOnSelect` is off; arrow keys move between items; `aria-expanded` and `aria-controls`
+  on the trigger). `Menu` is also the **popover** building block: with `focusOnOpen` focus moves to the first
+  item when it opens, the panel may hold any content (the account panel) and `(openChange)` tells the owner
+  when to load data. `Dialog` is a modal confirmation on a native `<dialog>` with `showModal()` (the browser traps
+  focus and makes the page inert; Escape and a backdrop click ask to cancel; focus starts on Cancel and returns
+  to the element that had it, else `fallbackFocus`; while `busy` it cannot be dismissed and reopens if the browser closes it): inputs `open`, `title`, `confirmLabel`,
+  `busyLabel`, `busy`, projected text, outputs `confirmed` and `cancelled`; the parent owns `open`. jsdom has no
+  `showModal()`: specs call `installDialogSupport()` (`dialog.testing.ts`). `FilterGroup` is a `role="group"` of
   `aria-pressed` chips with `options`, a `selected` model and an optional `appFilterIcon` template.
-  `ToastService.show({ message, kind, action? })` plus one `<app-toast-outlet>` in `app.ts`
-  (auto-dismiss after 5 s, paused on hover and focus; errors in `role="alert"`, info in `role="status"`).
+  `ToastService.show({ message, kind, action?, durationMs?, focus? })` plus one `<app-toast-outlet>` in `app.ts`
+  (auto-dismiss after `durationMs`, default 5 s, the Undo toast uses 10 s; paused on hover and focus; errors in `role="alert"`, info in `role="status"`).
 - **Explorer state** is mirrored in the URL (`from`, `to`, `date`, `travelers`,
   `priority`; defaults left out).
 - **Query parameters** also arrive as component inputs; `/trips/new` accepts
   `from`, `to`, `date`, `travelers`, `priority` and ignores invalid values.
-- **Destructive actions:** `<app-confirm-action>` (inline two-step confirm),
-  never a one-click delete.
+- **Destructive actions:** never a one-click delete: confirm in `<app-dialog>` (trip delete, see Trips list) and
+  offer Undo where the API can restore.
 - **Async views:** load with `rxResource` and render all states: loading
   (`<app-spinner>`, `role="status"`), error with retry (`<app-error-message>`, `role="alert"`), empty
   (`.empty-state`: centered glass panel with heading, hint and action) and data.
@@ -274,8 +321,13 @@ pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in te
   `--color-highlight-edge`, `--color-danger-text` …) remain and currently equal their dark values; use them for
   the roles they name (lime text, selected background, recommended edge) so a future theme has one place to change.
 - **Shell, header and rail:** `AppShell` projects `shellHeader`, an optional `shellRail` and the page area. `Header`
-  is the top bar (logo tile, centred `PillNav` Home / Trips / Modes, round search and new-trip buttons (only below 1024 px, where there is no rail), avatar menu
-  or "Log in"; below 768 px the collapsed navigation menu). "Search trips" (header button and first rail item)
+  is the top bar (logo tile, centred `PillNav` Home / Trips / Modes, round search and new-trip buttons (only below 1024 px, where there is no rail), avatar popover
+  or "Log in"; below 768 px the collapsed navigation menu). **Account popover:** the avatar is the trigger of a
+  `Menu` (`focusOnOpen`, id `account-menu`) holding `AccountPanel`: initials, display name and email (from
+  `Session`), trips planned and CO₂ saved from `TripApi.stats()` (requested each time a panel opens, never at
+  start-up; while loading or after a failure a short note replaces the figures and the links stay usable), a
+  "My trips" link and Log out with an icon (through `Session`). Below 768 px the same `AccountPanel` sits in the
+  collapsed navigation menu under the links. "Search trips" (header button and first rail item)
   calls `SearchFocus.open()` (`shared/util/search-focus.ts`): navigate to `/trips`, then the `TripToolbar` takes
   focus in its search field (the request stays pending until the field exists; a refused navigation leaves
   nothing pending). `IconRail` (`shared/ui/icon-rail.ts`, rendered by `app.ts` only while

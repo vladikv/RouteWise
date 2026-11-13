@@ -9,6 +9,7 @@ import { Router, provideRouter } from '@angular/router';
 import { apiErrorInterceptor } from '../../core/api/api-error';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { Trip, TripPage, TripStats } from '../../core/api/models';
+import { installDialogSupport, pressEscapeIn } from '../../shared/ui/dialog.testing';
 import { ToastService } from '../../shared/ui/toast';
 import { TripListPage } from './trip-list-page';
 import { TRIP } from './trip-form.testing';
@@ -135,7 +136,7 @@ describe('TripListPage', () => {
   }
 
   function rows(): HTMLElement[] {
-    return Array.from(page.querySelectorAll<HTMLElement>('tbody tr'));
+    return Array.from(page.querySelectorAll<HTMLElement>('tbody tr.row'));
   }
 
   function rowTitles(): (string | null | undefined)[] {
@@ -162,11 +163,12 @@ describe('TripListPage', () => {
     )!;
   }
 
-  it('asks the API for the first 100 trips by date and for the stats, once each', async () => {
+  it('asks the API for the first page of 20 trips by date and for the stats, once each', async () => {
     const request = expectSearch();
     expect(request.request.params.get('sort')).toBe('date');
     expect(request.request.params.get('direction')).toBe('asc');
-    expect(request.request.params.get('size')).toBe('100');
+    expect(request.request.params.get('size')).toBe('20');
+    expect(request.request.params.get('page')).toBe('0');
     expect(request.request.params.has('q')).toBe(false);
     expect(request.request.params.has('priority')).toBe(false);
     expect(request.request.params.has('mode')).toBe(false);
@@ -639,19 +641,29 @@ describe('TripListPage', () => {
     let toasts: ToastService;
 
     beforeEach(() => {
+      installDialogSupport();
       toasts = TestBed.inject(ToastService);
     });
 
     afterEach(() => toasts.toasts().forEach((toast) => toasts.dismiss(toast.id)));
 
-    async function confirmDelete(): Promise<void> {
-      const quick = rows()[0].querySelector('app-trip-actions') as HTMLElement;
-      quick.querySelector<HTMLButtonElement>('button[aria-label^="Delete"]')!.click();
-      await settle();
-      httpTesting.expectNone({ method: 'DELETE' });
-      expect(quick.textContent).toContain('Delete this trip?');
+    const dialog = () => page.querySelector('dialog') as HTMLDialogElement;
 
-      buttonByText(quick, 'Yes, delete').click();
+    /** Presses the row's quick Delete button; the dialog opens and nothing is deleted yet. */
+    async function askToDelete(): Promise<void> {
+      rows()[0]
+        .querySelector<HTMLButtonElement>('app-trip-actions button[aria-label^="Delete"]')!
+        .click();
+      await settle();
+      expect(dialog().hasAttribute('open')).toBe(true);
+      expect(dialog().textContent).toContain('Delete trip?');
+      expect(dialog().textContent).toContain('Berlin to Vienna');
+      httpTesting.expectNone({ method: 'DELETE' });
+    }
+
+    async function confirmDelete(): Promise<void> {
+      await askToDelete();
+      buttonByText(dialog(), 'Delete').click();
       TestBed.tick();
     }
 
@@ -666,12 +678,13 @@ describe('TripListPage', () => {
       fixture.detectChanges();
     }
 
-    it('deletes only after confirmation, removes the trip and reloads the list and stats', async () => {
+    it('deletes only after the dialog is confirmed, removes the trip and reloads the list and stats', async () => {
       await load([TRIP, SOLO_TRIP]);
 
       await confirmDelete();
       await flushDelete();
       expect(rowTitles()).toEqual(['Solo to Paris']);
+      expect(dialog().hasAttribute('open')).toBe(false);
 
       await answerReload([SOLO_TRIP]);
 
@@ -680,26 +693,42 @@ describe('TripListPage', () => {
       expect(kpiValues()[0]).toBe('1');
     });
 
-    it('deletes from the actions menu after confirmation too', async () => {
+    it('deletes from the actions menu through the same dialog; the menu closes and focus returns to it on cancel', async () => {
       await load([TRIP, SOLO_TRIP]);
+      document.body.append(page);
 
-      menuButton('Berlin to Vienna').click();
+      const trigger = menuButton('Berlin to Vienna');
+      trigger.click();
       await settle();
       const menu = page.querySelector('.menu-panel') as HTMLElement;
       buttonByText(menu, 'Delete').click();
       await settle();
+
+      expect(page.querySelector('.menu-panel')).toBeNull();
+      expect(dialog().hasAttribute('open')).toBe(true);
       httpTesting.expectNone({ method: 'DELETE' });
-      expect(menu.textContent).toContain('Delete this trip?');
 
-      buttonByText(menu, 'Yes, delete').click();
-      TestBed.tick();
-      await flushDelete();
-      await answerReload([SOLO_TRIP]);
-
-      expect(rowTitles()).toEqual(['Solo to Paris']);
+      buttonByText(dialog(), 'Cancel').click();
+      await settle();
+      expect(dialog().hasAttribute('open')).toBe(false);
+      expect(document.activeElement).toBe(trigger);
+      httpTesting.expectNone({ method: 'DELETE' });
+      page.remove();
     });
 
-    it('shows an info toast with Undo after a delete', async () => {
+    it('asks nothing of the API when the dialog is cancelled with Escape', async () => {
+      await load([TRIP]);
+      await askToDelete();
+
+      pressEscapeIn(dialog());
+      await settle();
+
+      expect(dialog().hasAttribute('open')).toBe(false);
+      expect(rowTitles()).toEqual(['Berlin to Vienna']);
+      expect(toasts.toasts()).toHaveLength(0);
+    });
+
+    it('shows an info toast naming the trip with Undo that takes focus and stays for 10 seconds', async () => {
       await load([TRIP, SOLO_TRIP]);
       await confirmDelete();
       await flushDelete();
@@ -708,7 +737,9 @@ describe('TripListPage', () => {
       const [toast] = toasts.toasts();
       expect(toast.kind).toBe('info');
       expect(toast.message).toBe('Deleted "Berlin to Vienna"');
+      expect(toast.focus).toBe(true);
       expect(toast.action?.label).toBe('Undo');
+      expect(toast.durationMs).toBe(10_000);
     });
 
     it('restores the trip on Undo and reloads the list and stats', async () => {
@@ -731,7 +762,7 @@ describe('TripListPage', () => {
       );
     });
 
-    it('reports a failed restore in an error toast', async () => {
+    it('reports a failed restore in an error toast with the API message', async () => {
       await load([TRIP, SOLO_TRIP]);
       await confirmDelete();
       await flushDelete();
@@ -741,34 +772,21 @@ describe('TripListPage', () => {
       httpTesting
         .expectOne({ method: 'POST', url: `${TRIPS_URL}/7/restore` })
         .flush(
-          { title: 'Conflict', detail: 'The restore window has passed.', status: 409 },
+          { title: 'Conflict', detail: 'The trip can no longer be restored.', status: 409 },
           { status: 409, statusText: 'Conflict' },
         );
       await settle();
 
       const error = toasts.toasts().find((toast) => toast.kind === 'error');
       expect(error?.message).toBe(
-        'Couldn\'t restore "Berlin to Vienna". The restore window has passed.',
+        `Couldn't restore "Berlin to Vienna". The trip can no longer be restored.`,
       );
       expect(rowTitles()).toEqual(['Solo to Paris']);
     });
 
-    it('keeps the trip and shows an error when deleting fails; cancel asks nothing of the API', async () => {
+    it('keeps the dialog open with the error when deleting fails, and the trip stays', async () => {
       await load([TRIP]);
-
-      menuButton('Berlin to Vienna').click();
-      await settle();
-      const menu = page.querySelector('.menu-panel') as HTMLElement;
-      buttonByText(menu, 'Delete').click();
-      await settle();
-      buttonByText(menu, 'Cancel').click();
-      await settle();
-      expect(menu.textContent).not.toContain('Delete this trip?');
-
-      buttonByText(menu, 'Delete').click();
-      await settle();
-      buttonByText(menu, 'Yes, delete').click();
-      TestBed.tick();
+      await confirmDelete();
       httpTesting
         .expectOne({ method: 'DELETE', url: `${TRIPS_URL}/7` })
         .flush(
@@ -777,9 +795,11 @@ describe('TripListPage', () => {
         );
       await settle();
 
-      expect(page.querySelector('[role="alert"]')?.textContent).toContain(
+      expect(dialog().hasAttribute('open')).toBe(true);
+      expect(dialog().querySelector('[role="alert"]')?.textContent).toContain(
         'Trip with id 7 not found',
       );
+      expect(buttonByText(dialog(), 'Delete').disabled).toBe(false);
       expect(rows()).toHaveLength(1);
       expect(toasts.toasts()).toHaveLength(0);
     });

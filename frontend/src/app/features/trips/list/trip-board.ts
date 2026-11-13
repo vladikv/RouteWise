@@ -115,9 +115,8 @@ const NO_DRAG_START = 'button, app-trip-menu, app-trip-actions, input, select, t
                   <app-trip-card
                     [trip]="entry.trip"
                     [figures]="entry.figures"
-                    [deleting]="deletingId() === entry.trip.id"
                     [moving]="movingIds().has(entry.trip.id)"
-                    (deleted)="deleted.emit(entry.trip)"
+                    (deleteRequested)="deleteRequested.emit(entry.trip)"
                     (moved)="moved.emit({ trip: entry.trip, priority: $event, focus: true })"
                   />
                 </li>
@@ -279,9 +278,8 @@ const NO_DRAG_START = 'button, app-trip-menu, app-trip-actions, input, select, t
 })
 export class TripBoard {
   readonly columns = input.required<PriorityColumn[]>();
-  readonly deletingId = input<number | null>(null);
   readonly movingIds = input<ReadonlySet<number>>(new Set());
-  readonly deleted = output<Trip>();
+  readonly deleteRequested = output<Trip>();
   readonly moved = output<TripMove>();
 
   protected readonly priorityLabels = PRIORITY_LABELS;

@@ -1,11 +1,19 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  afterRenderEffect,
+  computed,
+  inject,
+} from '@angular/core';
 import { Toast, ToastService } from './toast';
 
 /**
  * Renders the toasts of `ToastService`. Errors go to a `role="alert"` region, info to a polite
  * `role="status"` one; both regions stay in the DOM so screen readers announce what is added.
- * A toast waits while the pointer is over it or focus is inside it.
+ * A toast waits while the pointer is over it or focus is inside it; one that asks for `focus`
+ * moves focus to its action button (reachable before it expires, and paused by that focus).
  */
 @Component({
   selector: 'app-toast-outlet',
@@ -40,7 +48,12 @@ import { Toast, ToastService } from './toast';
           {{ toast.message }}
         </p>
         @if (toast.action; as action) {
-          <button type="button" class="toast__action" (click)="run(toast)">
+          <button
+            type="button"
+            class="toast__action"
+            [attr.data-toast-action]="toast.id"
+            (click)="run(toast)"
+          >
             {{ action.label }}
           </button>
         }
@@ -154,6 +167,24 @@ export class ToastOutlet {
   protected readonly service = inject(ToastService);
   protected readonly errors = computed(() => this.byKind('error'));
   protected readonly infos = computed(() => this.byKind('info'));
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly focused = new Set<number>();
+
+  constructor() {
+    afterRenderEffect(() => {
+      for (const toast of this.service.toasts()) {
+        if (toast.focus && toast.action && !this.focused.has(toast.id)) {
+          this.focused.add(toast.id);
+          // After the other effects of this render (a closing dialog restores focus itself).
+          void Promise.resolve().then(() =>
+            this.host.nativeElement
+              .querySelector<HTMLElement>(`[data-toast-action="${toast.id}"]`)
+              ?.focus(),
+          );
+        }
+      }
+    });
+  }
 
   protected run(toast: Toast): void {
     toast.action?.run();

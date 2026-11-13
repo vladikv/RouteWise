@@ -149,8 +149,7 @@ p {
 }
 
 .trip:hover .trip__actions,
-.trip:focus-within .trip__actions,
-.trip__actions.is-confirming {
+.trip:focus-within .trip__actions {
   opacity: 1;
 }
 

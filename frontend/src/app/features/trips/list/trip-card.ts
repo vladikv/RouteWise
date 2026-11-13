@@ -37,10 +37,9 @@ export class TripCard {
   readonly trip = input.required<Trip>();
   /** From the API; null when no route is available. */
   readonly figures = input.required<TripFigures | null>();
-  readonly deleting = input(false);
   /** A priority change is waiting for the API. */
   readonly moving = input(false);
-  readonly deleted = output<void>();
+  readonly deleteRequested = output<void>();
   readonly moved = output<TripPriority>();
 
   protected readonly travelersLabel = travelersLabel;

@@ -1,5 +1,5 @@
 /* A glass surface without blur (this list can be long). The header row sticks to the top of the
-   page's scroll area and is opaque, so rows scroll cleanly under it. */
+   page's scroll area and is opaque, so rows scroll cleanly under it. A click on a row expands it. */
 .trips {
   width: 100%;
   border: 1px solid var(--glass-border);
@@ -56,16 +56,8 @@ thead th:last-child {
   text-decoration: none;
 }
 
-/* Stretched link: covers the whole row (tr is the containing block), so a click anywhere opens the trip. */
 .row {
-  position: relative;
   cursor: pointer;
-}
-
-.trip__name a::after {
-  content: '';
-  position: absolute;
-  inset: 0;
 }
 
 .row--moving > * {
@@ -78,22 +70,65 @@ thead th:last-child {
 }
 
 .row:hover > *,
-.row:focus-within > * {
+.row:focus-within > *,
+.row--expanded > * {
   background: var(--glass-bg-strong);
+}
+
+.row--expanded > * {
+  border-bottom-color: transparent;
+}
+
+/* An expanded row has its own Open, Edit and Delete buttons. */
+.row--expanded .trip__quick {
+  display: none;
 }
 
 .trip__line .lane-dot {
   margin-right: var(--space-1);
 }
 
-/* The focus ring goes around the row, not just the link text. */
-.row:has(.trip__name a:focus-visible) {
-  outline: 2px solid var(--color-focus);
-  outline-offset: -2px;
+.toggle-cell {
+  width: 1%;
+  padding-right: 0;
 }
 
-.trip__name a:focus-visible {
-  outline: none;
+.toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg-strong);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.toggle svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.toggle[aria-expanded='true'] {
+  border-color: var(--color-primary-ink);
+  background: var(--color-selected-bg);
+  color: var(--color-primary-ink);
+}
+
+.toggle[aria-expanded='true'] svg {
+  transform: rotate(90deg);
+}
+
+.detail td {
+  padding: var(--space-2) var(--space-4) var(--space-4);
+  background: var(--glass-bg-strong);
 }
 
 .sort {
@@ -163,8 +198,7 @@ th[aria-sort='descending'] .sort {
 }
 
 .row:hover .trip__quick,
-.row:focus-within .trip__quick,
-.trip__quick.is-confirming {
+.row:focus-within .trip__quick {
   opacity: 1;
 }
 
@@ -187,12 +221,24 @@ th[aria-sort='descending'] .sort {
     display: inline;
   }
 
+  .trip__line.narrow-only {
+    display: block;
+  }
+
   .trip__quick {
     display: none;
   }
 
   th,
-  td {
+  td,
+  .detail td {
     padding: var(--space-3);
+  }
+}
+
+@media (pointer: coarse) {
+  .toggle {
+    width: 2.75rem;
+    height: 2.75rem;
   }
 }

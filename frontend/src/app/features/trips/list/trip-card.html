@@ -37,8 +37,7 @@
     <app-trip-actions
       class="trip__actions"
       [trip]="trip()"
-      [busy]="deleting()"
-      (deleted)="deleted.emit()"
+      (deleteRequested)="deleteRequested.emit()"
     />
   </div>
   @if (plan) {
@@ -72,8 +71,7 @@
   <app-trip-menu
     class="trip__menu"
     [trip]="trip()"
-    [busy]="deleting()"
-    (deleted)="deleted.emit()"
+    (deleteRequested)="deleteRequested.emit()"
     (moved)="moved.emit($event)"
   />
 </article>

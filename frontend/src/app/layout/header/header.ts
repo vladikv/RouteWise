@@ -1,13 +1,15 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { rxResource, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter, map } from 'rxjs';
+import { TripApi } from '../../core/api/trip-api';
 import { Session } from '../../core/auth/session';
 import { HomeLayout, HomeLayoutChoice } from '../../features/explore/home-layout';
 import { Menu, MenuContent } from '../../shared/ui/menu';
 import { PillNav, PillNavItem } from '../../shared/ui/pill-nav';
 import { SegmentedToggle, ToggleOption } from '../../shared/ui/segmented-toggle';
 import { SearchFocus } from '../../shared/util/search-focus';
+import { AccountPanel, initialsOf } from './account-panel';
 
 const LAYOUT_OPTIONS: ToggleOption<HomeLayoutChoice>[] = [
   {
@@ -23,17 +25,19 @@ const pathOf = (url: string): string => url.split(/[?#]/)[0];
 /**
  * Top bar of the shell: logo (and, on Home from 1440 px, the Map / Split layout toggle), the
  * centred main navigation, and the actions: search and new-trip round buttons, account (log in /
- * avatar menu) and, below 768 px, the navigation menu.
+ * avatar popover with the account panel) and, below 768 px, the navigation menu, which holds the
+ * same account panel.
  */
 @Component({
   selector: 'app-header',
-  imports: [RouterLink, Menu, MenuContent, PillNav, SegmentedToggle],
+  imports: [RouterLink, AccountPanel, Menu, MenuContent, PillNav, SegmentedToggle],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './header.html',
   styleUrl: './header.scss',
 })
 export class Header {
   protected readonly session = inject(Session);
+  private readonly tripApi = inject(TripApi);
   protected readonly homeLayout = inject(HomeLayout);
   protected readonly navItems: PillNavItem[] = [
     { label: 'Home', link: '/', exact: true },
@@ -41,12 +45,12 @@ export class Header {
     { label: 'Modes', link: '/modes' },
   ];
   protected readonly layoutOptions = LAYOUT_OPTIONS;
-  protected readonly initials = computed(() => {
-    const words = (this.session.user()?.displayName ?? '').trim().split(/\s+/).filter(Boolean);
-    return words
-      .slice(0, 2)
-      .map((word) => word.charAt(0).toUpperCase())
-      .join('');
+  protected readonly initials = computed(() => initialsOf(this.session.user()?.displayName ?? ''));
+  /** How often an account panel has been opened; each opening asks the API for fresh stats. */
+  private readonly accountOpenings = signal(0);
+  protected readonly stats = rxResource({
+    params: () => this.accountOpenings() || undefined,
+    stream: () => this.tripApi.stats(),
   });
 
   private readonly router = inject(Router);
@@ -65,6 +69,12 @@ export class Header {
 
   protected searchTrips(): void {
     this.searchFocus.open();
+  }
+
+  protected accountToggled(open: boolean): void {
+    if (open) {
+      this.accountOpenings.update((count) => count + 1);
+    }
   }
 
   protected logout(): void {

@@ -4,6 +4,7 @@
   </caption>
   <thead>
     <tr>
+      <th scope="col" class="toggle-cell"><span class="visually-hidden">Details</span></th>
       <th scope="col" class="wide-only" [attr.aria-sort]="ariaSort('date')">
         <button type="button" class="sort" (click)="sortBy('date')">
           Date <span aria-hidden="true">{{ arrow('date') }}</span>
@@ -11,6 +12,7 @@
       </th>
       <th scope="col">Trip</th>
       <th scope="col" class="wide-only">Mode</th>
+      <th scope="col" class="wide-only">Priority</th>
       <th scope="col" class="num" [attr.aria-sort]="ariaSort('cost')">
         <button type="button" class="sort" (click)="sortBy('cost')">
           Cost <span aria-hidden="true">{{ arrow('cost') }}</span>
@@ -24,15 +26,34 @@
       <th scope="col"><span class="visually-hidden">Actions</span></th>
     </tr>
   </thead>
-  <tbody>
+  <tbody #body>
     @for (entry of entries(); track entry.trip.id) {
       @let trip = entry.trip;
       @let plan = entry.figures;
+      @let expanded = expandedId() === trip.id;
       <tr
         class="row"
         [class.row--moving]="movingIds().has(trip.id)"
+        [class.row--expanded]="expanded"
+        [attr.data-trip]="trip.id"
         [attr.aria-busy]="movingIds().has(trip.id) ? 'true' : null"
+        (click)="onRowClick($event, trip.id)"
       >
+        <td class="toggle-cell">
+          <button
+            type="button"
+            class="toggle"
+            [attr.tabindex]="trip.id === tabStopId() ? 0 : -1"
+            [attr.aria-expanded]="expanded"
+            [attr.aria-controls]="expanded ? 'trip-detail-' + trip.id : null"
+            [attr.aria-label]="'Details of ' + trip.title"
+            (click)="toggle(trip.id)"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </button>
+        </td>
         <td class="wide-only trip__date">{{ trip.departureDate | date: 'mediumDate' }}</td>
         <th scope="row" class="trip__name">
           <a [routerLink]="['/trips', trip.id]">{{ trip.title }}</a>
@@ -45,15 +66,13 @@
               {{ stop.cityName }}
             }
           </span>
-          <span class="trip__line muted">
+          <span class="trip__line muted narrow-only">
             <span class="lane-dot" [attr.data-lane]="trip.priority" aria-hidden="true"></span>
             {{ priorityLabels[trip.priority] }}
-            <span class="narrow-only">
-              · {{ trip.departureDate | date: 'mediumDate' }}
-              @if (plan) {
-                · {{ modeSummary(plan) }} · {{ plan.co2Kg | number: '1.0-0' }} kg CO₂
-              }
-            </span>
+            · {{ trip.departureDate | date: 'mediumDate' }}
+            @if (plan) {
+              · {{ modeSummary(plan) }} · {{ plan.co2Kg | number: '1.0-0' }} kg CO₂
+            }
           </span>
         </th>
         <td class="wide-only">
@@ -67,6 +86,9 @@
           } @else {
             <span class="muted">No available route</span>
           }
+        </td>
+        <td class="wide-only">
+          <app-trip-priority-select [trip]="trip" (changed)="move(trip, $event, false)" />
         </td>
         <td class="num">
           @if (plan; as figures) {
@@ -85,19 +107,29 @@
             <app-trip-actions
               class="trip__quick"
               [trip]="trip"
-              [busy]="deletingId() === trip.id"
-              (deleted)="deleted.emit(trip)"
+              (deleteRequested)="deleteRequested.emit(trip)"
             />
             <app-trip-menu
               class="trip__menu"
               [trip]="trip"
-              [busy]="deletingId() === trip.id"
-              (deleted)="deleted.emit(trip)"
-              (moved)="move(trip, $event)"
+              (deleteRequested)="deleteRequested.emit(trip)"
+              (moved)="move(trip, $event, true)"
             />
           </div>
         </td>
       </tr>
+      @if (expanded) {
+        <tr class="detail" [id]="'trip-detail-' + trip.id" [attr.data-trip]="trip.id">
+          <td colspan="8">
+            <app-trip-row-details
+              [trip]="trip"
+              [detail]="details().get(trip.id)"
+              (retry)="detailRetry.emit(trip)"
+              (deleteRequested)="deleteRequested.emit(trip)"
+            />
+          </td>
+        </tr>
+      }
     }
   </tbody>
 </table>

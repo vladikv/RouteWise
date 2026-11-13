@@ -14,19 +14,11 @@
     <h1>{{ trip.title }}</h1>
     <div class="actions">
       <a class="button" [routerLink]="['/trips', trip.id, 'edit']">Edit</a>
-      <app-confirm-action
-        [question]="'Delete this trip?'"
-        [busy]="deleting()"
-        (confirmed)="delete()"
-      />
+      <button type="button" class="button button--danger" (click)="deletion.request(trip)">
+        Delete
+      </button>
     </div>
   </div>
-
-  @if (deleteError(); as error) {
-    <div class="delete-error">
-      <app-error-message [error]="error" [retryable]="false" />
-    </div>
-  }
 
   <section class="card overview" aria-label="Trip details">
     <dl class="details">
@@ -98,3 +90,11 @@
     }
   </section>
 }
+
+<app-trip-delete-dialog
+  [trip]="deletion.pending()"
+  [busy]="deletion.busy()"
+  [error]="deletion.error()"
+  (confirmed)="confirmDelete()"
+  (cancelled)="deletion.cancel()"
+/>
