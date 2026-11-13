@@ -29,6 +29,7 @@ import com.routewise.comparison.dto.WeatherSummary;
 import com.routewise.comparison.service.ComparisonService;
 import com.routewise.transportmode.domain.TransportModeCode;
 import com.routewise.trip.domain.TripPriority;
+import com.routewise.weather.domain.WeatherStatus;
 import com.routewise.trip.dto.TripStopRequest;
 import com.routewise.user.TestUsers;
 import com.routewise.weather.domain.WeatherHazard;
@@ -174,15 +175,15 @@ class ComparisonControllerTest {
                 UnavailableCode.TOO_FAR, "Route of 681 km exceeds the BIKE limit of 150 km", new BigDecimal("680.7"), null, null, null, 0,
                 false, List.of());
         LegResponse leg = new LegResponse(0, new CitySummary(1L, "Berlin", "DE"), new CitySummary(2L, "Vienna", "AT"),
-                new BigDecimal("523.6"), List.of(train, bike), TransportModeCode.TRAIN);
+                new BigDecimal("523.6"), List.of(train, bike), TransportModeCode.TRAIN, List.of());
         return new ComparisonResponse(tripId, DEPARTURE, 2, TripPriority.GREENEST, new BigDecimal("523.6"), "EUR",
-                weather, List.of(leg),
+                weather, WeatherStatus.AVAILABLE, List.of(leg),
                 new ItineraryTotalsResponse(List.of(TransportModeCode.TRAIN), 373, new BigDecimal("150.80"),
                         new BigDecimal("44.0")),
                 List.of(new ModeTotalsResponse(TransportModeCode.TRAIN, true, null, null, 373, new BigDecimal("150.80"),
                                 new BigDecimal("44.0")),
                         new ModeTotalsResponse(TransportModeCode.BIKE, false, UnavailableCode.TOO_FAR,
                                 "Leg 1 (Berlin to Vienna): too far",
-                                null, null, null)));
+                                null, null, null)), List.of());
     }
 }

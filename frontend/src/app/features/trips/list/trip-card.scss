@@ -209,14 +209,6 @@ p {
   font-weight: 600;
 }
 
-.trip__placeholder {
-  display: block;
-  width: 5rem;
-  height: 1.75rem;
-  border-radius: var(--radius-pill);
-  background: var(--color-border);
-}
-
 .trip__menu {
   position: absolute;
   z-index: 2;

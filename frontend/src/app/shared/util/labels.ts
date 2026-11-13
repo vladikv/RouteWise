@@ -1,9 +1,4 @@
-import {
-  TransportModeCode,
-  TripPriority,
-  UnavailableCode,
-  WeatherHazard,
-} from '../../core/api/models';
+import { TransportModeCode, TripPriority, WeatherHazard } from '../../core/api/models';
 
 export const PRIORITY_LABELS: Record<TripPriority, string> = {
   FASTEST: 'Fastest',
@@ -66,35 +61,4 @@ export function durationLabel(totalMinutes: number): string {
     return `${minutes} min`;
   }
   return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
-}
-
-const UNAVAILABLE_TEXT: Record<UnavailableCode, string> = {
-  DIFFERENT_LANDMASS: 'different continent or island',
-  TOO_FAR: 'too far for this mode',
-};
-
-/** The cause in a few readable words; the API's English reason when there is no code. */
-export function unavailableDetail(code: UnavailableCode | null, reason: string | null): string {
-  return code ? UNAVAILABLE_TEXT[code] : (reason ?? '');
-}
-
-/** "Not available: too far for this mode" for one option on one leg. */
-export function unavailableText(code: UnavailableCode | null, reason: string | null): string {
-  const detail = unavailableDetail(code, reason);
-  return detail ? `Not available: ${detail}` : 'Not available';
-}
-
-const LEG_PREFIX = /^Leg (\d+) \(([^)]*)\):\s*(.*)$/;
-
-/**
- * Same for a mode used on every leg: the reason names the leg that rules it out
- * ("Leg 2 (A to B): ..."), which is kept: "Not available on leg 2 (A to B): too far for this mode".
- */
-export function unavailableTotalsText(code: UnavailableCode | null, reason: string | null): string {
-  const match = LEG_PREFIX.exec(reason ?? '');
-  if (!match) {
-    return unavailableText(code, reason);
-  }
-  const detail = code ? UNAVAILABLE_TEXT[code] : match[3];
-  return `Not available on leg ${match[1]} (${match[2]}): ${detail}`;
 }

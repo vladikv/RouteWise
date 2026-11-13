@@ -6,13 +6,24 @@ import java.util.Optional;
 
 import com.routewise.weather.domain.WeatherForecast;
 
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.resilience.annotation.Retryable;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 /**
  * {@link WeatherClient} backed by the Open-Meteo forecast API (no API key).
  * Created in {@code WeatherClientConfig} with a base URL and timeouts.
+ * <p>
+ * Successful answers (including "no data for that date") are cached per city and date;
+ * a failure is not cached, so the next request tries again. A failed call is retried
+ * once after 200 ms, except for 4xx answers, which a retry would not change.
  */
 public class OpenMeteoWeatherClient implements WeatherClient {
+
+    /** Successful forecasts per city and date ({@link ForecastKey}); configured in {@code WeatherClientConfig}. */
+    public static final String FORECAST_CACHE = "weather-forecasts";
 
     static final String DAILY_VARIABLES = "weather_code,temperature_2m_min,temperature_2m_max,"
             + "precipitation_probability_max,wind_speed_10m_max";
@@ -24,6 +35,10 @@ public class OpenMeteoWeatherClient implements WeatherClient {
     }
 
     @Override
+    @Cacheable(cacheNames = FORECAST_CACHE,
+            key = "T(com.routewise.weather.client.ForecastKey).of(#p0, #p1, #p2)")
+    @Retryable(includes = RestClientException.class, excludes = HttpClientErrorException.class,
+            maxRetries = 1, delay = 200)
     public Optional<WeatherForecast> fetchDailyForecast(double latitude, double longitude, LocalDate date) {
         OpenMeteoResponse response = restClient.get()
                 .uri(uri -> uri.path("/v1/forecast")

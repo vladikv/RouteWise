@@ -35,6 +35,8 @@ routewise:
     base-url: ${ROUTEWISE_WEATHER_BASE_URL:https://api.open-meteo.com}
     connect-timeout: 2s
     read-timeout: 3s
+    # Forecasts are reused per city and date for this long (Caffeine cache).
+    cache-ttl: ${ROUTEWISE_WEATHER_CACHE_TTL:1h}
   advisor:
     # Optional. Without a key the advisor uses its built-in rules.
     api-key: ${ANTHROPIC_API_KEY:}
@@ -42,6 +44,9 @@ routewise:
     effort: ${ROUTEWISE_ADVISOR_EFFORT:low}
     timeout: 20s
     max-retries: 1
+  trips:
+    # How long a deleted trip can be restored (undo).
+    restore-window: ${ROUTEWISE_TRIPS_RESTORE_WINDOW:30s}
   demo:
     # A public demo account with sample trips, shown on the login page and in the README.
     # Set ROUTEWISE_DEMO_ENABLED=false for any real deployment.

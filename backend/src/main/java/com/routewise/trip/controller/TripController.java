@@ -1,16 +1,22 @@
 package com.routewise.trip.controller;
 
 import java.net.URI;
-import java.util.List;
 
+import com.routewise.trip.dto.TripPageResponse;
 import com.routewise.trip.dto.TripRequest;
 import com.routewise.trip.dto.TripResponse;
+import com.routewise.trip.dto.TripSearchParams;
+import com.routewise.trip.dto.TripStatsResponse;
+import com.routewise.trip.service.TripQueryService;
 import com.routewise.trip.service.TripService;
+import com.routewise.trip.service.TripStatsService;
 import com.routewise.user.domain.AuthUser;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -30,15 +36,32 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 public class TripController {
 
     private final TripService tripService;
+    private final TripQueryService tripQueryService;
+    private final TripStatsService tripStatsService;
 
-    public TripController(TripService tripService) {
+    public TripController(TripService tripService, TripQueryService tripQueryService,
+                          TripStatsService tripStatsService) {
         this.tripService = tripService;
+        this.tripQueryService = tripQueryService;
+        this.tripStatsService = tripStatsService;
     }
 
     @GetMapping
-    @Operation(summary = "List your trips, soonest departure first")
-    public List<TripResponse> findAll(@AuthenticationPrincipal AuthUser user) {
-        return tripService.findAll(user.id());
+    @Operation(summary = "Search your trips",
+            description = "Text search, filters, sorting and paging. Each item carries its weather-free figures; "
+                    + "facets count the trips per chip (each dimension ignores its own filter) and priorityTotals "
+                    + "summarise every matching trip. 400 for invalid parameters or from after to.")
+    public TripPageResponse search(@ParameterObject @Valid TripSearchParams params,
+                                   @AuthenticationPrincipal AuthUser user) {
+        return tripQueryService.search(params, user.id());
+    }
+
+    @GetMapping("/stats")
+    @Operation(summary = "Key figures over your active trips",
+            description = "Trips planned, CO2 saved against driving, average cost and the next trip; "
+                    + "list filters do not apply and deleted trips are not counted.")
+    public TripStatsResponse stats(@AuthenticationPrincipal AuthUser user) {
+        return tripStatsService.stats(user.id());
     }
 
     @GetMapping("/{id}")
@@ -68,8 +91,21 @@ public class TripController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Operation(summary = "Delete a trip")
+    @Operation(summary = "Delete a trip",
+            description = "Soft delete: the trip is hidden everywhere and can be restored within the restore window "
+                    + "(routewise.trips.restore-window, default 30 s). A deleted trip answers 404.")
     public void delete(@PathVariable Long id, @AuthenticationPrincipal AuthUser user) {
         tripService.delete(id, user.id());
+    }
+
+    @PostMapping("/{id}/restore")
+    @Operation(summary = "Restore a deleted trip (undo)",
+            description = "200 with the trip, also when it is not deleted. 409 after the restore window; "
+                    + "404 for an unknown or another user's trip.")
+    @ApiResponse(responseCode = "200", description = "Trip restored or already active")
+    @ApiResponse(responseCode = "404", description = "Unknown trip or another user's trip")
+    @ApiResponse(responseCode = "409", description = "The restore window has passed")
+    public TripResponse restore(@PathVariable Long id, @AuthenticationPrincipal AuthUser user) {
+        return tripService.restore(id, user.id());
     }
 }

@@ -20,6 +20,11 @@ checkboxes when a milestone is completed.
   trips can be duplicated and moved to another priority from the Trips page
 - Interactive globe map and about 150 cities on every continent; ground modes only between
   cities joined by land, flights with separate short- and long-haul CO₂ factors
+- The backend owns the trip figures: server-side search, filters, sorting, pagination and facet counts
+  for the trip list, a stats endpoint for the KPIs, grouped messages for unavailable modes
+- Delete with undo: deleted trips can be restored for a short window (default 30 s)
+- Resilient external calls: cached weather with retry and an explicit "weather unavailable" status;
+  `/actuator/health`
 
 Out of scope for v1: social login, password reset, email verification,
 real-time timetables, booking.
@@ -34,6 +39,7 @@ real-time timetables, booking.
 *(changed in `feat/globe-map`: `continent` (AFRICA, ASIA, EUROPE, NORTH_AMERICA, OCEANIA, SOUTH_AMERICA),
 `landmass` (ground-connected region, e.g. EURASIA, AFRICA, NORTH_AMERICA, SOUTH_AMERICA, AUSTRALIA, JAPAN,
 IRELAND, ICELAND, NEW_ZEALAND), `capital` (boolean), `labelRank` (1 = shown first … 3 = only when zoomed in))*
+*(changed in `feat/backend-depth`: Moscow removed, 149 cities)*
 
 **TransportMode**: seeded reference data
 `code (TRAIN|BUS|CAR|BIKE|PLANE), avgSpeedKmh, costPerKm, co2GramsPerKm, fixedOverheadMinutes, maxDistanceKm`
@@ -41,6 +47,9 @@ IRELAND, ICELAND, NEW_ZEALAND), `capital` (boolean), `labelRank` (1 = shown firs
 **Trip**: user-owned, full CRUD, visible only to its owner; aggregate root of its stops
 `id, ownerId, title, departureDate, travelers, priority (FASTEST|CHEAPEST|GREENEST|BALANCED), notes, createdAt, updatedAt, stops`
 *(changed in `feat/multi-stop-trips`: `originCityId`/`destinationCityId` replaced by `stops`)*
+*(changed in `feat/backend-depth`: `deletedAt` (null = active; set by DELETE, cleared by restore; deleted trips
+are left out of every query, stat and comparison); `createdAt`/`updatedAt` filled by Spring Data JPA auditing
+from the injected `Clock`)*
 
 **TripStop**: part of a trip (cascade + orphan removal, ordered by `position`) *(new)*
 `id, trip (ManyToOne), city (ManyToOne), position (0-based)`.
@@ -56,6 +65,21 @@ Distance = haversine between cities × road/rail factor. All legs use the trip's
 `landmass` and the leg is within the mode's `maxDistanceKm`; otherwise the option is unavailable with
 `unavailableCode` `DIFFERENT_LANDMASS` or `TOO_FAR` (plus the readable `unavailableReason`). PLANE uses a
 short-haul CO₂ factor up to the DEFRA long-haul threshold and a long-haul factor above it.
+*(changed in `feat/backend-depth`)* Unavailable modes are also grouped by code: each leg has
+`unavailableGroups: [{code, modes[], message}]`, e.g. "Not reachable by land between Dublin and Madrid: train, bus,
+car, bike", and the comparison has the same list for the single-mode totals ("Not possible for the whole trip:
+train, bus, car, bike (no land route between Dublin and Madrid)"). `weatherStatus` says whether the weather is
+`AVAILABLE`, `PARTIAL`, `UNAVAILABLE` (provider error or timeout) or `OUT_OF_RANGE` (date outside the forecast window).
+
+**TripFigures**: computed, not stored *(new in `feat/backend-depth`)*
+Per trip, from the same pure engine and itinerary calculator as the comparison but **without weather**:
+`totalCost, co2Kg, carCo2Kg (null when the car cannot do the whole trip), co2VsCarPercent, co2ShareOfCar (0–1),
+modes (distinct, leg order), legModes`; `null` when a leg has no available mode. Used by the trip list and the stats.
+
+**TripStats**: computed per user over active trips *(new)*
+`tripsPlanned, co2SavedVsCarKg (Σ max(0, car − plan) over trips with a car figure), co2TripsCounted,
+tripsLeftOut, averageCost (over trips with figures; null if none), currency, nextTrip ({id, title, departureDate}
+of the earliest trip departing today or later; null if none)`
 
 ## API
 
@@ -69,17 +93,27 @@ Changing requests need the `X-XSRF-TOKEN` header echoing the `XSRF-TOKEN` cookie
 | POST | `/api/auth/login` | Log in; starts a session |
 | POST | `/api/auth/logout` | End the session (204) |
 | GET | `/api/auth/me` | The logged-in account (401 when logged out) |
-| GET | `/api/trips` | List your trips *(changed: `stops` instead of `origin`/`destination`)* |
+| GET | `/api/trips` | Search your trips *(**breaking** in `feat/backend-depth`: was an array; now a page)*. Query: `q`, `priority` (repeatable), `mode` (repeatable), `from`, `to` (departure date, inclusive), `sort` (`date`\|`cost`\|`co2`, default `date`), `direction` (`asc`\|`desc`, default `asc`), `page` (≥ 0, default 0), `size` (1–100, default 20). Response: `items[]` (trip + `figures`), `page`, `size`, `totalItems`, `totalPages`, `currency`, `facets` (`priorities[{priority, count}]`, `modes[{mode, count}]`), `priorityTotals[{priority, count, totalCost}]`; 400 for bad parameters or `from` after `to` |
+| GET | `/api/trips/stats` | KPIs over your active trips (`TripStats`) *(new)* |
 | GET | `/api/trips/{id}` | Trip details *(changed: `stops: [{cityId, cityName, position}]`)* |
 | POST | `/api/trips` | Create trip (201 + Location) *(changed: request `stops: [{cityId}]`)* |
 | PUT | `/api/trips/{id}` | Update trip; replaces the whole ordered stop list *(changed)* |
-| DELETE | `/api/trips/{id}` | Delete trip (204) |
+| DELETE | `/api/trips/{id}` | Delete trip (204) *(changed: soft delete; status and body unchanged; a deleted trip answers 404 everywhere)* |
+| POST | `/api/trips/{id}/restore` | Undo a delete within the restore window: 200 + trip; 200 if not deleted (idempotent); 409 Problem Details after the window; 404 for unknown or another user's trip *(new)* |
 | GET | `/api/trips/{id}/comparison` | Per-leg comparison: `legs[]` (from, to, distanceKm, options[], recommendedMode), `recommendedItinerary`, `singleModeTotals[]` *(changed)* |
 | POST | `/api/comparisons` | Compare stops without saving a trip; request `stops: [{cityId}]`, same response, `tripId` null *(changed)* |
 | GET | `/api/trips/{id}/advice` | AI/rule-based advice incl. weather; explains the itinerary leg by leg *(changed)* |
 | POST | `/api/advisor/parse` | Free text → trip draft with ordered `stops` *(changed)* |
 | GET | `/api/cities` | Cities for autocomplete *(changed, additive: `continent`, `landmass`, `capital`, `labelRank`)* |
 | GET | `/api/transport-modes` | Mode parameters |
+| GET | `/actuator/health` | Health check, public, no details *(new)* |
+
+Changes in `feat/backend-depth`:
+- **Breaking:** `GET /api/trips` returns a page object instead of an array (above); the UI changes in the same milestone.
+- Additive: `GET /api/trips/{id}/comparison` and `POST /api/comparisons` get `weatherStatus`, `unavailableGroups`
+  (top level and per leg); no field removed or renamed.
+- `DELETE /api/trips/{id}` keeps 204, but the row is kept with `deletedAt`; a second DELETE answers 404.
+- `GET /api/cities` no longer lists Moscow.
 
 `feat/globe-map` adds fields only (cities as above; `unavailableCode` on comparison options and
 single-mode totals); no field is removed or renamed.
@@ -152,6 +186,29 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
   - UI: unavailable modes greyed out with a readable reason from the code ("Not available: different continent or island", "Not available: too far for this mode")
   - README "Data & assumptions" (new section): prices are global estimates, landmass rule with its fixed links, flight factor split and source
   - Done when: tests for the migration (city count, coordinates within range, every city has a continent and landmass, existing 25 keep their ids), availability rules incl. edge cases (same landmass but too far, different landmass but short, exactly at the limit, Great Britain and Denmark via fixed links), short/long-haul factor at the threshold, per-leg itinerary with an intercontinental leg, parser with multi-word/accented names, far-side visibility, label priority by zoom, globe drag/zoom/reset and arc rendering; `./mvnw verify`, `npm run lint` and `npm test` green; `docs/AI_WORKFLOW.md` entry
+- [x] `feat/backend-depth`: the backend owns the business logic (trip search, figures, facets, stats, grouped unavailable messages), soft delete with undo, resilient weather calls, auditing and architecture tests; the UI only displays
+  - Depends on `feat/globe-map`. No visual changes (those come in a later UI milestone)
+  - Moves from frontend to backend (the frontend files lose these functions and their specs move to backend tests):
+    - `features/trips/list/trip-figures.ts`: `tripFigures`, `tripKpis`, `filterTrips`, `matchesSearch`, `groupByPriority` totals, `co2ShareOfCar`, `co2VsCarPercent` → `TripFiguresCalculator` (pure), `TripQueryService`, `TripStatsService`; `figuresOf`, `tintFor`, `modeSummary` stay (presentation of API values)
+    - `features/trips/list/trip-filters.ts`: `priorityCounts`, `modeCounts`, `sortTrips` → facets and sorting in `TripQueryService`; `toggleSort`, `resultSummary`, `activeChipCount`, `hasActiveFilters` stay (UI state and wording)
+    - `shared/util/labels.ts`: `unavailableDetail`, `unavailableText`, `unavailableTotalsText` and the `LEG_PREFIX` parsing of English reasons → `UnavailableGrouper` (pure) in `comparison/service`; the UI shows `unavailableGroups[].message` once per leg and once for the totals, and each unavailable row says only "Not available" (still muted with ⊘). This is the one wording change in the UI, requested with the grouping
+    - The Trips page's one `GET /api/trips/{id}/comparison` per trip is removed: figures come with the list
+    - Stays in the UI (out of scope): `comparisonInsight` (takeaway sentence on one leg of an already loaded comparison) and `legComparison` (reshaping)
+  - Trip search (`trip/service/TripQueryService`, `trip/repository/TripSpecifications`): Specifications for owner, `deletedAt is null`, `q` (case-insensitive contains over title and stop city names, via EXISTS) and the date range; the repository extends `JpaSpecificationExecutor`. Then per matching trip `TripFigures` (no weather, no external I/O, one read-only transaction), the priority filter (in memory, because the priority facet needs the other priorities anyway), the mode filter (any leg's recommended mode), facets, `priorityTotals`, the sort (date in SQL order then id; cost/CO₂ in memory, trips without figures last in both directions, ties by date then id) and the page slice (skip/limit on the sorted list). Facets: each dimension counts trips matching all *other* filters (the priority chips ignore the priority filter, the mode chips the mode filter); `priorityTotals` describe the whole filtered result, not just the page
+  - Stats (`TripStatsService`): over all active trips of the user, unaffected by list filters; today from `Clock`
+  - Soft delete (`add-flyway-migration`): V9 adds `trip.deleted_at TIMESTAMP NULL` + index (owner_id, deleted_at). Explicit column and query conditions, not Hibernate `@SoftDelete`/`@SQLRestriction`, because restore must read deleted rows. All trip lookups (`...ByIdAndOwnerIdAndDeletedAtIsNull`), comparison, advice, update, delete and stats ignore deleted trips. Restore allowed while `now ≤ deletedAt + routewise.trips.restore-window` (`ROUTEWISE_TRIPS_RESTORE_WINDOW`, default `30s`), otherwise 409 via a new `ConflictException`; another user's trip → 404 on delete and restore. No purge job (in-memory database)
+  - UI for undo: after a confirmed delete, the existing `ToastService` info toast "Trip deleted" with an Undo action calls restore and reloads the list and stats; no new component or style
+  - Moscow (`add-flyway-migration`): V10 deletes trips that have a Moscow stop (their stops cascade; patching the stop list could leave fewer than 2 stops or consecutive duplicates), then the city; no existing migration edited; demo trips and seeder do not use Moscow
+  - Unavailable groups: one entry per (leg, code) with the modes in the fixed order train, bus, car, bike, plane; messages: `DIFFERENT_LANDMASS` "Not reachable by land between A and B: …", `TOO_FAR` "Too far between A and B for: …"; totals: "Not possible for the whole trip: … (<leg reason>)", one entry per first blocking leg and code
+  - Weather: `@Cacheable` on the weather client (Spring Cache + Caffeine, `expireAfterWrite` 1 h, max 1,000 entries, key = rounded latitude/longitude + date, configurable `routewise.weather.cache-ttl`); only successful answers are cached (including "no data for that date"), failures are not, so the next request tries again. Retry once on `RestClientException` with Spring Framework 7's built-in `@Retryable` (`@EnableResilientMethods`, 200 ms delay), no new dependency; cache outside retry, so a hit never retries. Timeouts unchanged (2 s connect / 3 s read, worst case per city about 10 s). `weatherStatus` on the comparison
+  - AI advisor: timeout (20 s), 1 retry and the rule-based fallback already exist (2026-11-11 decisions); this milestone only adds the missing tests (timeout → rules)
+  - Actuator: `spring-boot-starter-actuator`, default exposure (`health` only, no details), `/actuator/health` public in `SecurityConfig`
+  - Auditing: `@EnableJpaAuditing` with a `DateTimeProvider` from `Clock`; `Trip.createdAt`/`updatedAt` and `AppUser.createdAt` via `@CreatedDate`/`@LastModifiedDate` instead of Hibernate's `@CreationTimestamp`/`@UpdateTimestamp`
+  - ArchUnit (`archunit-junit5`, test scope): `..controller..` does not depend on `..repository..`; no `@Entity` class as a parameter or return type of a public `@RestController` method (enums and records in `domain` such as `TripPriority`, `AuthUser` are allowed); `..service..` does not depend on `..controller..`
+  - Frontend (API calls only): `models.ts` (`TripPage`, `TripListItem`, `TripFigures`, `TripStats`, `UnavailableGroup`, `weatherStatus`); `TripApi.search(params)`, `stats()`, `restore(id)`; the Trips page sends search (debounced 300 ms), chips and sort to the API, reads KPIs from `stats()` and chip counts from `facets`, board column headers from `priorityTotals`; asks for `size=100` and shows no pagination controls yet (known limit: more than 100 matching trips are not all shown); a priority move re-fetches the list and stats instead of the trip's comparison
+  - Docs: Swagger annotations on every new/changed endpoint and parameter; this file's API table and domain model; README "Data & assumptions" (149 cities without Moscow, list figures without weather, weather cache TTL)
+  - Process: `add-rest-endpoint` and `add-flyway-migration` skills; `test-writer` agent for missing tests; `backend-reviewer` agent before committing, every 🔴 finding fixed; commits via the `commit` skill; never push
+  - Done when: tests for the specifications (search on title and on a city name, each filter, combinations, deleted trips excluded), sorting (each key and direction, trips without figures last) and pagination (bounds, last page, out-of-range page = empty items), facet counts (own dimension ignored), `priorityTotals`, stats (no trips, deleted trips, trip without car, next trip today/past), soft delete and restore (inside the window, at the boundary, after → 409, not deleted → 200, another user's trip → 404, deleted trip → 404 on get/update/comparison/advice), `UnavailableGrouper` messages, weather cache hit/miss, failure not cached, retry then fallback with `weatherStatus` `UNAVAILABLE` on timeout, advisor timeout → rules, V9 and V10 migrations (a V8 database with a Moscow trip migrated: trip and city gone, others intact, 149 cities; `CityMigrationTest` count 150 → 149, the only changed expectation of an existing test), ArchUnit rules, `/actuator/health` public; frontend specs for the new `TripApi` calls, the Trips page using API figures/facets/stats, undo toast and grouped messages; `./mvnw verify`, `npm test` and `npm run lint` green; `docs/AI_WORKFLOW.md` entry
 - [ ] `docs/readme-demo`: README and demo recording
 
 ## Decisions log
@@ -278,3 +335,23 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
 | 2026-11-13 | Crowded low-rank cities are not drawn at the current zoom (they stay in the city picker); hit areas shrink to half the gap to the nearest city | With 150 cities, Europe at zoom 1 had neighbours taking each other's clicks and rank-1 labels pushed out |
 | 2026-11-13 | `--map-border` raised to 3:1 against sea and land in both themes instead of a separate merged coastline | A merged outline needs polygon union, which the generator cannot do reliably without a new dependency |
 | 2026-11-13 | No screenshots: milestones no longer require or produce screenshots; the UI reviewer works from code and tokens | Human decision; `docs/` is ignored by git, so new screenshots would not be kept anyway |
+| 2026-11-13 | The backend owns trip figures, filtering, facets, sorting and KPIs; the UI only displays them | One source of truth, testable in plain Java; the Trips page no longer needs one comparison request per trip. Supersedes "Trips page figures come from one `GET /api/trips/{id}/comparison` per trip" |
+| 2026-11-13 | List and stats figures are computed in memory without weather; stored columns (owner, deleted, title, cities, priority, date) are filtered with Specifications in SQL, mode filter, cost/CO₂ sort and paging run in Java | Human choice. Keeps "comparison computed, not stored" and keeps the list free of external I/O; fine for per-user lists. Weather is a short-term adjustment shown on the details page, so a trip in the next 16 days can differ there (e.g. bike in rain) |
+| 2026-11-13 | `GET /api/trips` returns a page with facets instead of an array (breaking) | Pagination and facet counts need an envelope; the UI is the only client and changes in the same milestone |
+| 2026-11-13 | Facets count with every filter except their own dimension | Each chip then shows how many trips it would add; counting from the full list ignored search and dates |
+| 2026-11-13 | Soft delete with an explicit `deleted_at` column, not Hibernate `@SoftDelete` | Restore has to load the deleted row, which `@SoftDelete` hides from every query |
+| 2026-11-13 | Restore after the window → 409; restoring a trip that is not deleted → 200 | 409 matches "the state no longer allows this"; an idempotent restore survives a double-clicked Undo |
+| 2026-11-13 | Moscow removed by V10, which deletes trips with a Moscow stop instead of editing their stops | Never edit a migration; removing one stop could leave an invalid stop list, and the in-memory database has no real user data at migration time |
+| 2026-11-13 | Added Caffeine + `spring-boot-starter-cache`, `spring-boot-starter-actuator`, `archunit-junit5` (test) | Human approved. Caffeine: per-entry TTL, which the default `ConcurrentMap` cache lacks; Actuator: standard health check; ArchUnit: layering rules as tests |
+| 2026-11-13 | Retry with Spring Framework 7's built-in `@Retryable`, not Spring Retry or Resilience4j | Comes with the framework, no new dependency; one retry is all that is needed |
+| 2026-11-13 | Weather cache holds successes only, keyed by rounded coordinates and date, TTL 1 h | A failure must not be remembered for an hour; forecasts change slowly enough for an hour |
+| 2026-11-13 | Unavailable modes grouped per leg and code with a server-written message; the per-option `unavailableReason` stays | One readable sentence instead of one per mode, without the UI parsing English text; additive, no breaking change |
+| 2026-11-13 | Auditing timestamps via Spring Data JPA auditing with a `Clock`-backed `DateTimeProvider` | Timestamps become testable with `Clock.fixed`, like every other date rule |
+| 2026-11-13 | The priority filter of `GET /api/trips` runs in memory, not as a Specification | The priority facet must count every priority anyway, so one SQL query (owner, active, text, dates) serves the result and both facets |
+| 2026-11-13 | The per-leg loop moves from `ComparisonService` into a pure `RoutePlanner`, shared by comparisons (with weather) and trip figures (without) | One place computes legs, itinerary, totals and grouped reasons, so list figures and the comparison can never disagree except for the weather |
+| 2026-11-13 | Cache and retry proxies on the weather client are class-based (`proxyTargetClass = true`) | Spring's retry interceptor reads `@Retryable` from the invoked method; through the `WeatherClient` interface proxy it saw no annotation and never retried (caught by `WeatherClientResilienceTest`) |
+| 2026-11-13 | Soft-deleted trips are never purged; the restore window must be at least 1 s | The database is in memory, so rows vanish on restart; a zero or negative window would turn every Undo into a 409 without any startup error |
+| 2026-11-13 | The table's sort only applies in the list view; the board always shows date order | Sorting cards inside priority columns by cost was never a feature; keeping the board unchanged avoids a visible change |
+| 2026-11-13 | The Trips page keeps the previous page visible while a new search loads (`linkedSignal` over the resource) | Without it every keystroke would replace the toolbar with a spinner and drop the search field's focus |
+| 2026-11-13 | Board column counts are the cards shown while the page holds every matching trip, else the API's `priorityTotals` count; totals always come from the API | With the API count only, a card moved optimistically into a column the API counted as empty was hidden until the reload (caught by the test agent) |
+| 2026-11-13 | Clearing the filters applies the empty search at once; the search query is compared by value | The debounced search and a new query object on every view switch sent redundant requests |

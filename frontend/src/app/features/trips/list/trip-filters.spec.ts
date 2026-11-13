@@ -1,54 +1,77 @@
-import { Trip } from '../../../core/api/models';
-import { TRIP } from '../trip-form.testing';
-import { FigureState, TripEntry } from './trip-figures';
+import { TripPage } from '../../../core/api/models';
 import {
   DEFAULT_SORT,
+  PAGE_SIZE,
   activeChipCount,
   hasActiveFilters,
   modeCounts,
   priorityCounts,
   resultSummary,
-  sortTrips,
   toggleSort,
+  tripSearch,
 } from './trip-filters';
 
-function entry(id: number, priority: Trip['priority'], state: FigureState): TripEntry {
-  return { trip: { ...TRIP, id, priority }, state };
-}
+const PAGE: TripPage = {
+  items: [],
+  page: 0,
+  size: 100,
+  totalItems: 0,
+  totalPages: 0,
+  currency: 'EUR',
+  facets: {
+    priorities: [
+      { priority: 'FASTEST', count: 2 },
+      { priority: 'CHEAPEST', count: 1 },
+      { priority: 'GREENEST', count: 0 },
+      { priority: 'BALANCED', count: 4 },
+    ],
+    modes: [
+      { mode: 'TRAIN', count: 3 },
+      { mode: 'BUS', count: 1 },
+      { mode: 'CAR', count: 0 },
+      { mode: 'BIKE', count: 0 },
+      { mode: 'PLANE', count: 2 },
+    ],
+  },
+  priorityTotals: [],
+};
 
-function ready(modes: ('TRAIN' | 'BUS' | 'PLANE')[]): FigureState {
-  return {
-    status: 'ready',
-    figures: {
-      currency: 'EUR',
-      cost: 1,
-      co2Kg: 1,
-      carCo2Kg: null,
-      mode: modes.length === 1 ? modes[0] : 'MIXED',
-      modes,
-      legModes: modes,
-    },
-  };
-}
+describe('tripSearch', () => {
+  it('builds the API query from the filters and the sort', () => {
+    const query = tripSearch(
+      { search: 'vienna', priorities: ['FASTEST'], modes: ['TRAIN', 'BUS'] },
+      { key: 'cost', direction: 'desc' },
+    );
 
-const ENTRIES = [
-  entry(1, 'FASTEST', ready(['TRAIN'])),
-  entry(2, 'FASTEST', ready(['TRAIN', 'BUS'])),
-  entry(3, 'GREENEST', { status: 'loading' }),
-  entry(4, 'BALANCED', { status: 'failed' }),
-  entry(5, 'CHEAPEST', { status: 'ready', figures: null }),
-];
+    expect(query).toEqual({
+      q: 'vienna',
+      priority: ['FASTEST'],
+      mode: ['TRAIN', 'BUS'],
+      sort: 'cost',
+      direction: 'desc',
+      size: PAGE_SIZE,
+    });
+  });
+
+  it('trims the search text and asks for the largest page', () => {
+    const query = tripSearch({ search: '  Berlin ', priorities: [], modes: [] }, DEFAULT_SORT);
+
+    expect(query.q).toBe('Berlin');
+    expect(query.size).toBe(100);
+    expect(query.sort).toBe('date');
+    expect(query.direction).toBe('asc');
+  });
+});
 
 describe('priorityCounts', () => {
-  it('counts the trips per priority, zero included', () => {
-    expect(priorityCounts(ENTRIES)).toEqual({ FASTEST: 2, CHEAPEST: 1, GREENEST: 1, BALANCED: 1 });
-    expect(priorityCounts([])).toEqual({ FASTEST: 0, CHEAPEST: 0, GREENEST: 0, BALANCED: 0 });
+  it('reads the counts of the priority facet, zero included', () => {
+    expect(priorityCounts(PAGE)).toEqual({ FASTEST: 2, CHEAPEST: 1, GREENEST: 0, BALANCED: 4 });
   });
 });
 
 describe('modeCounts', () => {
-  it('counts trips whose recommended itinerary uses the mode, ignoring trips without figures', () => {
-    expect(modeCounts(ENTRIES)).toEqual({ TRAIN: 2, BUS: 1, CAR: 0, BIKE: 0, PLANE: 0 });
+  it('reads the counts of the mode facet, zero included', () => {
+    expect(modeCounts(PAGE)).toEqual({ TRAIN: 3, BUS: 1, CAR: 0, BIKE: 0, PLANE: 2 });
   });
 });
 
@@ -70,53 +93,6 @@ describe('active filters', () => {
     expect(hasActiveFilters({ search: '  ', priorities: [], modes: [] })).toBe(false);
     expect(hasActiveFilters({ search: 'x', priorities: [], modes: [] })).toBe(true);
     expect(hasActiveFilters({ search: '', priorities: [], modes: ['BUS'] })).toBe(true);
-  });
-});
-
-describe('sortTrips', () => {
-  function priced(id: number, date: string, cost: number | null, co2Kg = 1): TripEntry {
-    const base = entry(id, 'FASTEST', cost === null ? { status: 'failed' } : ready(['TRAIN']));
-    const state: FigureState =
-      base.state.status === 'ready'
-        ? { status: 'ready', figures: { ...base.state.figures!, cost: cost as number, co2Kg } }
-        : base.state;
-    return { trip: { ...base.trip, departureDate: date }, state };
-  }
-
-  const a = priced(1, '2099-03-01', 300, 5);
-  const b = priced(2, '2099-01-01', 100, 30);
-  const c = priced(3, '2099-02-01', 200, 10);
-  const none = priced(4, '2099-01-15', null);
-  const ids = (entries: TripEntry[]): number[] => entries.map((item) => item.trip.id);
-
-  it('orders by date, earliest first by default', () => {
-    expect(ids(sortTrips([a, b, c], DEFAULT_SORT))).toEqual([2, 3, 1]);
-    expect(ids(sortTrips([a, b, c], { key: 'date', direction: 'desc' }))).toEqual([1, 3, 2]);
-  });
-
-  it('orders by cost and by CO2 in both directions', () => {
-    expect(ids(sortTrips([a, b, c], { key: 'cost', direction: 'asc' }))).toEqual([2, 3, 1]);
-    expect(ids(sortTrips([a, b, c], { key: 'cost', direction: 'desc' }))).toEqual([1, 3, 2]);
-    expect(ids(sortTrips([a, b, c], { key: 'co2', direction: 'asc' }))).toEqual([1, 3, 2]);
-    expect(ids(sortTrips([a, b, c], { key: 'co2', direction: 'desc' }))).toEqual([2, 3, 1]);
-  });
-
-  it('puts trips without figures last, whichever the direction', () => {
-    const loading: TripEntry = { ...c, state: { status: 'loading' } };
-    const all = [none, a, b, loading];
-
-    expect(ids(sortTrips(all, { key: 'cost', direction: 'asc' }))).toEqual([2, 1, 4, 3]);
-    expect(ids(sortTrips(all, { key: 'cost', direction: 'desc' }))).toEqual([1, 2, 4, 3]);
-    expect(ids(sortTrips(all, { key: 'co2', direction: 'asc' }))).toEqual([1, 2, 4, 3]);
-  });
-
-  it('keeps the incoming order for equal values and does not change the input', () => {
-    const same = [priced(5, '2099-01-01', 50), priced(6, '2099-01-01', 50)];
-
-    expect(ids(sortTrips(same, { key: 'cost', direction: 'desc' }))).toEqual([5, 6]);
-    const input = [a, b];
-    sortTrips(input, DEFAULT_SORT);
-    expect(ids(input)).toEqual([1, 2]);
   });
 });
 

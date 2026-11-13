@@ -134,7 +134,12 @@ describe('TripDetailsPage', () => {
     expect(totals[0]).toContain('Train, then bus');
     expect(totals[0]).toContain('8 h 30 min');
     expect(totals[1]).toContain('Train for every leg');
-    expect(totals[3]).toContain('Not available on leg 1 (Berlin to Prague): too far for this mode');
+    expect(totals[3]).toContain('Bike for every leg');
+    expect(totals[3]).toContain('Not available');
+    expect(totals[3]).not.toContain('too far');
+    expect(section('comparison-heading').textContent).toContain(
+      'Not possible for the whole trip: bike (too far between Berlin and Prague)',
+    );
 
     const adviceLegs = Array.from(section('advice-heading').querySelectorAll('.legs li'), (li) =>
       li.textContent?.trim(),

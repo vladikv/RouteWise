@@ -51,7 +51,9 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
 - **Errors:** throw a `RouteWiseException` subclass: `ResourceNotFoundException` (404)
   or `FieldValidationException` (400 with an `errors` entry, for business rules on a
   specific field, e.g. an unknown city id), or `DuplicateFieldException` (409 with the
-  same `errors` entry, for a taken unique value such as a registered email).
+  same `errors` entry, for a taken unique value such as a registered email), or
+  `ConflictException` (409 without field errors, when the resource's state forbids the
+  request, e.g. a restore after the restore window).
   `GlobalExceptionHandler` turns them into RFC 7807 Problem Details
   (`application/problem+json`). Do not use `ResponseStatusException` and do not
   build error bodies in controllers. Validation errors use the `errors`
@@ -63,6 +65,9 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
   messages or stack traces.
 - **Time:** inject `java.time.Clock` (bean in `ClockConfig`) instead of calling
   `LocalDate.now()` directly, so date rules are testable with `Clock.fixed`.
+  Audit timestamps (`@CreatedDate`/`@LastModifiedDate` with `AuditingEntityListener`)
+  come from the same clock through `JpaAuditingConfig`; never use Hibernate's
+  `@CreationTimestamp`/`@UpdateTimestamp`.
 - **Configuration:** `application.yml` with env-var overrides
   (`${ENV_VAR:default}`), bound to `@ConfigurationProperties` records under the
   `routewise.*` prefix. The app must start with zero configuration.
@@ -73,6 +78,13 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
   Exception: services that call external APIs (e.g. `ComparisonService`) are
   not transactional; they load what they need via `@EntityGraph` queries and
   map detached entities.
+  Trips are soft-deleted (`deleted_at`, `Trip.markDeleted`/`restore`): every lookup
+  except restore uses `findActiveByIdAndOwnerId` or the `active()` specification, so a
+  deleted trip is a 404 everywhere and never counted. Restore works for
+  `routewise.trips.restore-window` (default 30 s), then `ConflictException`.
+  Searches over stored trip columns use `TripSpecifications` (small combinable
+  `Specification`s; `null`/blank = no restriction; LIKE wildcards escaped) with
+  `TripRepository.findAll(spec, sort)`, which loads stops and cities.
   H2 is pinned to 2.3.232 in `pom.xml` (see the comment there) — keep the pin
   until a fixed H2 release is verified with the `TripRepositoryTest` suite.
 - **External HTTP:** use `RestClient` built from the injected
@@ -85,13 +97,27 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
   service catches and degrades (e.g. `WeatherService` returns no forecast,
   `AdvisorService` falls back to its rules). `ClaudeAdvisorClient` wraps SDK
   errors in `AdvisorClientException`. Never let an external outage fail a request.
+  The weather client is cached (Spring Cache + Caffeine, cache `weather-forecasts`,
+  key `ForecastKey` = rounded coordinates + date, TTL `routewise.weather.cache-ttl`;
+  only successful answers are cached) and retried once with Spring Framework 7's
+  `@Retryable` (no retry on 4xx). Both proxies are class-based
+  (`proxyTargetClass = true` in `WeatherClientConfig`): with an interface proxy the
+  retry interceptor would not see the annotation on the implementation.
+  `WeatherService.report` returns the forecasts plus a `WeatherStatus`
+  (`AVAILABLE`, `PARTIAL`, `UNAVAILABLE`, `OUT_OF_RANGE`) that comparisons pass on.
   Don't hold a database transaction open across external calls.
 - **LLM output is untrusted input:** validate it like a request (see
   `TripDraftResolver`) and never let it override computed results
   (the comparison engine picks the recommended mode).
 - **Pure business rules** (e.g. `ComparisonEngine`, `GeoDistance`,
-  `ItineraryCalculator`) take plain records as input (`ComparisonInput`,
-  `ModeParameters`, `Leg`), not entities, and do no I/O.
+  `ItineraryCalculator`, `UnavailableGrouper`, `RoutePlanner`) take plain records as
+  input (`ComparisonInput`, `ModeParameters`, `Leg`, `RouteStop`), not entities, and do no I/O.
+  The backend owns every figure the UI shows: `RoutePlanner` builds a `RoutePlan` (legs,
+  mixed itinerary, single-mode totals, grouped unavailable messages) for comparisons
+  (with weather) and for the trip list and stats (`TripFiguresCalculator`, without weather,
+  so `GET /api/trips` and `/stats` make no external call). `TripQueryService` filters
+  stored columns in SQL and the computed ones (mode, facets, cost/CO₂ sort, paging) in
+  memory; facets ignore their own dimension.
 - **Trips and stops:** `Trip` is the aggregate root of its `TripStop`s (2–10,
   `TripStops.MIN`/`MAX`); change them only through `Trip.replaceStops`, which
   reuses rows by position so the unique (trip, position) constraint holds.
@@ -105,7 +131,8 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
 - **Security:** session login (`JSESSIONID`) via the JSON endpoints in
   `AuthController`; no form login or HTTP Basic. Access rules live only in
   `SecurityConfig`: reference data, `POST /api/comparisons` and the auth
-  endpoints are public, the rest of `/api/**` needs a login. New public
+  endpoints and `GET /actuator/health` (the only exposed Actuator endpoint, no details)
+  are public, the rest of `/api/**` needs a login. New public
   endpoints must be added there explicitly. Controllers get the user with
   `@AuthenticationPrincipal AuthUser` and pass `user.id()` to services;
   user-owned data is always queried by id *and* owner (`...ByIdAndOwnerId`),
@@ -137,8 +164,14 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
   (see `WeatherClientConfigTest`). Never call real services in tests.
 - Scoring/rule tests assert hand-computed literal values (document the
   calculation in the test), not values derived from the code under test.
-- Repositories: `@DataJpaTest` only for custom queries; Flyway runs, so tests
-  validate the real schema.
+- Repositories: `@DataJpaTest` only for custom queries and specifications; Flyway
+  runs, so tests validate the real schema. Import `JpaAuditingConfig` and
+  `ClockConfig` when the test saves audited entities.
+- `ArchitectureTest` (ArchUnit) enforces the layering: controllers use no repositories
+  and no `@Entity` in public signatures, services and repositories do not depend on
+  upper layers. Keep it green; do not add exceptions without a decision log entry.
+- Cache and retry wiring: `WeatherClientResilienceTest` (an `ApplicationContextRunner`
+  with `WeatherClientConfig` against a local HTTP server that counts requests).
 - `RoutewiseApiApplicationTests` (`@SpringBootTest`) must keep passing; it
   proves Flyway, Hibernate validation and OpenAPI wire up.
 - Test method names: `method_condition_expectedResult` or

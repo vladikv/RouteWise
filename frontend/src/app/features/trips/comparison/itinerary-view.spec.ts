@@ -52,6 +52,13 @@ describe('ItineraryView', () => {
         {
           ...MULTI_COMPARISON.legs[1],
           recommendedMode: null,
+          unavailableGroups: [
+            {
+              code: 'TOO_FAR',
+              modes: ['BUS', 'TRAIN'],
+              message: 'Too far between Prague and Vienna for: bus, train',
+            },
+          ],
           options: [
             {
               ...MULTI_COMPARISON.legs[1].options[0],
@@ -73,12 +80,16 @@ describe('ItineraryView', () => {
       'Not possible: a leg has no available mode.',
     );
     expect(view.querySelector('.leg--blocked')?.textContent).toContain(
-      'Bus: too far for this mode',
+      'Too far between Prague and Vienna for: bus, train',
     );
   });
 
   describe('modes that cannot be used on every leg', () => {
-    const bikeRow = async (code: ModeTotals['unavailableCode'], reason: string) => {
+    const NOTES = ':scope > p.muted:has([aria-hidden])';
+    const text = (element: Element | null | undefined) =>
+      element?.textContent?.replace(/\s+/g, ' ').trim();
+
+    const bikeRow = async (code: ModeTotals['unavailableCode'], reason: string | null) => {
       const view = await render({
         ...MULTI_COMPARISON,
         singleModeTotals: MULTI_COMPARISON.singleModeTotals.map((totals) =>
@@ -90,32 +101,47 @@ describe('ItineraryView', () => {
       const row = Array.from(
         view.querySelectorAll('[aria-label="Whole-trip totals"] tbody tr'),
       ).find((tr) => tr.querySelector('th')?.textContent?.includes('Bike')) as Element;
-      return { row, text: row.querySelector('.reason')?.textContent?.replace(/\s+/g, ' ').trim() };
+      return { view, row };
     };
 
-    it.each([
-      [
-        'DIFFERENT_LANDMASS',
-        '⊘ Not available on leg 1 (Berlin to Prague): different continent or island',
-      ],
-      ['TOO_FAR', '⊘ Not available on leg 1 (Berlin to Prague): too far for this mode'],
-    ] as const)('shows %s as plain words with the leg, greyed out', async (code, expected) => {
-      const { row, text } = await bikeRow(code, 'Leg 1 (Berlin to Prague): English prose');
+    it.each(['DIFFERENT_LANDMASS', 'TOO_FAR', null] as const)(
+      'says only "Not available" in the row for code %s, greyed out',
+      async (code) => {
+        const { row } = await bikeRow(code, 'Leg 1 (Berlin to Prague): English prose');
 
-      expect(text).toBe(expected);
-      expect(row.classList).toContain('unavailable');
+        expect(text(row.querySelector('.reason'))).toBe('⊘ Not available');
+        expect(row.classList).toContain('unavailable');
+        expect(row.textContent).not.toContain('English prose');
+      },
+    );
+
+    it("shows the comparison's group messages under the totals table", async () => {
+      const { view } = await bikeRow('TOO_FAR', null);
+
+      expect(Array.from(view.querySelectorAll(NOTES), text)).toEqual([
+        '⊘ Not possible for the whole trip: bike (too far between Berlin and Prague)',
+      ]);
     });
 
-    it('falls back to the API reason when there is no code', async () => {
-      const { text } = await bikeRow(null, 'Leg 1 (Berlin to Prague): Route is closed');
+    it('shows one note per group', async () => {
+      const view = await render({
+        ...MULTI_COMPARISON,
+        unavailableGroups: [
+          { code: 'TOO_FAR', modes: ['BIKE'], message: 'First reason' },
+          { code: 'DIFFERENT_LANDMASS', modes: ['CAR'], message: 'Second reason' },
+        ],
+      });
 
-      expect(text).toBe('⊘ Not available on leg 1 (Berlin to Prague): Route is closed');
+      expect(Array.from(view.querySelectorAll(NOTES), text)).toEqual([
+        '⊘ First reason',
+        '⊘ Second reason',
+      ]);
     });
 
-    it('shows a reason without a leg prefix as it is', async () => {
-      const { text } = await bikeRow(null, 'Not offered');
+    it('shows no note without groups', async () => {
+      const view = await render({ ...MULTI_COMPARISON, unavailableGroups: [] });
 
-      expect(text).toBe('⊘ Not available: Not offered');
+      expect(view.querySelectorAll(NOTES)).toHaveLength(0);
     });
   });
 });

@@ -130,36 +130,53 @@ describe('ComparisonChart', () => {
     expect(rows()).toEqual(['Train ★ Recommended 44.0 kg', 'Car 115.7 kg']);
   });
 
-  it('lists unavailable modes with their reason instead of a bar', () => {
-    const note = chart.querySelector('.unavailable');
+  it('lists one line per unavailable group with the API message instead of a bar', () => {
+    const lines = chart.querySelectorAll('.unavailable');
 
-    expect(note?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-      '⊘ Bike: Not available: too far for this mode',
+    expect(lines).toHaveLength(1);
+    expect(lines[0].textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      '⊘ Too far between Berlin and Vienna for: bike',
     );
-    expect(note?.classList).toContain('muted');
+    expect(lines[0].classList).toContain('muted');
+    expect(lines[0].querySelectorAll('app-mode-icon')).toHaveLength(1);
   });
 
-  it.each([
-    ['DIFFERENT_LANDMASS', 'Bike: Not available: different continent or island'],
-    [null, 'Bike: Not available: Route is closed'],
-  ] as const)(
-    'reads the unavailable code %s as text, falling back to the reason',
-    async (code, text) => {
-      const bike = LEG_COMPARISON.options.find((option) => option.mode === 'BIKE') as ModeOption;
-      fixture.componentRef.setInput('comparison', {
-        ...LEG_COMPARISON,
-        options: [
-          ...LEG_COMPARISON.options.filter((option) => option.mode !== 'BIKE'),
-          { ...bike, unavailableCode: code, unavailableReason: 'Route is closed' },
-        ],
-      });
-      await fixture.whenStable();
+  it('shows a mode icon per mode of a group, one line per group', async () => {
+    fixture.componentRef.setInput('comparison', {
+      ...LEG_COMPARISON,
+      unavailableGroups: [
+        {
+          code: 'DIFFERENT_LANDMASS',
+          modes: ['TRAIN', 'BUS', 'CAR'],
+          message: 'Not reachable by land between Dublin and Madrid: train, bus, car',
+        },
+        {
+          code: 'TOO_FAR',
+          modes: ['BIKE'],
+          message: 'Too far between Dublin and Madrid for: bike',
+        },
+      ],
+    });
+    await fixture.whenStable();
 
-      expect(chart.querySelector('.unavailable')?.textContent?.replace(/\s+/g, ' ')).toContain(
-        text,
-      );
-    },
-  );
+    const lines = Array.from(chart.querySelectorAll('.unavailable'));
+    expect(lines).toHaveLength(2);
+    expect(lines[0].querySelector('.unavailable__text')?.textContent).toContain(
+      'Not reachable by land between Dublin and Madrid: train, bus, car',
+    );
+    expect(lines[1].querySelector('.unavailable__text')?.textContent).toContain(
+      'Too far between Dublin and Madrid for: bike',
+    );
+    expect(lines[0].querySelectorAll('app-mode-icon')).toHaveLength(3);
+    expect(lines[1].querySelectorAll('app-mode-icon')).toHaveLength(1);
+  });
+
+  it('shows no unavailable line when every mode is available', async () => {
+    fixture.componentRef.setInput('comparison', { ...LEG_COMPARISON, unavailableGroups: [] });
+    await fixture.whenStable();
+
+    expect(chart.querySelector('.unavailable')).toBeNull();
+  });
 
   it('gives each bar a tooltip with all four metrics', () => {
     expect(chart.querySelector('.bar')?.getAttribute('title')).toBe(

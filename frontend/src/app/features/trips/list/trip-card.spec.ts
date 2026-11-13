@@ -4,40 +4,46 @@ import { provideRouter } from '@angular/router';
 import { Trip } from '../../../core/api/models';
 import { addDaysIso, todayIso } from '../../../shared/util/date';
 import { TRIP } from '../trip-form.testing';
-import { FigureState, TripFigures } from './trip-figures';
+import { TripFigures } from './trip-figures';
 import { TripCard } from './trip-card';
 
 @Component({
   imports: [TripCard],
-  template: `<app-trip-card [trip]="trip()" [state]="state()" (deleted)="deleted = deleted + 1" />`,
+  template: `<app-trip-card
+    [trip]="trip()"
+    [figures]="figures()"
+    (deleted)="deleted = deleted + 1"
+  />`,
 })
 class Host {
   readonly trip = signal<Trip>(TRIP);
-  readonly state = signal<FigureState>({ status: 'loading' });
+  readonly figures = signal<TripFigures | null>(null);
   deleted = 0;
 }
 
-function ready(overrides: Partial<TripFigures> = {}): FigureState {
+/** Figures as the API delivers them: the car share and percentage derive from the two CO2 values. */
+function ready(overrides: Partial<TripFigures> = {}): TripFigures {
+  const base = { co2Kg: 44, carCo2Kg: 115.7 as number | null, ...overrides };
+  const hasCar = base.carCo2Kg !== null && base.carCo2Kg > 0;
   return {
-    status: 'ready',
-    figures: {
-      currency: 'EUR',
-      cost: 150.8,
-      co2Kg: 44,
-      carCo2Kg: 115.7,
-      mode: 'TRAIN',
-      modes: ['TRAIN'],
-      legModes: ['TRAIN'],
-      ...overrides,
-    },
+    currency: 'EUR',
+    cost: 150.8,
+    co2Kg: base.co2Kg,
+    carCo2Kg: base.carCo2Kg,
+    co2VsCarPercent: hasCar ? Math.round((base.co2Kg / base.carCo2Kg! - 1) * 100) : null,
+    co2ShareOfCar: hasCar ? Math.min(base.co2Kg / base.carCo2Kg!, 1) : null,
+    mode: 'TRAIN',
+    modes: ['TRAIN'],
+    legModes: ['TRAIN'],
+    ...overrides,
   };
 }
 
 describe('TripCard', () => {
-  async function render(state: FigureState, trip: Trip = TRIP): Promise<HTMLElement> {
+  async function render(figures: TripFigures | null, trip: Trip = TRIP): Promise<HTMLElement> {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
     const fixture = TestBed.createComponent(Host);
-    fixture.componentInstance.state.set(state);
+    fixture.componentInstance.figures.set(figures);
     fixture.componentInstance.trip.set(trip);
     await fixture.whenStable();
     return (fixture.nativeElement as HTMLElement).querySelector('article')!;
@@ -80,20 +86,13 @@ describe('TripCard', () => {
     expect(card.classList.contains('trip--amber')).toBe(false);
   });
 
-  it('shows a busy placeholder while loading and an untinted card', async () => {
-    const card = await render({ status: 'loading' });
+  it('says so and leaves the card untinted when no route is available', async () => {
+    const card = await render(null);
 
-    expect(card.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(card.textContent).toContain('No available route');
     expect(card.querySelector('.trip__value')).toBeNull();
     expect(card.classList.contains('trip--lime')).toBe(false);
-  });
-
-  it('says so when the figures failed or no route exists', async () => {
-    expect((await render({ status: 'failed' })).textContent).toContain('Figures unavailable');
-    TestBed.resetTestingModule();
-    expect((await render({ status: 'ready', figures: null })).textContent).toContain(
-      'No available route',
-    );
+    expect(card.classList.contains('trip--amber')).toBe(false);
   });
 
   it('opens the trip from the whole card: one link, no other tab stop for it', async () => {
@@ -124,7 +123,7 @@ describe('TripCard', () => {
   it('asks before deleting from the quick action and emits only on confirmation', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
     const fixture = TestBed.createComponent(Host);
-    fixture.componentInstance.state.set(ready());
+    fixture.componentInstance.figures.set(ready());
     await fixture.whenStable();
     const card = (fixture.nativeElement as HTMLElement).querySelector('article')!;
 
@@ -163,8 +162,8 @@ describe('TripCard', () => {
     );
   });
 
-  it('draws only the dots while the figures load', async () => {
-    const card = await render({ status: 'loading' });
+  it('draws only the dots when no route is available', async () => {
+    const card = await render(null);
 
     expect(card.querySelectorAll('app-trip-route .dot')).toHaveLength(2);
     expect(card.querySelectorAll('app-trip-route app-mode-icon')).toHaveLength(0);

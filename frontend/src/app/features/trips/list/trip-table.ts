@@ -1,18 +1,18 @@
 import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, input, model, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, model, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Trip, TripPriority } from '../../../core/api/models';
 import { ModeIcon } from '../../../shared/ui/mode-icon';
 import { PRIORITY_LABELS } from '../../../shared/util/labels';
-import { TripEntry, figuresOf, modeSummary } from './trip-figures';
-import { DEFAULT_SORT, SortKey, TripSort, sortTrips, toggleSort } from './trip-filters';
+import { TripEntry, modeSummary } from './trip-figures';
+import { DEFAULT_SORT, SortKey, TripSort, toggleSort } from './trip-filters';
 import { TripActions } from './trip-actions';
 import { TripMenu } from './trip-menu';
 import { TripMove } from './trip-move';
 
 /**
- * Trips as a compact table, one row each, sortable by date, cost and CO₂ (the header buttons;
- * `aria-sort` on the active header cell). The whole row opens the trip: the title link is
+ * Trips as a compact table, one row each, in the order the API sorted them; the header buttons
+ * (date, cost, CO₂) change the page's sort and `aria-sort` marks the active one. The whole row opens the trip: the title link is
  * stretched over it. On narrow screens the date, route, mode and CO₂ columns fold into a second
  * line under the title.
  */
@@ -32,9 +32,7 @@ export class TripTable {
   readonly moved = output<TripMove>();
 
   protected readonly priorityLabels = PRIORITY_LABELS;
-  protected readonly figuresOf = figuresOf;
   protected readonly modeSummary = modeSummary;
-  protected readonly rows = computed(() => sortTrips(this.entries(), this.sort()));
 
   protected move(trip: Trip, priority: TripPriority): void {
     this.moved.emit({ trip, priority, focus: true });

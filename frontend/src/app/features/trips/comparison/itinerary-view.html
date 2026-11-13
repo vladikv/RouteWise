@@ -85,7 +85,7 @@
           } @else {
             <td colspan="3" class="reason">
               <span class="reason__icon" aria-hidden="true">⊘</span>
-              {{ unavailableTotalsText(totals.unavailableCode, totals.unavailableReason) }}
+              Not available
             </td>
           }
         </tr>
@@ -93,6 +93,9 @@
     </tbody>
   </table>
 </div>
+@for (group of data.unavailableGroups; track $index) {
+  <p class="muted"><span aria-hidden="true">⊘</span> {{ group.message }}</p>
+}
 
 <h3>Each leg in detail</h3>
 @for (item of legs(); track item.leg.index) {

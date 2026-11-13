@@ -3,12 +3,15 @@ package com.routewise.trip.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 
 import com.routewise.city.domain.City;
 import com.routewise.city.repository.CityRepository;
+import com.routewise.common.config.ClockConfig;
+import com.routewise.common.config.JpaAuditingConfig;
 import com.routewise.transportmode.domain.TransportMode;
 import com.routewise.transportmode.domain.TransportModeCode;
 import com.routewise.transportmode.repository.TransportModeRepository;
@@ -23,12 +26,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
+import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 
 /**
  * Runs against the real Flyway schema and seed data (ddl-auto=validate).
  */
 @DataJpaTest
+@Import({JpaAuditingConfig.class, ClockConfig.class})
 class TripRepositoryTest {
 
     @Autowired
@@ -75,7 +82,7 @@ class TripRepositoryTest {
     }
 
     @Test
-    void findAllByOwnerId_returnsOnlyThatOwnersTripsSoonestFirstWithCitiesLoaded() {
+    void findAllBySpecification_returnsOnlyThatOwnersTripsInTheGivenOrderWithCitiesLoaded() {
         tripRepository.save(trip(LocalDate.now().plusDays(30), "Paris", "Rome"));
         tripRepository.save(trip(LocalDate.now().plusDays(3), "Berlin", "Vienna"));
         Trip bobsTrip = trip(LocalDate.now().plusDays(1), "Lisbon", "Madrid");
@@ -84,10 +91,31 @@ class TripRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<Trip> trips = tripRepository.findAllByOwnerIdOrderByDepartureDateAscIdAsc(alice.getId());
+        List<Trip> trips = tripRepository.findAll(
+                Specification.allOf(TripSpecifications.ownedBy(alice.getId()), TripSpecifications.active()),
+                Sort.by("departureDate", "id"));
 
         assertThat(trips).extracting(trip -> trip.stopCities().getFirst().getName())
                 .containsExactly("Berlin", "Paris");
+    }
+
+    @Test
+    void deletedTrips_areLeftOutOfActiveQueries_butFoundForRestore() {
+        Trip kept = tripRepository.save(trip(LocalDate.now().plusDays(3), "Berlin", "Vienna"));
+        Trip deleted = trip(LocalDate.now().plusDays(4), "Paris", "Rome");
+        deleted.markDeleted(Instant.parse("2026-11-13T10:00:00Z"));
+        deleted = tripRepository.save(deleted);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(tripRepository.findAll(
+                        Specification.allOf(TripSpecifications.ownedBy(alice.getId()), TripSpecifications.active()),
+                        Sort.unsorted()))
+                .extracting(Trip::getId).containsExactly(kept.getId());
+        assertThat(tripRepository.findActiveByIdAndOwnerId(deleted.getId(), alice.getId()))
+                .isEmpty();
+        assertThat(tripRepository.findWithStopsByIdAndOwnerId(deleted.getId(), alice.getId()))
+                .get().extracting(Trip::getDeletedAt).isNotNull();
     }
 
     @Test

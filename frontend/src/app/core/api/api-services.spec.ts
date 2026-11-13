@@ -37,14 +37,61 @@ describe('API services', () => {
       priority: 'GREENEST',
     };
 
-    it('lists and loads trips', () => {
+    it('searches trips without params by default', () => {
+      TestBed.inject(TripApi).search().subscribe();
+
+      const call = httpTesting.expectOne((req) => req.url === `${BASE}/api/trips`);
+      expect(call.request.method).toBe('GET');
+      expect(call.request.params.keys()).toEqual([]);
+    });
+
+    it('sends search params, repeating priority and mode', () => {
+      TestBed.inject(TripApi)
+        .search({
+          q: 'vienna',
+          priority: ['FASTEST', 'GREENEST'],
+          mode: ['TRAIN', 'BUS'],
+          sort: 'cost',
+          direction: 'desc',
+          page: 0,
+          size: 100,
+        })
+        .subscribe();
+
+      const params = httpTesting.expectOne((req) => req.url === `${BASE}/api/trips`).request.params;
+      expect(params.get('q')).toBe('vienna');
+      expect(params.getAll('priority')).toEqual(['FASTEST', 'GREENEST']);
+      expect(params.getAll('mode')).toEqual(['TRAIN', 'BUS']);
+      expect(params.get('sort')).toBe('cost');
+      expect(params.get('direction')).toBe('desc');
+      expect(params.get('page')).toBe('0');
+      expect(params.get('size')).toBe('100');
+    });
+
+    it('does not send empty values', () => {
+      TestBed.inject(TripApi)
+        .search({ q: '', priority: [], mode: [], from: undefined, size: 100 })
+        .subscribe();
+
+      const params = httpTesting.expectOne((req) => req.url === `${BASE}/api/trips`).request.params;
+      expect(params.keys()).toEqual(['size']);
+    });
+
+    it('loads stats and a single trip', () => {
       const api = TestBed.inject(TripApi);
 
-      api.findAll().subscribe();
+      api.stats().subscribe();
       api.findById(7).subscribe();
 
-      expect(httpTesting.expectOne(`${BASE}/api/trips`).request.method).toBe('GET');
+      expect(httpTesting.expectOne(`${BASE}/api/trips/stats`).request.method).toBe('GET');
       expect(httpTesting.expectOne(`${BASE}/api/trips/7`).request.method).toBe('GET');
+    });
+
+    it('restores a deleted trip with an empty POST', () => {
+      TestBed.inject(TripApi).restore(7).subscribe();
+
+      const call = httpTesting.expectOne({ method: 'POST', url: `${BASE}/api/trips/7/restore` });
+      expect(call.request.body).toBeNull();
     });
 
     it('creates, updates and deletes trips', () => {

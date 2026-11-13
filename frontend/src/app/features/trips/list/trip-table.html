@@ -25,9 +25,9 @@
     </tr>
   </thead>
   <tbody>
-    @for (entry of rows(); track entry.trip.id) {
+    @for (entry of entries(); track entry.trip.id) {
       @let trip = entry.trip;
-      @let plan = figuresOf(entry);
+      @let plan = entry.figures;
       <tr
         class="row"
         [class.row--moving]="movingIds().has(trip.id)"
@@ -63,29 +63,15 @@
               }
               {{ modeSummary(figures) }}
             </span>
-          } @else if (entry.state.status === 'ready') {
+          } @else {
             <span class="muted">No available route</span>
           }
         </td>
         <td class="num">
-          @switch (entry.state.status) {
-            @case ('loading') {
-              <span class="trip__placeholder" aria-busy="true">
-                <span class="visually-hidden">Loading figures</span>
-              </span>
-            }
-            @case ('failed') {
-              <span class="muted">Figures unavailable</span>
-            }
-            @default {
-              @if (plan; as figures) {
-                <strong>{{
-                  figures.cost | currency: figures.currency : 'symbol' : '1.0-0'
-                }}</strong>
-              } @else {
-                <span class="muted narrow-only">No available route</span>
-              }
-            }
+          @if (plan; as figures) {
+            <strong>{{ figures.cost | currency: figures.currency : 'symbol' : '1.0-0' }}</strong>
+          } @else {
+            <span class="muted narrow-only">No available route</span>
           }
         </td>
         <td class="num wide-only">

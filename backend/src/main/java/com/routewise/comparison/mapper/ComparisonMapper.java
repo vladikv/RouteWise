@@ -11,23 +11,28 @@ import com.routewise.comparison.domain.Leg;
 import com.routewise.comparison.domain.ModeOption;
 import com.routewise.comparison.domain.ModeParameters;
 import com.routewise.comparison.domain.ModeTotals;
+import com.routewise.comparison.domain.RoutePlan;
+import com.routewise.comparison.domain.UnavailableGroup;
 import com.routewise.comparison.dto.ComparisonResponse;
 import com.routewise.comparison.dto.ItineraryTotalsResponse;
 import com.routewise.comparison.dto.LegResponse;
 import com.routewise.comparison.dto.ModeOptionResponse;
 import com.routewise.comparison.dto.ModeTotalsResponse;
+import com.routewise.comparison.dto.UnavailableGroupResponse;
 import com.routewise.comparison.dto.WeatherSummary;
 import com.routewise.transportmode.domain.TransportMode;
 import com.routewise.trip.domain.TripPriority;
 import com.routewise.weather.domain.LocationForecast;
 import com.routewise.weather.domain.WeatherForecast;
+import com.routewise.weather.domain.WeatherReport;
 
 import org.springframework.stereotype.Component;
 
 @Component
 public class ComparisonMapper {
 
-    static final String CURRENCY = "EUR";
+    /** All prices are in this currency. */
+    public static final String CURRENCY = "EUR";
 
     public ModeParameters toParameters(TransportMode mode) {
         return new ModeParameters(mode.getCode(), mode.getAvgSpeedKmh(), mode.getCostPerKm(),
@@ -39,8 +44,9 @@ public class ComparisonMapper {
      * @param tripId {@code null} for a comparison that does not belong to a stored trip
      */
     public ComparisonResponse toResponse(Long tripId, LocalDate departureDate, int travelers, TripPriority priority,
-                                         List<LocationForecast> forecasts, List<Leg> legs,
-                                         ItineraryTotals recommendedItinerary, List<ModeTotals> singleModeTotals) {
+                                         WeatherReport weather, RoutePlan plan) {
+        List<Leg> legs = plan.legs();
+        ItineraryTotals recommendedItinerary = plan.recommendedItinerary();
         double distanceKm = legs.stream().mapToDouble(Leg::greatCircleKm).sum();
         return new ComparisonResponse(
                 tripId,
@@ -49,20 +55,31 @@ public class ComparisonMapper {
                 priority,
                 oneDecimal(distanceKm),
                 CURRENCY,
-                forecasts.stream().map(ComparisonMapper::toSummary).toList(),
-                IntStream.range(0, legs.size()).mapToObj(i -> toResponse(i, legs.get(i))).toList(),
+                weather.forecasts().stream().map(ComparisonMapper::toSummary).toList(),
+                weather.status(),
+                IntStream.range(0, legs.size())
+                        .mapToObj(i -> toResponse(i, legs.get(i), plan.legUnavailable().get(i)))
+                        .toList(),
                 recommendedItinerary == null ? null : toResponse(recommendedItinerary),
-                singleModeTotals.stream().map(ComparisonMapper::toResponse).toList());
+                plan.singleModeTotals().stream().map(ComparisonMapper::toResponse).toList(),
+                toResponses(plan.totalsUnavailable()));
     }
 
-    private static LegResponse toResponse(int index, Leg leg) {
+    private static LegResponse toResponse(int index, Leg leg, List<UnavailableGroup> unavailable) {
         return new LegResponse(
                 index,
                 leg.from(),
                 leg.to(),
                 oneDecimal(leg.greatCircleKm()),
                 leg.options().stream().map(ComparisonMapper::toResponse).toList(),
-                leg.recommended().map(ModeOption::mode).orElse(null));
+                leg.recommended().map(ModeOption::mode).orElse(null),
+                toResponses(unavailable));
+    }
+
+    private static List<UnavailableGroupResponse> toResponses(List<UnavailableGroup> groups) {
+        return groups.stream()
+                .map(group -> new UnavailableGroupResponse(group.code(), group.modes(), group.message()))
+                .toList();
     }
 
     private static ItineraryTotalsResponse toResponse(ItineraryTotals totals) {

@@ -45,6 +45,8 @@ import com.routewise.user.TestUsers;
 import com.routewise.weather.domain.Location;
 import com.routewise.weather.domain.LocationForecast;
 import com.routewise.weather.domain.WeatherForecast;
+import com.routewise.weather.domain.WeatherReport;
+import com.routewise.weather.domain.WeatherStatus;
 import com.routewise.weather.service.WeatherService;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -86,16 +88,17 @@ class ComparisonServiceTest {
     @BeforeEach
     void setUp() {
         comparisonService = new ComparisonService(tripRepository, new StopResolver(cityRepository),
-                transportModeRepository, weatherService, new ComparisonEngine(), new ItineraryCalculator(),
+                transportModeRepository, weatherService,
+                new RoutePlanner(new ComparisonEngine(), new ItineraryCalculator(), new UnavailableGrouper()),
                 new ComparisonMapper(), CLOCK);
     }
 
     @Test
     void compare_threeStops_returnsTwoLegsWithOneRecommendationEach() {
-        when(tripRepository.findWithStopsByIdAndOwnerId(1L, TestUsers.ALICE_ID))
+        when(tripRepository.findActiveByIdAndOwnerId(1L, TestUsers.ALICE_ID))
                 .thenReturn(Optional.of(trip(berlin, prague, vienna)));
         when(transportModeRepository.findAll()).thenReturn(seededModes());
-        when(weatherService.forecasts(anyList(), eq(DEPARTURE))).thenReturn(List.of());
+        when(weatherService.report(anyList(), eq(DEPARTURE))).thenReturn(weather());
 
         ComparisonResponse response = comparisonService.compare(1L, TestUsers.ALICE_ID);
 
@@ -117,10 +120,10 @@ class ComparisonServiceTest {
 
     @Test
     void compare_itineraryTotalsAreTheSumOfEachLegsRecommendation() {
-        when(tripRepository.findWithStopsByIdAndOwnerId(1L, TestUsers.ALICE_ID))
+        when(tripRepository.findActiveByIdAndOwnerId(1L, TestUsers.ALICE_ID))
                 .thenReturn(Optional.of(trip(berlin, prague, vienna)));
         when(transportModeRepository.findAll()).thenReturn(seededModes());
-        when(weatherService.forecasts(anyList(), eq(DEPARTURE))).thenReturn(List.of());
+        when(weatherService.report(anyList(), eq(DEPARTURE))).thenReturn(weather());
 
         ComparisonResponse response = comparisonService.compare(1L, TestUsers.ALICE_ID);
 
@@ -145,12 +148,12 @@ class ComparisonServiceTest {
 
     @Test
     void compare_appliesEachLegsOwnWeather() {
-        when(tripRepository.findWithStopsByIdAndOwnerId(1L, TestUsers.ALICE_ID))
+        when(tripRepository.findActiveByIdAndOwnerId(1L, TestUsers.ALICE_ID))
                 .thenReturn(Optional.of(trip(berlin, prague, vienna)));
         when(transportModeRepository.findAll()).thenReturn(seededModes());
         LocationForecast viennaSnow = new LocationForecast(new Location("Vienna", 48.2082, 16.3738),
                 new WeatherForecast(DEPARTURE, SNOW, -4.0, 1.0, 90, 20.0));
-        when(weatherService.forecasts(anyList(), eq(DEPARTURE))).thenReturn(List.of(viennaSnow));
+        when(weatherService.report(anyList(), eq(DEPARTURE))).thenReturn(weather(viennaSnow));
 
         ComparisonResponse response = comparisonService.compare(1L, TestUsers.ALICE_ID);
 
@@ -162,22 +165,22 @@ class ComparisonServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void compare_roundTrip_requestsWeatherOncePerCityOnTheDepartureDate() {
-        when(tripRepository.findWithStopsByIdAndOwnerId(1L, TestUsers.ALICE_ID))
+        when(tripRepository.findActiveByIdAndOwnerId(1L, TestUsers.ALICE_ID))
                 .thenReturn(Optional.of(trip(berlin, vienna, berlin)));
         when(transportModeRepository.findAll()).thenReturn(seededModes());
-        when(weatherService.forecasts(anyList(), any())).thenReturn(List.of());
+        when(weatherService.report(anyList(), any())).thenReturn(weather());
 
         ComparisonResponse response = comparisonService.compare(1L, TestUsers.ALICE_ID);
 
         ArgumentCaptor<List<Location>> locations = ArgumentCaptor.forClass(List.class);
-        verify(weatherService).forecasts(locations.capture(), eq(DEPARTURE));
+        verify(weatherService).report(locations.capture(), eq(DEPARTURE));
         assertThat(locations.getValue()).extracting(Location::name).containsExactly("Berlin", "Vienna");
         assertThat(response.legs()).hasSize(2);
     }
 
     @Test
     void compare_whenTripMissing_throwsNotFoundWithoutCallingWeather() {
-        when(tripRepository.findWithStopsByIdAndOwnerId(42L, TestUsers.ALICE_ID)).thenReturn(Optional.empty());
+        when(tripRepository.findActiveByIdAndOwnerId(42L, TestUsers.ALICE_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> comparisonService.compare(42L, TestUsers.ALICE_ID))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -189,7 +192,7 @@ class ComparisonServiceTest {
     void preview_twoStops_comparesWithoutATrip() {
         knownCities(berlin, vienna);
         when(transportModeRepository.findAll()).thenReturn(seededModes());
-        when(weatherService.forecasts(anyList(), eq(DEPARTURE))).thenReturn(List.of());
+        when(weatherService.report(anyList(), eq(DEPARTURE))).thenReturn(weather());
 
         ComparisonResponse response = comparisonService.preview(request(DEPARTURE, 1L, 2L));
 
@@ -210,7 +213,7 @@ class ComparisonServiceTest {
         City newYork = TestCities.newYork();
         knownCities(paris, london, newYork);
         when(transportModeRepository.findAll()).thenReturn(seededModes());
-        when(weatherService.forecasts(anyList(), eq(DEPARTURE))).thenReturn(List.of());
+        when(weatherService.report(anyList(), eq(DEPARTURE))).thenReturn(weather());
 
         ComparisonResponse response = comparisonService.preview(request(DEPARTURE, 5L, 4L, 7L));
 
@@ -242,7 +245,7 @@ class ComparisonServiceTest {
     void preview_dublinToLondon_groundModesUnavailableAcrossTheIrishSea() {
         knownCities(TestCities.dublin(), TestCities.london());
         when(transportModeRepository.findAll()).thenReturn(seededModes());
-        when(weatherService.forecasts(anyList(), eq(DEPARTURE))).thenReturn(List.of());
+        when(weatherService.report(anyList(), eq(DEPARTURE))).thenReturn(weather());
 
         ComparisonResponse response = comparisonService.preview(request(DEPARTURE, 6L, 4L));
 
@@ -260,7 +263,7 @@ class ComparisonServiceTest {
         LocalDate today = LocalDate.of(2026, 11, 11);
         knownCities(berlin, vienna);
         when(transportModeRepository.findAll()).thenReturn(seededModes());
-        when(weatherService.forecasts(anyList(), eq(today))).thenReturn(List.of());
+        when(weatherService.report(anyList(), eq(today))).thenReturn(weather());
 
         assertThat(comparisonService.preview(request(today, 1L, 2L)).departureDate()).isEqualTo(today);
     }
@@ -333,5 +336,9 @@ class ComparisonServiceTest {
         ReflectionTestUtils.setField(mode, "maxDistanceKm", parameters.maxDistanceKm());
         ReflectionTestUtils.setField(mode, "longHaulCo2GramsPerKm", parameters.longHaulCo2GramsPerKm());
         return mode;
+    }
+
+    private static WeatherReport weather(LocationForecast... forecasts) {
+        return new WeatherReport(WeatherStatus.AVAILABLE, List.of(forecasts));
     }
 }

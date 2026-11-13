@@ -116,15 +116,6 @@ th[aria-sort='descending'] .sort {
   font-weight: 600;
 }
 
-.trip__placeholder {
-  display: inline-block;
-  width: 3.5rem;
-  height: 1.25rem;
-  border-radius: var(--radius-pill);
-  background: var(--color-border);
-  vertical-align: middle;
-}
-
 .trip__actions {
   width: 1%;
   white-space: nowrap;

@@ -70,7 +70,8 @@ class WeatherClientConfigTest {
 
     private WeatherClient client(Duration readTimeout) {
         WeatherProperties properties = new WeatherProperties(
-                URI.create("http://127.0.0.1:" + server.getAddress().getPort()), Duration.ofSeconds(1), readTimeout);
+                URI.create("http://127.0.0.1:" + server.getAddress().getPort()), Duration.ofSeconds(1), readTimeout,
+                Duration.ofHours(1));
         return new WeatherClientConfig().weatherClient(RestClient.builder(), properties);
     }
 

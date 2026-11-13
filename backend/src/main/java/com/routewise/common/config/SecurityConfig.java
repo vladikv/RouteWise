@@ -13,7 +13,7 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 
 /**
  * Session login for the API. Public: reference data, route previews, the auth
- * endpoints, API docs and the H2 console. Everything else under {@code /api}
+ * endpoints, the health check, API docs and the H2 console. Everything else under {@code /api}
  * needs a logged-in user. CSRF protection uses the SPA cookie pattern
  * ({@code XSRF-TOKEN} cookie, {@code X-XSRF-TOKEN} header). Authentication and
  * access errors are rendered by {@code GlobalExceptionHandler} as Problem Details.
@@ -27,7 +27,8 @@ public class SecurityConfig {
             @Qualifier("handlerExceptionResolver") HandlerExceptionResolver exceptionResolver) throws Exception {
         http
                 .authorizeHttpRequests(requests -> requests
-                        .requestMatchers(HttpMethod.GET, "/api/cities", "/api/transport-modes").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/cities", "/api/transport-modes", "/actuator/health")
+                        .permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/comparisons", "/api/auth/register", "/api/auth/login", "/api/auth/logout")
                         .permitAll()

@@ -46,8 +46,9 @@ API documentation: http://localhost:8087/swagger-ui.html
 
 RouteWise gives estimates for comparing options, not quotes or timetables.
 
-- **Cities:** about 150 capitals and major transport hubs on every continent,
-  seeded by Flyway migrations (`V2`, `V7`; flight factors in `V8`). Coordinates are city centres.
+- **Cities:** 149 capitals and major transport hubs on every continent,
+  seeded by Flyway migrations (`V2`, `V7`; flight factors in `V8`; Moscow
+  removed again in `V10`). Coordinates are city centres.
 - **Distance:** great-circle (haversine) distance between the cities, times a
   detour factor per mode (train 1.2; bus, car and bike 1.3; plane 1.0).
 - **Prices:** one cost per kilometre per mode, used worldwide. These are rough
@@ -66,4 +67,14 @@ RouteWise gives estimates for comparing options, not quotes or timetables.
   boundary), long-haul 200 g above it. The factor depends on the leg's distance.
 - **Other CO₂ and speeds:** typical European averages per mode (car per
   vehicle, shared by up to five travellers; others per traveller).
+- **Weather:** Open-Meteo forecasts for today and the next 15 days, cached per
+  city and date for an hour (`ROUTEWISE_WEATHER_CACHE_TTL`). A failed call is
+  retried once; if the forecast is still missing the comparison works without
+  it and says so (`weatherStatus`).
+- **Trip list and KPIs:** the figures on the Trips page (cost, CO₂, CO₂ against
+  the car, average cost, CO₂ saved) are computed **without weather**, so the
+  list needs no external call. For a trip in the next two weeks the details
+  page, which does use the weather, can recommend another mode (e.g. no bike in
+  rain).
+- **Deleted trips** can be restored for 30 seconds (`ROUTEWISE_TRIPS_RESTORE_WINDOW`).
 - **Map:** land and borders from Natural Earth 1:110m (public domain).

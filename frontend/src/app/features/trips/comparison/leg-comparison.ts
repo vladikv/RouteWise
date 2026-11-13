@@ -3,6 +3,7 @@ import {
   Comparison,
   ModeOption,
   TripPriority,
+  UnavailableGroup,
   WeatherSummary,
 } from '../../../core/api/models';
 
@@ -23,6 +24,8 @@ export interface LegComparison {
   weather: WeatherSummary[];
   /** Available modes best first, then unavailable ones. */
   options: ModeOption[];
+  /** One sentence per reason why modes are unavailable on this leg, worded by the API. */
+  unavailableGroups: UnavailableGroup[];
 }
 
 export function legComparison(comparison: Comparison, index: number): LegComparison {
@@ -39,5 +42,6 @@ export function legComparison(comparison: Comparison, index: number): LegCompari
       (item) => item.city === leg.from.name || item.city === leg.to.name,
     ),
     options: leg.options,
+    unavailableGroups: leg.unavailableGroups,
   };
 }

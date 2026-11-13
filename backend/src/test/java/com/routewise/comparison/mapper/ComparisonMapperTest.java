@@ -11,17 +11,22 @@ import com.routewise.comparison.domain.ItineraryTotals;
 import com.routewise.comparison.domain.Leg;
 import com.routewise.comparison.domain.ModeOption;
 import com.routewise.comparison.domain.ModeTotals;
+import com.routewise.comparison.domain.RoutePlan;
 import com.routewise.comparison.domain.UnavailableCode;
+import com.routewise.comparison.domain.UnavailableGroup;
 import com.routewise.comparison.dto.ComparisonResponse;
 import com.routewise.comparison.dto.LegResponse;
 import com.routewise.comparison.dto.ModeOptionResponse;
 import com.routewise.comparison.dto.ModeTotalsResponse;
+import com.routewise.comparison.dto.UnavailableGroupResponse;
 import com.routewise.transportmode.domain.TransportModeCode;
 import com.routewise.trip.domain.TripPriority;
 import com.routewise.weather.domain.Location;
 import com.routewise.weather.domain.LocationForecast;
 import com.routewise.weather.domain.WeatherForecast;
 import com.routewise.weather.domain.WeatherHazard;
+import com.routewise.weather.domain.WeatherReport;
+import com.routewise.weather.domain.WeatherStatus;
 
 import org.junit.jupiter.api.Test;
 
@@ -45,16 +50,24 @@ class ComparisonMapperTest {
         ItineraryTotals plan = new ItineraryTotals(List.of(TransportModeCode.TRAIN, TransportModeCode.TRAIN), 746,
                 new BigDecimal("301.56"), new BigDecimal("88.0"));
 
-        ComparisonResponse response = mapper.toResponse(1L, DEPARTURE, 3, TripPriority.FASTEST, List.of(vienna),
-                List.of(there, back), plan, List.of(new ModeTotals(TransportModeCode.TRAIN, plan, null, null),
+        UnavailableGroup landmass = new UnavailableGroup(UnavailableCode.DIFFERENT_LANDMASS,
+                List.of(TransportModeCode.BIKE),
+                "Not possible for the whole trip: bike (no land route between Berlin and Vienna)");
+        RoutePlan routePlan = new RoutePlan(List.of(there, back), plan,
+                List.of(new ModeTotals(TransportModeCode.TRAIN, plan, null, null),
                         new ModeTotals(TransportModeCode.BIKE, null, UnavailableCode.DIFFERENT_LANDMASS,
-                                "Leg 1 (Berlin to Vienna): too far")));
+                                "Leg 1 (Berlin to Vienna): too far")),
+                List.of(List.of(), List.of()), List.of(landmass));
+
+        ComparisonResponse response = mapper.toResponse(1L, DEPARTURE, 3, TripPriority.FASTEST,
+                new WeatherReport(WeatherStatus.PARTIAL, List.of(vienna)), routePlan);
 
         assertThat(response.tripId()).isEqualTo(1L);
         assertThat(response.departureDate()).isEqualTo(DEPARTURE);
         assertThat(response.travelers()).isEqualTo(3);
         assertThat(response.priority()).isEqualTo(TripPriority.FASTEST);
         assertThat(response.currency()).isEqualTo("EUR");
+        assertThat(response.weatherStatus()).isEqualTo(WeatherStatus.PARTIAL);
         // 523.549 + 523.549 = 1047.098
         assertThat(response.distanceKm()).isEqualByComparingTo("1047.1");
         assertThat(response.weather()).singleElement().satisfies(weather -> {
@@ -80,6 +93,10 @@ class ComparisonMapperTest {
                         new BigDecimal("88.0")),
                 new ModeTotalsResponse(TransportModeCode.BIKE, false, UnavailableCode.DIFFERENT_LANDMASS,
                         "Leg 1 (Berlin to Vienna): too far", null, null, null));
+        assertThat(response.unavailableGroups()).containsExactly(new UnavailableGroupResponse(
+                UnavailableCode.DIFFERENT_LANDMASS, List.of(TransportModeCode.BIKE),
+                "Not possible for the whole trip: bike (no land route between Berlin and Vienna)"));
+        assertThat(first.unavailableGroups()).isEmpty();
     }
 
     @Test
@@ -87,13 +104,20 @@ class ComparisonMapperTest {
         ModeOption bike = new ModeOption(TransportModeCode.BIKE, false, UnavailableCode.TOO_FAR, "too far", 680, null, null, null, 0, false,
                 List.of());
 
-        ComparisonResponse response = mapper.toResponse(null, DEPARTURE, 1, TripPriority.BALANCED, List.of(),
-                List.of(new Leg(BERLIN, VIENNA, 523.5, List.of(bike))), null, List.of());
+        UnavailableGroup tooFar = new UnavailableGroup(UnavailableCode.TOO_FAR, List.of(TransportModeCode.BIKE),
+                "Too far between Berlin and Vienna for: bike");
+        RoutePlan routePlan = new RoutePlan(List.of(new Leg(BERLIN, VIENNA, 523.5, List.of(bike))), null, List.of(),
+                List.of(List.of(tooFar)), List.of());
+
+        ComparisonResponse response = mapper.toResponse(null, DEPARTURE, 1, TripPriority.BALANCED,
+                new WeatherReport(WeatherStatus.OUT_OF_RANGE, List.of()), routePlan);
 
         assertThat(response.tripId()).isNull();
         assertThat(response.recommendedItinerary()).isNull();
         assertThat(response.legs().getFirst().recommendedMode()).isNull();
         assertThat(response.legs().getFirst().options().getFirst().unavailableCode())
                 .isEqualTo(UnavailableCode.TOO_FAR);
+        assertThat(response.legs().getFirst().unavailableGroups()).extracting(UnavailableGroupResponse::message)
+                .containsExactly("Too far between Berlin and Vienna for: bike");
     }
 }

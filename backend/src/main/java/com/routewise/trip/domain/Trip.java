@@ -10,6 +10,7 @@ import com.routewise.city.domain.City;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
@@ -23,11 +24,13 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Table(name = "trip")
+@EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -63,13 +66,18 @@ public class Trip {
     @Column(name = "owner_id", nullable = false, updatable = false)
     private Long ownerId;
 
-    @CreationTimestamp
+    @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    @UpdateTimestamp
+    @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    /** When the trip was deleted; {@code null} while it is active. */
+    @Column(name = "deleted_at")
+    @Setter(AccessLevel.NONE)
+    private Instant deletedAt;
 
     /**
      * Sets the ordered stops. Existing stop rows are reused position by position
@@ -91,6 +99,18 @@ public class Trip {
         while (stops.size() > cities.size()) {
             stops.removeLast();
         }
+    }
+
+    public void markDeleted(Instant at) {
+        deletedAt = at;
+    }
+
+    public void restore() {
+        deletedAt = null;
+    }
+
+    public boolean isDeleted() {
+        return deletedAt != null;
     }
 
     /** The stops' cities in order. */

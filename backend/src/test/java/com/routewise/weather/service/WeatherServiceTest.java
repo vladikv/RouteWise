@@ -16,6 +16,8 @@ import com.routewise.weather.client.WeatherClient;
 import com.routewise.weather.domain.Location;
 import com.routewise.weather.domain.LocationForecast;
 import com.routewise.weather.domain.WeatherForecast;
+import com.routewise.weather.domain.WeatherReport;
+import com.routewise.weather.domain.WeatherStatus;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,7 +50,10 @@ class WeatherServiceTest {
         when(weatherClient.fetchDailyForecast(eq(52.52), anyDouble(), eq(date))).thenReturn(Optional.of(forecast(date, 0)));
         when(weatherClient.fetchDailyForecast(eq(48.2082), anyDouble(), eq(date))).thenReturn(Optional.of(forecast(date, 61)));
 
-        List<LocationForecast> forecasts = weatherService.forecasts(List.of(BERLIN, VIENNA), date);
+        WeatherReport report = weatherService.report(List.of(BERLIN, VIENNA), date);
+        List<LocationForecast> forecasts = report.forecasts();
+
+        assertThat(report.status()).isEqualTo(WeatherStatus.AVAILABLE);
 
         assertThat(forecasts).extracting(forecast -> forecast.location().name()).containsExactly("Berlin", "Vienna");
         assertThat(forecasts.get(1).forecast().weatherCode()).isEqualTo(61);
@@ -61,8 +66,10 @@ class WeatherServiceTest {
                 .thenThrow(new ResourceAccessException("Read timed out"));
         when(weatherClient.fetchDailyForecast(eq(48.2082), anyDouble(), eq(date))).thenReturn(Optional.of(forecast(date, 0)));
 
-        assertThat(weatherService.forecasts(List.of(BERLIN, VIENNA), date))
-                .extracting(forecast -> forecast.location().name()).containsExactly("Vienna");
+        WeatherReport report = weatherService.report(List.of(BERLIN, VIENNA), date);
+
+        assertThat(report.status()).isEqualTo(WeatherStatus.PARTIAL);
+        assertThat(report.forecasts()).extracting(forecast -> forecast.location().name()).containsExactly("Vienna");
     }
 
     @Test
@@ -71,7 +78,7 @@ class WeatherServiceTest {
         when(weatherClient.fetchDailyForecast(anyDouble(), anyDouble(), eq(date)))
                 .thenThrow(new IllegalStateException("unexpected"));
 
-        assertThat(weatherService.forecasts(List.of(BERLIN, VIENNA), date)).isEmpty();
+        assertThat(weatherService.report(List.of(BERLIN, VIENNA), date).forecasts()).isEmpty();
     }
 
     @Test
@@ -79,13 +86,27 @@ class WeatherServiceTest {
         LocalDate date = TODAY.plusDays(3);
         when(weatherClient.fetchDailyForecast(anyDouble(), anyDouble(), eq(date))).thenReturn(Optional.empty());
 
-        assertThat(weatherService.forecasts(List.of(BERLIN), date)).isEmpty();
+        assertThat(weatherService.report(List.of(BERLIN), date).forecasts()).isEmpty();
+    }
+
+    @Test
+    void report_whenEveryCallTimesOut_isUnavailableInsteadOfFailing() {
+        LocalDate date = TODAY.plusDays(3);
+        when(weatherClient.fetchDailyForecast(anyDouble(), anyDouble(), eq(date)))
+                .thenThrow(new ResourceAccessException("Read timed out"));
+
+        WeatherReport report = weatherService.report(List.of(BERLIN, VIENNA), date);
+
+        assertThat(report.status()).isEqualTo(WeatherStatus.UNAVAILABLE);
+        assertThat(report.forecasts()).isEmpty();
     }
 
     @Test
     void forecasts_outsideForecastWindow_doesNotCallProvider() {
-        assertThat(weatherService.forecasts(List.of(BERLIN), TODAY.plusDays(16))).isEmpty();
-        assertThat(weatherService.forecasts(List.of(BERLIN), TODAY.minusDays(1))).isEmpty();
+        assertThat(weatherService.report(List.of(BERLIN), TODAY.plusDays(16)))
+                .isEqualTo(new WeatherReport(WeatherStatus.OUT_OF_RANGE, List.of()));
+        assertThat(weatherService.report(List.of(BERLIN), TODAY.minusDays(1)).status())
+                .isEqualTo(WeatherStatus.OUT_OF_RANGE);
         verifyNoInteractions(weatherClient);
     }
 

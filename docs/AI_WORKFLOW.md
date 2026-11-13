@@ -540,3 +540,33 @@ corrected manually, and why.
   neighbouring cities taking each other's clicks, 90 tab stops and page
   scroll trapped by the map. A reviewer pass against the real data is
   needed whenever a component's data grows by an order of magnitude.
+
+## feat/backend-depth
+
+**Delegated to AI**
+- Milestone planning in docs/PLAN.md, with two human decisions asked up front: weather-free list figures computed in memory, and approval of Caffeine, Actuator and ArchUnit (main session).
+- Implementation in 13 commits (main session):
+  - JPA auditing via the injected clock, ArchUnit layering rules, soft delete with a restore window (V9), Moscow removal (V10).
+  - Grouped unavailable-mode sentences via a pure `RoutePlanner` shared by comparisons and trip figures.
+  - Weather cache, retry and `weatherStatus`; `/actuator/health`.
+  - Server-side trip search with Specifications, facets and stats.
+  - Frontend switched to the new endpoints.
+- Tests: `test-writer` wrote the search, specification, figures and stats suites (98 tests) and rewrote the Trips page, drag and comparison specs for the new HTTP flow.
+- Reviews: two `backend-reviewer` passes (no 🔴; the 🟡 items were fixed). Final results: 437 backend tests, 478 UI tests, lint and build green.
+
+**Corrected manually / human decisions**
+- Human decisions: weather-free list figures computed in memory, keeping "comparison computed, not stored"; the three dependencies.
+- `@Retryable` on the weather client never fired. The cache and retry proxies were JDK interface proxies, so the interceptor saw the unannotated interface method. `WeatherClientResilienceTest` caught it, and the proxies are now class-based.
+- The priority filter runs in memory, not as a Specification as first planned, because the priority facet must count every priority anyway. The plan was corrected.
+- After the first review: the restore window must be at least 1 s, the active-trip lookup got a short `@Query` name, and an ArchUnit rule for repositories was added.
+- After the second review: unused criteria field removed, conversion-error tests (unknown enum, malformed date, upper-case sort) added, an over-lenient service test dropped.
+- Three UI bugs found by the test agent were fixed:
+  - A card moved optimistically into a column the API counted as empty was hidden until the reload.
+  - "Clear filters" sent a redundant request.
+  - Switching views re-sent the same search.
+- A sed-based import edit broke one test file and was fixed by hand. Shell heredocs with nested quotes failed, so larger edits went through script files instead.
+
+**Why**
+- Moving business logic to the backend touched every layer at once. Splitting it into domain-sized commits, each with its own tests, and running reviews and test agents in parallel kept each step verifiable.
+- The retry bug only showed up in a test that wires the real Spring proxies. A unit test of the client alone would have passed.
+

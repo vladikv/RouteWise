@@ -12,6 +12,8 @@ import java.util.concurrent.Future;
 import com.routewise.weather.client.WeatherClient;
 import com.routewise.weather.domain.Location;
 import com.routewise.weather.domain.LocationForecast;
+import com.routewise.weather.domain.WeatherReport;
+import com.routewise.weather.domain.WeatherStatus;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,12 +42,25 @@ public class WeatherService {
 
     /**
      * Fetches forecasts for all locations in parallel. Locations without a
-     * forecast are left out; the result keeps the input order.
+     * forecast are left out; the forecasts keep the input order. The status says
+     * whether every, some or no location got one, or the date is out of range.
      */
-    public List<LocationForecast> forecasts(List<Location> locations, LocalDate date) {
+    public WeatherReport report(List<Location> locations, LocalDate date) {
         if (!isWithinForecastWindow(date)) {
-            return List.of();
+            return new WeatherReport(WeatherStatus.OUT_OF_RANGE, List.of());
         }
+        List<LocationForecast> forecasts = fetchAll(locations, date);
+        return new WeatherReport(status(forecasts.size(), locations.size()), forecasts);
+    }
+
+    private static WeatherStatus status(int found, int requested) {
+        if (found == requested) {
+            return WeatherStatus.AVAILABLE;
+        }
+        return found == 0 ? WeatherStatus.UNAVAILABLE : WeatherStatus.PARTIAL;
+    }
+
+    private List<LocationForecast> fetchAll(List<Location> locations, LocalDate date) {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Future<Optional<LocationForecast>>> futures = locations.stream()
                     .map(location -> executor.submit(() -> forecast(location, date)))

@@ -1,20 +1,37 @@
-import { Comparison, Trip } from '../../../core/api/models';
-import { COMPARISON, MULTI_COMPARISON } from '../comparison/comparison.testing';
+import { TripListItem, TripPage, TripPriority } from '../../../core/api/models';
 import { TRIP } from '../trip-form.testing';
-import {
-  FigureState,
-  TripEntry,
-  TripFigures,
-  co2ShareOfCar,
-  co2VsCarPercent,
-  figuresOf,
-  filterTrips,
-  groupByPriority,
-  modeSummary,
-  tintFor,
-  tripFigures,
-  tripKpis,
-} from './trip-figures';
+import { TripFigures, boardColumns, modeSummary, tintFor, tripEntries } from './trip-figures';
+
+function item(id: number, overrides: Partial<TripListItem> = {}): TripListItem {
+  return {
+    ...TRIP,
+    id,
+    figures: {
+      totalCost: 100,
+      co2Kg: 10,
+      carCo2Kg: 50,
+      co2VsCarPercent: -80,
+      co2ShareOfCar: 0.2,
+      modes: ['TRAIN'],
+      legModes: ['TRAIN'],
+    },
+    ...overrides,
+  };
+}
+
+function page(items: TripListItem[], overrides: Partial<TripPage> = {}): TripPage {
+  return {
+    items,
+    page: 0,
+    size: 100,
+    totalItems: items.length,
+    totalPages: 1,
+    currency: 'EUR',
+    facets: { priorities: [], modes: [] },
+    priorityTotals: [],
+    ...overrides,
+  };
+}
 
 function figures(overrides: Partial<TripFigures> = {}): TripFigures {
   return {
@@ -22,6 +39,8 @@ function figures(overrides: Partial<TripFigures> = {}): TripFigures {
     cost: 100,
     co2Kg: 10,
     carCo2Kg: 50,
+    co2VsCarPercent: -80,
+    co2ShareOfCar: 0.2,
     mode: 'TRAIN',
     modes: ['TRAIN'],
     legModes: ['TRAIN'],
@@ -29,247 +48,67 @@ function figures(overrides: Partial<TripFigures> = {}): TripFigures {
   };
 }
 
-function entry(id: number, state: FigureState, overrides: Partial<Trip> = {}): TripEntry {
-  return { trip: { ...TRIP, id, ...overrides }, state };
-}
+describe('tripEntries', () => {
+  it('splits each item into the trip and its figures, in API order', () => {
+    const entries = tripEntries(page([item(2), item(1)]));
 
-function ready(overrides: Partial<TripFigures> = {}): FigureState {
-  return { status: 'ready', figures: figures(overrides) };
-}
-
-const LOADING: FigureState = { status: 'loading' };
-const FAILED: FigureState = { status: 'failed' };
-
-describe('tripFigures', () => {
-  it('reads cost, CO2, car CO2 and the single mode of a one-leg trip', () => {
-    expect(tripFigures(COMPARISON)).toEqual({
-      currency: 'EUR',
-      cost: 150.8,
-      co2Kg: 44,
-      carCo2Kg: 115.7,
-      mode: 'TRAIN',
-      modes: ['TRAIN'],
-      legModes: ['TRAIN'],
-    });
+    expect(entries.map((entry) => entry.trip.id)).toEqual([2, 1]);
+    expect(entries[0].trip).not.toHaveProperty('figures');
+    expect(entries[0].figures).toEqual(figures());
   });
 
   it('reports MIXED with the distinct modes in leg order when legs differ', () => {
-    const result = tripFigures(MULTI_COMPARISON);
+    const base = item(1).figures!;
+    const mixed = item(1, {
+      figures: { ...base, modes: ['TRAIN', 'BUS'], legModes: ['TRAIN', 'BUS', 'BUS'] },
+    });
 
-    expect(result?.mode).toBe('MIXED');
-    expect(result?.modes).toEqual(['TRAIN', 'BUS']);
-    expect(result?.cost).toBe(58);
-    expect(result?.co2Kg).toBe(17);
+    const [entry] = tripEntries(page([mixed]));
+
+    expect(entry.figures?.mode).toBe('MIXED');
+    expect(entry.figures?.modes).toEqual(['TRAIN', 'BUS']);
+    expect(entry.figures?.legModes).toEqual(['TRAIN', 'BUS', 'BUS']);
   });
 
-  it('names a single mode when every leg uses it', () => {
-    const comparison: Comparison = {
-      ...MULTI_COMPARISON,
-      recommendedItinerary: {
-        modes: ['PLANE', 'PLANE', 'PLANE'],
-        durationMinutes: 1,
-        totalCost: 1,
-        co2Kg: 1,
-      },
-    };
+  it('keeps a missing car figure as null', () => {
+    const base = item(1).figures!;
+    const noCar = item(1, {
+      figures: { ...base, carCo2Kg: null, co2VsCarPercent: null, co2ShareOfCar: null },
+    });
 
-    expect(tripFigures(comparison)).toMatchObject({ mode: 'PLANE', modes: ['PLANE'] });
-  });
+    const [entry] = tripEntries(page([noCar]));
 
-  it('has no car CO2 when car is absent from the totals', () => {
-    expect(tripFigures(MULTI_COMPARISON)?.carCo2Kg).toBeNull();
-  });
-
-  it('has no car CO2 when car is unavailable or has no figure', () => {
-    const unavailable: Comparison = {
-      ...COMPARISON,
-      singleModeTotals: [
-        {
-          mode: 'CAR',
-          available: false,
-          unavailableReason: 'too far',
-          unavailableCode: 'TOO_FAR',
-          durationMinutes: null,
-          totalCost: null,
-          co2Kg: null,
-        },
-      ],
-    };
-    const noFigure: Comparison = {
-      ...COMPARISON,
-      singleModeTotals: [
-        {
-          mode: 'CAR',
-          available: true,
-          unavailableReason: null,
-          unavailableCode: null,
-          durationMinutes: 1,
-          totalCost: 1,
-          co2Kg: null,
-        },
-      ],
-    };
-
-    expect(tripFigures(unavailable)?.carCo2Kg).toBeNull();
-    expect(tripFigures(noFigure)?.carCo2Kg).toBeNull();
-  });
-
-  it('is null when no itinerary is possible', () => {
-    expect(tripFigures({ ...COMPARISON, recommendedItinerary: null })).toBeNull();
-  });
-});
-
-describe('figuresOf', () => {
-  it('returns the figures only for a loaded trip', () => {
-    expect(figuresOf(entry(1, ready()))).toEqual(figures());
-    expect(figuresOf(entry(1, LOADING))).toBeNull();
-    expect(figuresOf(entry(1, FAILED))).toBeNull();
-    expect(figuresOf(entry(1, { status: 'ready', figures: null }))).toBeNull();
-  });
-});
-
-describe('tripKpis', () => {
-  it('sums the CO2 saved against the car and averages the cost', () => {
-    const kpis = tripKpis([
-      entry(1, ready({ cost: 100, co2Kg: 10, carCo2Kg: 50 })),
-      entry(2, ready({ cost: 200, co2Kg: 30, carCo2Kg: 40 })),
-    ]);
-
-    expect(kpis).toEqual({
-      planned: 2,
-      co2SavedKg: 50,
-      co2Trips: 2,
-      averageCost: 150,
-      currency: 'EUR',
-      leftOut: 0,
+    expect(entry.figures).toMatchObject({
+      carCo2Kg: null,
+      co2VsCarPercent: null,
+      co2ShareOfCar: null,
     });
   });
 
-  it('never counts a negative saving when the plan emits more than the car', () => {
-    const kpis = tripKpis([
-      entry(1, ready({ co2Kg: 90, carCo2Kg: 50 })),
-      entry(2, ready({ co2Kg: 10, carCo2Kg: 25 })),
-    ]);
-
-    expect(kpis.co2SavedKg).toBe(15);
+  it('has null figures for a trip without an available route', () => {
+    expect(tripEntries(page([item(1, { figures: null })]))[0].figures).toBeNull();
   });
 
-  it('leaves out failed, pending and car-less trips from CO2 and counts them', () => {
-    const kpis = tripKpis([
-      entry(1, ready({ cost: 100, co2Kg: 10, carCo2Kg: 50 })),
-      entry(2, ready({ cost: 300, carCo2Kg: null })),
-      entry(3, FAILED),
-      entry(4, LOADING),
-      entry(5, { status: 'ready', figures: null }),
-    ]);
-
-    expect(kpis.planned).toBe(5);
-    expect(kpis.co2Trips).toBe(1);
-    expect(kpis.co2SavedKg).toBe(40);
-    expect(kpis.leftOut).toBe(4);
-    expect(kpis.averageCost).toBe(200);
-  });
-
-  it('has no average and no currency when nothing loaded', () => {
-    const kpis = tripKpis([entry(1, FAILED), entry(2, LOADING)]);
-
-    expect(kpis).toMatchObject({
-      planned: 2,
-      co2SavedKg: 0,
-      averageCost: null,
-      currency: null,
-      leftOut: 2,
-    });
-  });
-
-  it('handles an empty list', () => {
-    expect(tripKpis([])).toMatchObject({ planned: 0, averageCost: null, leftOut: 0 });
+  it('returns nothing for an empty page', () => {
+    expect(tripEntries(page([]))).toEqual([]);
   });
 });
 
-describe('filterTrips', () => {
-  const berlin = entry(1, ready({ mode: 'TRAIN', modes: ['TRAIN'] }), {
-    title: 'Berlin to Vienna',
-    priority: 'GREENEST',
-  });
-  const paris = entry(2, ready({ mode: 'PLANE', modes: ['PLANE'] }), {
-    title: 'Weekend away',
-    priority: 'FASTEST',
-    stops: [
-      { cityId: 1, cityName: 'Madrid', country: 'ES', position: 0 },
-      { cityId: 2, cityName: 'Paris', country: 'FR', position: 1 },
-    ],
-  });
-  const elsewhere = [
-    { cityId: 5, cityName: 'Rome', country: 'IT', position: 0 },
-    { cityId: 6, cityName: 'Oslo', country: 'NO', position: 1 },
+describe('boardColumns', () => {
+  const totals = [
+    { priority: 'FASTEST' as TripPriority, count: 12, totalCost: 700 },
+    { priority: 'GREENEST' as TripPriority, count: 3, totalCost: 150 },
   ];
-  const mixed = entry(3, ready({ mode: 'MIXED', modes: ['TRAIN', 'BUS'] }), {
-    title: 'Loop',
-    priority: 'GREENEST',
-    stops: elsewhere,
-  });
-  const pending = entry(4, LOADING, {
-    title: 'Pending',
-    priority: 'CHEAPEST',
-    stops: elsewhere,
-  });
-  const all = [berlin, paris, mixed, pending];
-  const none = { search: '', priorities: [], modes: [] };
+  const items = [
+    item(1, { priority: 'GREENEST' }),
+    item(2, { priority: 'GREENEST' }),
+    item(3, { priority: 'FASTEST', figures: null }),
+  ];
+  const data = page(items, { priorityTotals: totals, currency: 'CHF' });
+  const entries = tripEntries(data);
 
-  it('keeps everything without filters', () => {
-    expect(filterTrips(all, none)).toEqual(all);
-  });
-
-  it('searches the title case-insensitively', () => {
-    expect(filterTrips(all, { ...none, search: 'VIENNA' })).toEqual([berlin]);
-  });
-
-  it('searches any stop city', () => {
-    expect(filterTrips(all, { ...none, search: ' madrid ' })).toEqual([paris]);
-  });
-
-  it('filters by selected priorities, any of them', () => {
-    expect(filterTrips(all, { ...none, priorities: ['GREENEST'] })).toEqual([berlin, mixed]);
-    expect(filterTrips(all, { ...none, priorities: ['FASTEST', 'CHEAPEST'] })).toEqual([
-      paris,
-      pending,
-    ]);
-  });
-
-  it('filters by a mode used on any leg', () => {
-    expect(filterTrips(all, { ...none, modes: ['BUS'] })).toEqual([mixed]);
-    expect(filterTrips(all, { ...none, modes: ['TRAIN'] })).toEqual([berlin, mixed]);
-    expect(filterTrips(all, { ...none, modes: ['PLANE', 'BUS'] })).toEqual([paris, mixed]);
-  });
-
-  it('hides trips without loaded figures once a mode is selected', () => {
-    const others = [pending, entry(5, FAILED), entry(6, { status: 'ready', figures: null })];
-
-    expect(filterTrips(others, { ...none, modes: ['TRAIN'] })).toEqual([]);
-    expect(filterTrips(others, none)).toEqual(others);
-  });
-
-  it('combines the filters', () => {
-    const result = filterTrips(all, {
-      search: 'loop',
-      priorities: ['GREENEST'],
-      modes: ['TRAIN'],
-    });
-
-    expect(result).toEqual([mixed]);
-    expect(filterTrips(all, { search: 'loop', priorities: ['FASTEST'], modes: [] })).toEqual([]);
-  });
-});
-
-describe('groupByPriority', () => {
-  it('returns the four columns in board order with counts and loaded totals', () => {
-    const columns = groupByPriority([
-      entry(1, ready({ cost: 100 }), { priority: 'GREENEST' }),
-      entry(2, ready({ cost: 50 }), { priority: 'GREENEST' }),
-      entry(3, LOADING, { priority: 'GREENEST' }),
-      entry(4, ready({ cost: 70 }), { priority: 'FASTEST' }),
-    ]);
+  it('returns the four columns in board order', () => {
+    const columns = boardColumns(entries, data, []);
 
     expect(columns.map((column) => column.priority)).toEqual([
       'FASTEST',
@@ -277,11 +116,55 @@ describe('groupByPriority', () => {
       'GREENEST',
       'BALANCED',
     ]);
-    expect(columns.map((column) => column.count)).toEqual([1, 0, 3, 0]);
-    expect(columns.map((column) => column.totalCost)).toEqual([70, 0, 150, 0]);
-    expect(columns[2].entries.map((item) => item.trip.id)).toEqual([1, 2, 3]);
-    expect(columns[2].currency).toBe('EUR');
+  });
+
+  it('takes the total cost from the API totals', () => {
+    const columns = boardColumns(entries, data, []);
+
+    expect(columns.map((column) => column.totalCost)).toEqual([700, 0, 150, 0]);
+  });
+
+  it('counts the cards while the page holds every matching trip, so a pending move shows at once', () => {
+    const columns = boardColumns(entries, data, []);
+
+    expect(columns.map((column) => column.count)).toEqual([1, 0, 2, 0]);
+  });
+
+  it('takes the counts from the API when matching trips are beyond this page', () => {
+    const partial = page(items, { priorityTotals: totals, currency: 'CHF', totalItems: 115 });
+
+    const columns = boardColumns(tripEntries(partial), partial, []);
+
+    expect(columns.map((column) => column.count)).toEqual([12, 0, 3, 0]);
+  });
+
+  it('puts the cards of each priority in their column, in order', () => {
+    const columns = boardColumns(entries, data, []);
+
+    expect(columns[2].entries.map((entry) => entry.trip.id)).toEqual([1, 2]);
+    expect(columns[0].entries.map((entry) => entry.trip.id)).toEqual([3]);
+    expect(columns[1].entries).toEqual([]);
+  });
+
+  it('falls back to the cards in the column when the API has no total for it', () => {
+    const columns = boardColumns(entries, page(items), []);
+
+    expect(columns.map((column) => column.count)).toEqual([1, 0, 2, 0]);
+    expect(columns.map((column) => column.totalCost)).toEqual([0, 0, 0, 0]);
+  });
+
+  it('gives a currency only to columns with at least one trip with figures', () => {
+    const columns = boardColumns(entries, data, []);
+
+    expect(columns[2].currency).toBe('CHF');
+    expect(columns[0].currency).toBeNull();
     expect(columns[1].currency).toBeNull();
+  });
+
+  it('returns only the selected priorities, still in board order', () => {
+    const columns = boardColumns(entries, data, ['GREENEST', 'FASTEST']);
+
+    expect(columns.map((column) => column.priority)).toEqual(['FASTEST', 'GREENEST']);
   });
 });
 
@@ -302,20 +185,5 @@ describe('modeSummary', () => {
     expect(modeSummary(figures({ mode: 'MIXED', modes: ['TRAIN', 'PLANE'] }))).toBe(
       'Mixed: train, plane',
     );
-  });
-});
-
-describe('CO2 against the car', () => {
-  it('gives the share of the car figure, capped at 1, and the signed percentage', () => {
-    expect(co2ShareOfCar(figures({ co2Kg: 61, carCo2Kg: 323 }))).toBeCloseTo(0.189, 3);
-    expect(co2VsCarPercent(figures({ co2Kg: 61, carCo2Kg: 323 }))).toBe(-81);
-    expect(co2ShareOfCar(figures({ co2Kg: 400, carCo2Kg: 323 }))).toBe(1);
-    expect(co2VsCarPercent(figures({ co2Kg: 400, carCo2Kg: 323 }))).toBe(24);
-  });
-
-  it('gives nothing without a usable car figure', () => {
-    expect(co2ShareOfCar(figures({ carCo2Kg: null }))).toBeNull();
-    expect(co2VsCarPercent(figures({ carCo2Kg: null }))).toBeNull();
-    expect(co2ShareOfCar(figures({ carCo2Kg: 0 }))).toBeNull();
   });
 });

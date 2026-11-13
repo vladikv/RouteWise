@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Arrays;
@@ -19,9 +20,11 @@ import java.util.Optional;
 import com.routewise.city.TestCities;
 import com.routewise.city.domain.City;
 import com.routewise.city.repository.CityRepository;
+import com.routewise.common.exception.ConflictException;
 import com.routewise.common.exception.FieldValidationException;
 import com.routewise.common.exception.ResourceNotFoundException;
 import com.routewise.common.exception.ValidationError;
+import com.routewise.trip.config.TripProperties;
 import com.routewise.trip.domain.Trip;
 import com.routewise.trip.domain.TripPriority;
 import com.routewise.trip.dto.TripRequest;
@@ -45,6 +48,7 @@ class TripServiceTest {
     private static final long OWNER_ID = 7L;
     private static final LocalDate TODAY = LocalDate.of(2026, 11, 11);
     private static final LocalDate DEPARTURE = TODAY.plusDays(7);
+    private static final Duration RESTORE_WINDOW = Duration.ofSeconds(30);
     private static final Clock CLOCK = Clock.fixed(TODAY.atStartOfDay().toInstant(ZoneOffset.UTC), ZoneOffset.UTC);
 
     @Mock
@@ -61,7 +65,8 @@ class TripServiceTest {
 
     @BeforeEach
     void setUp() {
-        tripService = new TripService(tripRepository, new StopResolver(cityRepository), new TripMapper(), CLOCK);
+        tripService = new TripService(tripRepository, new StopResolver(cityRepository), new TripMapper(),
+                new TripProperties(RESTORE_WINDOW), CLOCK);
     }
 
     @Test
@@ -151,7 +156,7 @@ class TripServiceTest {
 
     @Test
     void findById_whenMissing_throwsNotFound() {
-        when(tripRepository.findWithStopsByIdAndOwnerId(42L, OWNER_ID)).thenReturn(Optional.empty());
+        when(tripRepository.findActiveByIdAndOwnerId(42L, OWNER_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> tripService.findById(42L, OWNER_ID))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -159,19 +164,10 @@ class TripServiceTest {
     }
 
     @Test
-    void findAll_mapsTripsInRepositoryOrder() {
-        Trip first = trip(1L, "First");
-        Trip second = trip(2L, "Second");
-        when(tripRepository.findAllByOwnerIdOrderByDepartureDateAscIdAsc(OWNER_ID)).thenReturn(List.of(first, second));
-
-        assertThat(tripService.findAll(OWNER_ID)).extracting(TripResponse::title).containsExactly("First", "Second");
-    }
-
-    @Test
     void update_replacesFieldsAndTheWholeStopList() {
         Trip existing = trip(5L, "Old title");
         knownCities(berlin, prague, vienna);
-        when(tripRepository.findWithStopsByIdAndOwnerId(5L, OWNER_ID)).thenReturn(Optional.of(existing));
+        when(tripRepository.findActiveByIdAndOwnerId(5L, OWNER_ID)).thenReturn(Optional.of(existing));
         when(tripRepository.saveAndFlush(existing)).thenReturn(existing);
 
         TripRequest longer = new TripRequest("Loop", stops(2L, 3L, 1L), DEPARTURE, 3, TripPriority.CHEAPEST, null);
@@ -192,7 +188,7 @@ class TripServiceTest {
         Trip existing = trip(5L, "Loop");
         existing.replaceStops(List.of(berlin, prague, vienna));
         knownCities(berlin, vienna);
-        when(tripRepository.findWithStopsByIdAndOwnerId(5L, OWNER_ID)).thenReturn(Optional.of(existing));
+        when(tripRepository.findActiveByIdAndOwnerId(5L, OWNER_ID)).thenReturn(Optional.of(existing));
         when(tripRepository.saveAndFlush(existing)).thenReturn(existing);
 
         tripService.update(5L, request(null, 2L, 1L), OWNER_ID);
@@ -206,7 +202,7 @@ class TripServiceTest {
         Trip pastTrip = trip(5L, "Last summer");
         pastTrip.setDepartureDate(TODAY.minusMonths(3));
         knownCities(berlin, vienna);
-        when(tripRepository.findWithStopsByIdAndOwnerId(5L, OWNER_ID)).thenReturn(Optional.of(pastTrip));
+        when(tripRepository.findActiveByIdAndOwnerId(5L, OWNER_ID)).thenReturn(Optional.of(pastTrip));
         when(tripRepository.saveAndFlush(pastTrip)).thenReturn(pastTrip);
 
         TripResponse response = tripService.update(5L, requestDeparting(TODAY.minusMonths(3)), OWNER_ID);
@@ -217,7 +213,7 @@ class TripServiceTest {
 
     @Test
     void update_movingDepartureIntoPast_throwsFieldValidation() {
-        when(tripRepository.findWithStopsByIdAndOwnerId(5L, OWNER_ID)).thenReturn(Optional.of(trip(5L, "Upcoming")));
+        when(tripRepository.findActiveByIdAndOwnerId(5L, OWNER_ID)).thenReturn(Optional.of(trip(5L, "Upcoming")));
 
         assertThatThrownBy(() -> tripService.update(5L, requestDeparting(TODAY.minusDays(1)), OWNER_ID))
                 .isInstanceOf(FieldValidationException.class)
@@ -228,28 +224,87 @@ class TripServiceTest {
 
     @Test
     void update_whenMissing_throwsNotFound() {
-        when(tripRepository.findWithStopsByIdAndOwnerId(42L, OWNER_ID)).thenReturn(Optional.empty());
+        when(tripRepository.findActiveByIdAndOwnerId(42L, OWNER_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> tripService.update(42L, request(null, 1L, 2L), OWNER_ID))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
-    void delete_existingTrip_deletesIt() {
+    void delete_existingTrip_marksItDeletedNow() {
         Trip existing = trip(5L, "To delete");
-        when(tripRepository.findWithStopsByIdAndOwnerId(5L, OWNER_ID)).thenReturn(Optional.of(existing));
+        when(tripRepository.findActiveByIdAndOwnerId(5L, OWNER_ID))
+                .thenReturn(Optional.of(existing));
 
         tripService.delete(5L, OWNER_ID);
 
-        verify(tripRepository).delete(existing);
+        assertThat(existing.getDeletedAt()).isEqualTo(CLOCK.instant());
+        verify(tripRepository, never()).delete(any(Trip.class));
     }
 
     @Test
-    void delete_whenMissing_throwsNotFound() {
-        when(tripRepository.findWithStopsByIdAndOwnerId(42L, OWNER_ID)).thenReturn(Optional.empty());
+    void delete_whenMissingDeletedOrSomeoneElses_throwsNotFound() {
+        when(tripRepository.findActiveByIdAndOwnerId(42L, OWNER_ID))
+                .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> tripService.delete(42L, OWNER_ID)).isInstanceOf(ResourceNotFoundException.class);
-        verify(tripRepository, never()).delete(any());
+        verify(tripRepository, never()).delete(any(Trip.class));
+    }
+
+    @Test
+    void restore_insideTheWindow_clearsDeletedAt() {
+        Trip deleted = trip(5L, "Deleted");
+        deleted.markDeleted(CLOCK.instant().minusSeconds(10));
+        when(tripRepository.findWithStopsByIdAndOwnerId(5L, OWNER_ID)).thenReturn(Optional.of(deleted));
+        when(tripRepository.saveAndFlush(deleted)).thenReturn(deleted);
+
+        TripResponse response = tripService.restore(5L, OWNER_ID);
+
+        assertThat(deleted.isDeleted()).isFalse();
+        assertThat(response.id()).isEqualTo(5L);
+    }
+
+    @Test
+    void restore_exactlyAtTheEndOfTheWindow_isStillAllowed() {
+        Trip deleted = trip(5L, "Deleted");
+        deleted.markDeleted(CLOCK.instant().minus(RESTORE_WINDOW));
+        when(tripRepository.findWithStopsByIdAndOwnerId(5L, OWNER_ID)).thenReturn(Optional.of(deleted));
+        when(tripRepository.saveAndFlush(deleted)).thenReturn(deleted);
+
+        tripService.restore(5L, OWNER_ID);
+
+        assertThat(deleted.isDeleted()).isFalse();
+    }
+
+    @Test
+    void restore_afterTheWindow_throwsConflictAndStaysDeleted() {
+        Trip deleted = trip(5L, "Deleted");
+        deleted.markDeleted(CLOCK.instant().minus(RESTORE_WINDOW).minusMillis(1));
+        when(tripRepository.findWithStopsByIdAndOwnerId(5L, OWNER_ID)).thenReturn(Optional.of(deleted));
+
+        assertThatThrownBy(() -> tripService.restore(5L, OWNER_ID))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("30 s");
+        assertThat(deleted.isDeleted()).isTrue();
+        verify(tripRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void restore_activeTrip_returnsItUnchanged() {
+        Trip active = trip(5L, "Active");
+        when(tripRepository.findWithStopsByIdAndOwnerId(5L, OWNER_ID)).thenReturn(Optional.of(active));
+
+        TripResponse response = tripService.restore(5L, OWNER_ID);
+
+        assertThat(response.title()).isEqualTo("Active");
+        verify(tripRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void restore_unknownOrSomeoneElsesTrip_throwsNotFound() {
+        when(tripRepository.findWithStopsByIdAndOwnerId(42L, OWNER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> tripService.restore(42L, OWNER_ID)).isInstanceOf(ResourceNotFoundException.class);
     }
 
     private void knownCities(City... cities) {
