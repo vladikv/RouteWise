@@ -86,7 +86,8 @@ class ComparisonServiceTest {
     @BeforeEach
     void setUp() {
         comparisonService = new ComparisonService(tripRepository, new StopResolver(cityRepository),
-                transportModeRepository, weatherService, new ComparisonEngine(), new ItineraryCalculator(),
+                transportModeRepository, weatherService,
+                new RoutePlanner(new ComparisonEngine(), new ItineraryCalculator(), new UnavailableGrouper()),
                 new ComparisonMapper(), CLOCK);
     }
 

@@ -14,6 +14,7 @@ import com.routewise.trip.domain.TripPriority;
  * @param weather              forecast per stop city (each city once), empty if unavailable
  * @param recommendedItinerary each leg's recommended mode combined; {@code null} if a leg has no available mode
  * @param singleModeTotals     one entry per mode, used for every leg, for comparison with the mixed plan
+ * @param unavailableGroups    why single modes cannot be used for the whole route, one sentence per reason
  */
 public record ComparisonResponse(
         Long tripId,
@@ -25,5 +26,6 @@ public record ComparisonResponse(
         List<WeatherSummary> weather,
         List<LegResponse> legs,
         ItineraryTotalsResponse recommendedItinerary,
-        List<ModeTotalsResponse> singleModeTotals) {
+        List<ModeTotalsResponse> singleModeTotals,
+        List<UnavailableGroupResponse> unavailableGroups) {
 }

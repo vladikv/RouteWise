@@ -55,7 +55,7 @@ public final class AdvisorTestData {
     public static ComparisonResponse comparison(List<WeatherSummary> weather, ModeOptionResponse... options) {
         LegResponse leg = leg(0, BERLIN, VIENNA, "523.6", options);
         return new ComparisonResponse(1L, DEPARTURE, 2, TripPriority.GREENEST, new BigDecimal("523.6"), "EUR",
-                weather, List.of(leg), itinerary(List.of(leg)), singleModeTotals(List.of(options)));
+                weather, List.of(leg), itinerary(List.of(leg)), singleModeTotals(List.of(options)), List.of());
     }
 
     /** Train recommended, bus as alternative, bike unavailable, rain in Vienna. */
@@ -83,7 +83,7 @@ public final class AdvisorTestData {
                 List.of(new ModeTotalsResponse(TransportModeCode.TRAIN, true, null, null, 490, new BigDecimal("85.00"),
                                 new BigDecimal("19.0")),
                         new ModeTotalsResponse(TransportModeCode.BUS, true, null, null, 570, new BigDecimal("38.00"),
-                                new BigDecimal("15.0"))));
+                                new BigDecimal("15.0"))), List.of());
     }
 
     public static ModeOptionResponse option(TransportModeCode mode, int minutes, String cost, String co2,
@@ -96,7 +96,7 @@ public final class AdvisorTestData {
                                    ModeOptionResponse... options) {
         TransportModeCode recommended = Arrays.stream(options).filter(ModeOptionResponse::recommended)
                 .map(ModeOptionResponse::mode).findFirst().orElse(null);
-        return new LegResponse(index, from, to, new BigDecimal(distanceKm), List.of(options), recommended);
+        return new LegResponse(index, from, to, new BigDecimal(distanceKm), List.of(options), recommended, List.of());
     }
 
     private static ItineraryTotalsResponse itinerary(List<LegResponse> legs) {

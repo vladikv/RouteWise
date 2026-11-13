@@ -2,7 +2,6 @@ package com.routewise.comparison.service;
 
 import java.time.Clock;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,10 +10,9 @@ import com.routewise.city.domain.City;
 import com.routewise.city.dto.CitySummary;
 import com.routewise.common.exception.FieldValidationException;
 import com.routewise.common.exception.ResourceNotFoundException;
-import com.routewise.comparison.domain.ComparisonInput;
-import com.routewise.comparison.domain.Leg;
-import com.routewise.comparison.domain.ModeOption;
 import com.routewise.comparison.domain.ModeParameters;
+import com.routewise.comparison.domain.RoutePlan;
+import com.routewise.comparison.domain.RouteStop;
 import com.routewise.comparison.dto.ComparisonRequest;
 import com.routewise.comparison.dto.ComparisonResponse;
 import com.routewise.comparison.mapper.ComparisonMapper;
@@ -31,8 +29,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * Compares transport modes leg by leg for a stored trip or for an ad-hoc route:
- * fetches weather once for all stop cities, runs the {@link ComparisonEngine} per leg
- * (with that leg's weather) and combines the legs with the {@link ItineraryCalculator}.
+ * fetches weather once for all stop cities and lets the {@link RoutePlanner} compare
+ * every leg (with that leg's weather) and combine the legs.
  * Deliberately not transactional: no database transaction stays open during
  * the weather HTTP calls. The repository loads the trip with its stops and cities.
  */
@@ -43,21 +41,18 @@ public class ComparisonService {
     private final StopResolver stopResolver;
     private final TransportModeRepository transportModeRepository;
     private final WeatherService weatherService;
-    private final ComparisonEngine comparisonEngine;
-    private final ItineraryCalculator itineraryCalculator;
+    private final RoutePlanner routePlanner;
     private final ComparisonMapper comparisonMapper;
     private final Clock clock;
 
     public ComparisonService(TripRepository tripRepository, StopResolver stopResolver,
                              TransportModeRepository transportModeRepository, WeatherService weatherService,
-                             ComparisonEngine comparisonEngine, ItineraryCalculator itineraryCalculator,
-                             ComparisonMapper comparisonMapper, Clock clock) {
+                             RoutePlanner routePlanner, ComparisonMapper comparisonMapper, Clock clock) {
         this.tripRepository = tripRepository;
         this.stopResolver = stopResolver;
         this.transportModeRepository = transportModeRepository;
         this.weatherService = weatherService;
-        this.comparisonEngine = comparisonEngine;
-        this.itineraryCalculator = itineraryCalculator;
+        this.routePlanner = routePlanner;
         this.comparisonMapper = comparisonMapper;
         this.clock = clock;
     }
@@ -89,25 +84,11 @@ public class ComparisonService {
                 .map(comparisonMapper::toParameters)
                 .toList();
         List<LocationForecast> forecasts = weatherService.forecasts(distinctLocations(stops), departureDate);
-
-        List<Leg> legs = new ArrayList<>();
-        for (int i = 0; i + 1 < stops.size(); i++) {
-            City from = stops.get(i);
-            City to = stops.get(i + 1);
-            double distanceKm = GeoDistance.haversineKm(from.getLatitude(), from.getLongitude(),
-                    to.getLatitude(), to.getLongitude());
-            List<LocationForecast> legWeather = forecasts.stream()
-                    .filter(f -> f.location().name().equals(from.getName())
-                            || f.location().name().equals(to.getName()))
-                    .toList();
-            List<ModeOption> options = comparisonEngine.compare(
-                    new ComparisonInput(distanceKm, from.getLandmass().equals(to.getLandmass()), travelers,
-                            priority, modes, legWeather));
-            legs.add(new Leg(summary(from), summary(to), distanceKm, options));
-        }
-        return comparisonMapper.toResponse(tripId, departureDate, travelers, priority, forecasts, legs,
-                itineraryCalculator.recommendedItinerary(legs).orElse(null),
-                itineraryCalculator.singleModeTotals(legs));
+        List<RouteStop> route = stops.stream()
+                .map(city -> new RouteStop(summary(city), city.getLatitude(), city.getLongitude(), city.getLandmass()))
+                .toList();
+        RoutePlan plan = routePlanner.plan(route, travelers, priority, modes, forecasts);
+        return comparisonMapper.toResponse(tripId, departureDate, travelers, priority, forecasts, plan);
     }
 
     /** Each stop city once, in route order (a round trip visits its first city twice). */
