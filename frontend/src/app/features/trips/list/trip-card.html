@@ -1,0 +1,94 @@
+<article
+  class="trip"
+  [class.trip--lime]="tint() === 'lime'"
+  [class.trip--amber]="tint() === 'amber'"
+  [class.trip--moving]="moving()"
+  [attr.aria-busy]="moving() ? 'true' : null"
+>
+  <p class="trip__date muted">
+    {{ trip().departureDate | date: 'mediumDate' }} · {{ travelersLabel(trip().travelers) }}
+    <span class="trip__countdown" [class.trip__countdown--past]="past()">{{ countdown() }}</span>
+  </p>
+  <h3 class="trip__title">
+    <a [routerLink]="['/trips', trip().id]">{{ trip().title }}</a>
+  </h3>
+  <p class="trip__stops">
+    @for (stop of trip().stops; track stop.position; let first = $first) {
+      @if (!first) {
+        <span aria-hidden="true">→</span>
+        <span class="visually-hidden">to</span>
+      }
+      {{ stop.cityName }}
+    }
+  </p>
+  <app-trip-route
+    class="trip__route"
+    [stops]="trip().stops.length"
+    [legModes]="figures()?.legModes ?? null"
+  />
+
+  @let plan = figures();
+  <div class="trip__headline">
+    @switch (state().status) {
+      @case ('loading') {
+        <p class="trip__loading" aria-busy="true">
+          <span class="trip__placeholder" aria-hidden="true"></span>
+          <span class="visually-hidden">Loading figures</span>
+        </p>
+      }
+      @case ('failed') {
+        <p class="muted">Figures unavailable</p>
+      }
+      @default {
+        @if (plan) {
+          <p class="trip__value">
+            {{ plan.cost | currency: plan.currency : 'symbol' : '1.0-0' }}
+          </p>
+        } @else {
+          <p class="muted">No available route</p>
+        }
+      }
+    }
+    <app-trip-actions
+      class="trip__actions"
+      [trip]="trip()"
+      [busy]="deleting()"
+      (deleted)="deleted.emit()"
+    />
+  </div>
+  @if (plan) {
+    <p class="trip__secondary muted">{{ plan.co2Kg | number: '1.0-0' }} kg CO₂</p>
+    @if (share() !== null) {
+      <span class="trip__bar" aria-hidden="true">
+        <span
+          class="trip__bar-fill"
+          [class.trip__bar-fill--no-saving]="!saves()"
+          [style.width.%]="(share() ?? 0) * 100"
+        ></span>
+      </span>
+      <p class="trip__bar-note muted">
+        @if (vsCar(); as change) {
+          {{ change }} vs {{ plan.carCo2Kg | number: '1.0-0' }} kg by car
+        } @else {
+          Same CO₂ as by car
+        }
+      </p>
+    } @else {
+      <p class="trip__bar-note muted">No car comparison</p>
+    }
+    <p class="trip__mode">
+      @for (mode of plan.modes; track mode) {
+        <app-mode-icon [mode]="mode" />
+      }
+      {{ modeSummary(plan) }}
+    </p>
+  }
+
+  <app-trip-menu
+    class="trip__menu"
+    [trip]="trip()"
+    [busy]="deleting()"
+    (deleted)="deleted.emit()"
+    (moved)="moved.emit($event)"
+  />
+</article>

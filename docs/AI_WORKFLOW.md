@@ -466,3 +466,41 @@ corrected manually, and why.
 - A breaking change across API, AI and UI is easier to review when the plan
   and its open questions come first; the screenshots then showed that a
   correct feature can still demonstrate nothing with the wrong sample data.
+
+## `feat/ui-glass-redesign` (2026-11-12)
+
+**Delegated to AI**
+- Planned with `add-milestone` from the human's written spec and a style
+  reference image; the AI listed where the colours live, found that the
+  trip list has no figures for the KPIs, and asked where they should come
+  from (human: one comparison request per trip, no API change). The AI
+  also added the missing `start-milestone` skill on its own branch first.
+- Implemented in six `ui-builder` runs, one commit each: tokens and glass
+  foundation, shared building blocks (glass panel, pill nav, stat chip,
+  tabs, segmented toggle, filter chip, icon button, bottom sheet), header,
+  map-first Home with weather card, Trips page (pure KPI/filter/grouping
+  functions), remaining pages and states. 88 new UI tests (265 in total).
+- Before/after screenshots at 1920, 1280 and 375 px from a small headless
+  Chrome script (no new dependency); contrast composited over the
+  background and the brightest glow for every new pair.
+
+**Corrected manually / human decisions**
+- Review between runs caught what the subagents' green tests did not:
+  `inject()` inside an `afterNextRender` callback (would throw in the
+  browser; the test environment has no `ResizeObserver`), a menu closing via
+  a click handler that needed two a11y lint rules switched off (now closes
+  on navigation), and Home never shown as the active nav item because the
+  exact match compared query parameters.
+- Screenshots, not tests, found the Home layout problems: map not
+  full-bleed (a specificity clash), letterboxed land with hard edges,
+  clipped right panel at 1280 px, and the route line broken into dashes at
+  the new map scale. All went back to the subagent with the screenshots.
+- A subagent spec that regex-parsed injected CSS to guard the route stroke
+  was removed as too brittle; the human's "tint by mode" and "no new hues"
+  conflicted, resolved as lime/amber/neutral tints with the mode in text.
+- The style reference image (another product's UI) stayed out of the repo.
+
+**Why**
+- A visual milestone needs eyes on the running app at every step: lint and
+  265 passing tests said nothing about a map that was not full-screen or a
+  route that rendered as three dashes.

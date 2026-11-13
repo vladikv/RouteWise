@@ -1,0 +1,116 @@
+<table class="trips">
+  <caption class="visually-hidden">
+    Trips with their recommended plan
+  </caption>
+  <thead>
+    <tr>
+      <th scope="col" class="wide-only" [attr.aria-sort]="ariaSort('date')">
+        <button type="button" class="sort" (click)="sortBy('date')">
+          Date <span aria-hidden="true">{{ arrow('date') }}</span>
+        </button>
+      </th>
+      <th scope="col">Trip</th>
+      <th scope="col" class="wide-only">Mode</th>
+      <th scope="col" class="num" [attr.aria-sort]="ariaSort('cost')">
+        <button type="button" class="sort" (click)="sortBy('cost')">
+          Cost <span aria-hidden="true">{{ arrow('cost') }}</span>
+        </button>
+      </th>
+      <th scope="col" class="num wide-only" [attr.aria-sort]="ariaSort('co2')">
+        <button type="button" class="sort" (click)="sortBy('co2')">
+          CO₂ <span aria-hidden="true">{{ arrow('co2') }}</span>
+        </button>
+      </th>
+      <th scope="col"><span class="visually-hidden">Actions</span></th>
+    </tr>
+  </thead>
+  <tbody>
+    @for (entry of rows(); track entry.trip.id) {
+      @let trip = entry.trip;
+      @let plan = figuresOf(entry);
+      <tr
+        class="row"
+        [class.row--moving]="movingIds().has(trip.id)"
+        [attr.aria-busy]="movingIds().has(trip.id) ? 'true' : null"
+      >
+        <td class="wide-only trip__date">{{ trip.departureDate | date: 'mediumDate' }}</td>
+        <th scope="row" class="trip__name">
+          <a [routerLink]="['/trips', trip.id]">{{ trip.title }}</a>
+          <span class="trip__line muted">
+            @for (stop of trip.stops; track stop.position; let first = $first) {
+              @if (!first) {
+                <span aria-hidden="true">→</span>
+                <span class="visually-hidden">to</span>
+              }
+              {{ stop.cityName }}
+            }
+          </span>
+          <span class="trip__line muted">
+            {{ priorityLabels[trip.priority] }}
+            <span class="narrow-only">
+              · {{ trip.departureDate | date: 'mediumDate' }}
+              @if (plan) {
+                · {{ modeSummary(plan) }} · {{ plan.co2Kg | number: '1.0-0' }} kg CO₂
+              }
+            </span>
+          </span>
+        </th>
+        <td class="wide-only">
+          @if (plan; as figures) {
+            <span class="trip__mode">
+              @for (mode of figures.modes; track mode) {
+                <app-mode-icon [mode]="mode" />
+              }
+              {{ modeSummary(figures) }}
+            </span>
+          } @else if (entry.state.status === 'ready') {
+            <span class="muted">No available route</span>
+          }
+        </td>
+        <td class="num">
+          @switch (entry.state.status) {
+            @case ('loading') {
+              <span class="trip__placeholder" aria-busy="true">
+                <span class="visually-hidden">Loading figures</span>
+              </span>
+            }
+            @case ('failed') {
+              <span class="muted">Figures unavailable</span>
+            }
+            @default {
+              @if (plan; as figures) {
+                <strong>{{
+                  figures.cost | currency: figures.currency : 'symbol' : '1.0-0'
+                }}</strong>
+              } @else {
+                <span class="muted narrow-only">No available route</span>
+              }
+            }
+          }
+        </td>
+        <td class="num wide-only">
+          @if (plan; as figures) {
+            {{ figures.co2Kg | number: '1.0-0' }} kg
+          }
+        </td>
+        <td class="trip__actions">
+          <div class="trip__tools">
+            <app-trip-actions
+              class="trip__quick"
+              [trip]="trip"
+              [busy]="deletingId() === trip.id"
+              (deleted)="deleted.emit(trip)"
+            />
+            <app-trip-menu
+              class="trip__menu"
+              [trip]="trip"
+              [busy]="deletingId() === trip.id"
+              (deleted)="deleted.emit(trip)"
+              (moved)="move(trip, $event)"
+            />
+          </div>
+        </td>
+      </tr>
+    }
+  </tbody>
+</table>

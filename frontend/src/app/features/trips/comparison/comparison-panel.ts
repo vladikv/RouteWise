@@ -19,6 +19,8 @@ import {
 })
 export class ComparisonPanel {
   readonly comparison = input.required<LegComparison>();
+  /** Turn off where a weather card already shows the forecast. */
+  readonly showWeather = input(true);
 
   protected readonly modeLabels = MODE_LABELS;
   protected readonly hazardLabels = HAZARD_LABELS;

@@ -36,7 +36,10 @@ function viewBox(svg: SVGSVGElement): number[] {
 }
 
 describe('RouteMap wide mode', () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
 
   it('shows a landscape view of the whole land outline when wide and at least 720 px', async () => {
     const svg = await renderAt(1000, true);

@@ -137,7 +137,7 @@ import { AuthForm, AuthMode } from './auth-form';
     }
 
     .pitch__accent {
-      color: var(--color-primary);
+      color: var(--color-primary-ink);
     }
 
     .pitch__list {
@@ -157,16 +157,18 @@ import { AuthForm, AuthMode } from './auth-form';
     .pitch__list li::before {
       content: '✓';
       flex: none;
-      color: var(--color-primary);
+      color: var(--color-primary-ink);
       font-weight: 800;
     }
 
     .demo {
       padding: var(--space-6);
-      border: 1px solid var(--color-border);
-      border-left: 4px solid var(--color-primary);
-      border-radius: var(--radius);
-      background: var(--color-surface);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      background: var(--glass-bg);
+      -webkit-backdrop-filter: var(--glass-filter);
+      backdrop-filter: var(--glass-filter);
+      box-shadow: var(--glass-highlight);
     }
 
     .demo h3 {

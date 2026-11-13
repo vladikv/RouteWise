@@ -1,28 +1,15 @@
-.hero {
-  margin-bottom: var(--space-6);
+/* The explorer stage may span the full width; what follows keeps the page's content width. */
+.below {
+  max-width: var(--content-width);
+  margin: var(--space-8) auto 0;
+  padding: 0 var(--space-4);
 }
 
-.explore {
-  margin-bottom: var(--space-8);
-}
-
-.explore__header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-
-  h2 {
-    margin: 0;
+/* On phones the bottom sheet's peek covers the foot of the page. */
+@media (max-width: 47.99rem) {
+  .below {
+    padding-bottom: 5rem;
   }
-}
-
-.hero__lead {
-  max-width: 44rem;
-  color: var(--color-text-muted);
-  font-size: 1.125rem;
 }
 
 .table-scroll {

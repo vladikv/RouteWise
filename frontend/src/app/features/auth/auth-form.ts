@@ -108,7 +108,7 @@ const MESSAGES: Record<string, string> = {
   styles: `
     .form-summary {
       margin: 0 0 var(--space-4);
-      color: var(--color-danger);
+      color: var(--color-danger-text);
       font-weight: 600;
     }
   `,

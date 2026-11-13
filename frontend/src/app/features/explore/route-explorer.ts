@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -13,9 +14,12 @@ import { CityApi } from '../../core/api/city-api';
 import { ComparisonApi } from '../../core/api/comparison-api';
 import { City, Comparison, ComparisonRequest, TripPriority } from '../../core/api/models';
 import { RouteMap, RouteSelection } from '../../shared/map/route-map';
+import { BottomSheet, SheetState } from '../../shared/ui/bottom-sheet';
 import { CityPicker } from '../../shared/ui/city-picker';
+import { GlassPanel } from '../../shared/ui/glass-panel';
 import { PriorityPicker } from '../../shared/ui/priority-picker';
 import { ErrorMessage } from '../../shared/ui/error-message';
+import { SegmentedToggle, ToggleOption } from '../../shared/ui/segmented-toggle';
 import { Spinner } from '../../shared/ui/spinner';
 import {
   addDaysIso,
@@ -25,15 +29,33 @@ import {
   todayIso,
   weekendIso,
 } from '../../shared/util/date';
-import { PRIORITIES, travelersLabel } from '../../shared/util/labels';
+import { LayoutBreakpoint } from '../../shared/util/layout-breakpoint';
+import { MODE_LABELS, PRIORITIES, travelersLabel } from '../../shared/util/labels';
 import { ComparisonChart } from '../trips/comparison/comparison-chart';
 import { ComparisonPanel } from '../trips/comparison/comparison-panel';
 import { LegComparison, legComparison } from '../trips/comparison/leg-comparison';
+import { HomeLayout, HomeLayoutChoice } from './home-layout';
+import { WeatherCard } from './weather-card';
 
 const MIN_TRAVELERS = 1;
 const MAX_TRAVELERS = 9;
 const DEFAULT_PRIORITY: TripPriority = 'BALANCED';
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** Width of a floating panel in the Map layout, its distance from the map edge and the air beside it (rem). */
+const DOCK_WIDTH = 24;
+const DOCK_COLLAPSED_WIDTH = 14;
+const DOCK_OFFSET = 1.5;
+const DOCK_AIR = 1;
+const REM_PX = 16;
+
+const LAYOUT_OPTIONS: ToggleOption<HomeLayoutChoice>[] = [
+  {
+    value: 'map',
+    label: 'Map',
+    icon: 'M9 4 3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14',
+  },
+  { value: 'split', label: 'Split', icon: 'M3 5h18v14H3zM14 5v14' },
+];
 
 interface ExplorerState {
   originId: number | null;
@@ -48,28 +70,65 @@ interface ExplorerState {
  * the pickers and the comparison appears; priority, travelers and date re-run
  * it. The selection lives in the URL, so it can be shared and Back restores the
  * previous route. "Save as trip" carries it to the trip form.
+ *
+ * One template, three arrangements, and the settings and results are rendered once (so ids
+ * never repeat and switching never recreates them or refetches). From 1440 px the user can choose
+ * between Map (the map fills the stage, two glass panels float over it) and Split (the map on
+ * the left, settings and results on the right; stacked below 1024 px); below 768 px the
+ * settings and results live in a bottom sheet under the map. Map and Split only differ in CSS
+ * placement, so cities, priority, date, travelers, results and the map view survive a switch.
  */
 @Component({
   selector: 'app-route-explorer',
   imports: [
+    NgTemplateOutlet,
     RouterLink,
+    BottomSheet,
+    GlassPanel,
+    WeatherCard,
     RouteMap,
     CityPicker,
     PriorityPicker,
     ComparisonChart,
     ComparisonPanel,
     ErrorMessage,
+    SegmentedToggle,
     Spinner,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './route-explorer.html',
-  styleUrl: './route-explorer.scss',
+  styleUrls: ['./route-explorer.scss', './explorer-stage.scss'],
 })
 export class RouteExplorer {
   private readonly cityApi = inject(CityApi);
   private readonly comparisonApi = inject(ComparisonApi);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+
+  protected readonly homeLayout = inject(HomeLayout);
+  private readonly breakpoint = inject(LayoutBreakpoint);
+
+  /** Phones: the settings and results go into a bottom sheet. */
+  protected readonly sheet = computed(() => this.breakpoint.layout() === 'narrow');
+  /** The arrangement on screen; Map only exists from 1440 px and never on a phone. */
+  protected readonly arrangement = computed(() =>
+    this.sheet() ? 'sheet' : this.homeLayout.effective(),
+  );
+  /** Panels that float over the map scroll on their own; in Split the column beside the map does. */
+  protected readonly dockScroll = computed(() => this.arrangement() === 'map');
+  protected readonly sideScroll = computed(
+    () => this.arrangement() === 'split' && this.homeLayout.sideBySide(),
+  );
+  protected readonly layoutOptions = LAYOUT_OPTIONS;
+  protected readonly formCollapsed = signal(false);
+  protected readonly resultsCollapsed = signal(false);
+  protected readonly sheetState = signal<SheetState>('peek');
+
+  /** Pixels a floating panel covers at its side of the map (its width, offset and some air). */
+  protected readonly insetStart = computed(() => this.dockInset(this.formCollapsed()));
+  protected readonly insetEnd = computed(() => this.dockInset(this.resultsCollapsed()));
+  /** No comparison yet: in the Map layout the results panel is only a small hint. */
+  protected readonly resultsIdle = computed(() => this.request() === undefined);
 
   protected readonly travelersLabel = travelersLabel;
   protected readonly today = todayIso();
@@ -127,6 +186,23 @@ export class RouteExplorer {
   protected readonly shownLeg = computed<LegComparison | undefined>(() => {
     const shown = this.shown();
     return shown ? legComparison(shown, 0) : undefined;
+  });
+
+  /** One line for the collapsed bottom sheet: the route and the recommended mode, or what to do next. */
+  protected readonly summary = computed(() => {
+    const leg = this.shownLeg();
+    if (leg) {
+      const recommended = leg.options.find((option) => option.recommended);
+      const route = `${leg.from.name} to ${leg.to.name}`;
+      return recommended ? `${route} · ${MODE_LABELS[recommended.mode]} recommended` : route;
+    }
+    const name = (id: number | null) => this.cities.value()?.find((city) => city.id === id)?.name;
+    const origin = name(this.originId());
+    const destination = name(this.destinationId());
+    if (origin && destination) {
+      return `${origin} to ${destination} · comparing…`;
+    }
+    return origin ? `From ${origin}: choose a destination` : 'Where are you going?';
   });
 
   /** Query parameters that prefill the trip form with the current selection. */
@@ -187,6 +263,13 @@ export class RouteExplorer {
         });
       });
     });
+  }
+
+  private dockInset(collapsed: boolean): number {
+    if (this.arrangement() !== 'map') {
+      return 0;
+    }
+    return ((collapsed ? DOCK_COLLAPSED_WIDTH : DOCK_WIDTH) + DOCK_OFFSET + DOCK_AIR) * REM_PX;
   }
 
   protected select(selection: RouteSelection): void {

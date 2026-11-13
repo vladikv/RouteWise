@@ -12,11 +12,15 @@ src/
 └── app/
     ├── core/
     │   ├── api/         typed API layer: models, one service per resource, ApiError
-    │   └── auth/        Session (who is logged in), authGuard, credentialsInterceptor
-    ├── layout/          app chrome: header (nav, account)
-    ├── shared/ui/       presentational building blocks (spinner, error message, confirm action)
+    │   ├── auth/        Session (who is logged in), authGuard, credentialsInterceptor
+    │   └── theme/       ThemeService (light, dark or system preference, `data-theme` on `<html>`)
+    ├── layout/          app chrome: header (full width, same 24 px gutter as the Home panels; 16 px on phones;
+    │                    strict 3-column grid `1fr auto 1fr`: brand, centred nav pill, actions incl. the theme menu)
+    ├── shared/ui/       presentational building blocks: glass panel, pill nav, stat chip, tabs,
+    │                    segmented toggle, filter chip, filter group, menu, toast outlet, icon button, bottom sheet, spinner,
+    │                    error message, confirm action, pickers, mode icon
     ├── shared/map/      route map (SVG) and its pure projection maths
-    ├── shared/util/     pure helpers (dates, labels)
+    ├── shared/util/     pure helpers (dates, labels, `LayoutBreakpoint`)
     ├── features/<name>/ routed pages and their child components
     ├── app.ts           shell: skip link, header, <router-outlet>, footer
     ├── app.routes.ts    lazy routes (`loadComponent`)
@@ -83,9 +87,16 @@ src/
   `[stops]` (an ordered list of city ids), draws every leg with numbered pins
   and emits `cityPick` instead. With `[wide]="true"` (home page) a map
   at least 720 px wide shows the whole land outline in a landscape view; below
-  that, and on the small maps, it keeps the near-square view. The land data
+  that, and on the small maps, it keeps the near-square view. `[fill]` makes the map take its
+  container's aspect ratio (no letterbox): the whole-map view shows all cities between the panels; the view at rest is
+  never larger than the land data (no visible edge at any size) and the user can pan within it; where a route fit or
+  zoom-out reaches past the land, it fades into the sea. `controls` (`corner` | `bottom-end`) places the zoom buttons
+  (`bottom-end`: bottom right, `insetEnd` px in from the edge, clear of the panels) and `insetStart`/`insetEnd` (px) are
+  the widths of floating panels: `fitPoints` centres a route in the space they leave free. A view the user moved is kept
+  (same centre and relative zoom) when the map resizes or a layout switch changes the space. The route is
+  drawn with a non-scaling stroke and no dash pattern, so it stays crisp when zooming. The land data
   (`europe-land.ts`) comes from `scripts/gen-europe-land.py`; its box must match
-  `LAND_WEST`/`LAND_EAST` in `route-map.ts`. `ComparisonChart` shows one metric at a time with the
+  `LAND_WEST`/`LAND_EAST` in `route-map.ts`. `ComparisonChart` shows one metric at a time (switched with `Tabs`) with the
   recommended mode as the only accent bar (`--color-highlight`, others
   `--color-bar`). Neither may be the only way to get information: keep a
   text or form equivalent (dropdowns for the map, the table for the chart)
@@ -99,6 +110,60 @@ src/
   `legComparison(comparison, index)`). A two-stop trip and the home explorer
   show that single leg as before; a multi-stop trip uses `ItineraryView`
   (leg timeline, whole-trip totals, each leg's details).
+- **Home layouts** (`features/explore/`): two layouts, **Map** and **Split**. `HomeLayout` (`home-layout.ts`)
+  holds the preference (`'map' | 'split'`, default Split, `localStorage` key `routewise.homeLayout`, every
+  access in try/catch, invalid or failing storage = Split) and `effective()`: Map only while the viewport is
+  at least 1440 px (live `matchMedia`), otherwise Split; falling back never overwrites the saved choice.
+  `sideBySide()` is true from 1024 px. A `SegmentedToggle` (icon + label, `stage__toolbar`, floating over the
+  map) offers the choice only from 1440 px. `RouteExplorer` renders **one template once**: the map, the
+  settings dock and the results dock are the same elements in both layouts and `explorer-stage.scss` only moves
+  them (class `stage--map` / `stage--split` / `stage--sheet`), so switching keeps cities, priority, date,
+  travelers, results and the map view and issues no request. Never put the form or results in two `@if`
+  branches. Split: map 58 % at the left, the right column (`stage__side`, focusable scroll region from 1024 px)
+  holds settings and results; stacked below 1024 px. Map: map fills the stage, two floating `GlassPanel` docks
+  (collapsible, 24rem; the settings fit 1440x900 without scrolling: short intro, 2x2 priorities without
+  descriptions, compact spacing); the empty results dock is a hint chip ("Pick two cities to compare") until a
+  comparison is requested. Phones (< 768 px, `LayoutBreakpoint` `narrow`): map plus `BottomSheet` with settings
+  and results. Docks adapt through container queries (route bar, `ComparisonPanel` turns its table into small
+  cards below 30rem instead of scrolling sideways). `--header-height` is the measured header height (the stage is
+  `100dvh - header`).
+- **Trips list** (`features/trips/list/`): `TripToolbar` (row 1: search, Board/List
+  `SegmentedToggle`, New trip; row 2: `FilterGroup`s Priority and Mode with counts from the full list;
+  result count "3 of 5 trips" in a `role="status"` and "Clear filters"; below 768 px the groups move
+  into a `BottomSheet` opened by a "Filters" button), `TripBoard` (columns by priority), `TripTable`,
+  `TripCard`, `TripMenu` (built on `Menu`); `trip-figures.ts` derives cost, CO₂ and KPIs from each trip's
+  comparison (no extra API), `trip-filters.ts` the counts, the result summary and `sortTrips`/`toggleSort`.
+  Cards and rows open the trip as a whole: the title link carries an `::after` stretched over the card/row
+  (one tab stop; the focus ring is drawn on the card via `:has(a:focus-visible)`), the "⋯" menu and
+  `TripActions` (quick icon buttons Open, Edit, Duplicate, Delete) sit above it with a higher z-index. Quick
+  actions show on hover and on focus within, never under `(hover: none)`; Delete swaps them for the inline
+  `ConfirmAction` (`asking`, `showTrigger`). Hover/focus lifts the card 2 px with an edge in its tint
+  (`--color-highlight-edge`, `--color-accent-edge`) and no motion under reduced motion. `TripRoute` is the
+  decorative (`aria-hidden`) mini route line: a dot per stop, the leg's mode icon between them (`legModes`).
+  The CO₂ bar shows the plan against the car (car = 100 %) with text. `TripTable` sorts by Date, Cost and CO₂
+  (header buttons, `aria-sort` on the `<th>`, trips without figures last); the sort lives in the page.
+  **Duplicate** is a link to `/trips/new` with router navigation state `{ draft }` (`duplicateState`);
+  `TripFormPage` reads it once (`presetFromState`: invalid fields dropped, ignored when editing) and the
+  user still saves.
+- **Changing a trip's priority** (Trips page): `TripListPage.move` builds the existing update request from the
+  trip in the list (`moveRequest`, `list/trip-move.ts`: all fields, stops as city ids, date unchanged) and calls
+  `TripApi.update`. It is optimistic (`withPriority` in place, so the order is kept; `aria-busy` on the card/row
+  while pending), replaces the trip with the response and re-fetches that trip's comparison (the priority weights
+  the recommendation), and on failure restores the priority and shows an error `ToastService` toast with Retry.
+  Two ways in: the "Move to …" items of `TripMenu` (keyboard, touch) and dragging on `TripBoard`, which is
+  hand-written with pointer events (no CDK): a mouse/pen drag starts after `DRAG_THRESHOLD_PX`, a finger after a
+  `LONG_PRESS_MS` press (moving earlier means scrolling); `board-drag.ts` holds the pure hit test (`columnAt`
+  over the columns' rects). The ghost is a clone of the card on `<body>`; the original stays as a dashed
+  placeholder, the column under the pointer gets `column--target`; Escape or a drop outside cancels, a drop on
+  the own column is ignored, and the click after a drag is swallowed. A polite live region on the page announces
+  "Moved "<title>" to …".
+- **Menu, filter group, toast** (`shared/ui/`): `Menu` is a disclosure (built-in `IconButton` trigger via
+  `label` + `menuIcon`, or your own `menuTrigger` button; panel content in `<ng-template appMenuContent>`,
+  rendered only while open; Escape and outside click close, an item click closes unless
+  `closeOnSelect` is off; arrow keys move between items). `FilterGroup` is a `role="group"` of
+  `aria-pressed` chips with `options`, a `selected` model and an optional `appFilterIcon` template.
+  `ToastService.show({ message, kind, action? })` plus one `<app-toast-outlet>` in `app.ts`
+  (auto-dismiss after 5 s, paused on hover and focus; errors in `role="alert"`, info in `role="status"`).
 - **Explorer state** is mirrored in the URL (`from`, `to`, `date`, `travelers`,
   `priority`; defaults left out).
 - **Query parameters** also arrive as component inputs; `/trips/new` accepts
@@ -106,7 +171,8 @@ src/
 - **Destructive actions:** `<app-confirm-action>` (inline two-step confirm),
   never a one-click delete.
 - **Async views:** load with `rxResource` and render all states: loading
-  (`<app-spinner>`), error with retry, empty, and data.
+  (`<app-spinner>`, `role="status"`), error with retry (`<app-error-message>`, `role="alert"`), empty
+  (`.empty-state`: centered glass panel with heading, hint and action) and data.
 - **Styling:** no UI library. Use the tokens in `styles.scss` (`var(--color-…)`,
   `var(--space-…)`), never raw colors. Palette is a strict 60/30/10: midnight
   black backgrounds (`--color-bg`, `--color-surface`), pure white text and lines
@@ -117,14 +183,56 @@ src/
   stays black/white/gray (`--color-bar` for de-emphasised marks). Red
   (`--color-danger`) and amber (`--color-accent`, weather) are semantic only.
   `--color-border-strong` for control borders. Every text pair meets 4.5:1 and
-  every meaningful mark 3:1; check a new or changed pair before using it. Type: 17 px body (system font),
-  `--font-display` (Manrope, loaded in `index.html`) for headings, labels,
-  buttons and navigation. Shared classes: `.card`, `.button` (`--primary`,
+  every meaningful mark 3:1; check a new or changed pair before using it.
+  Glass look: a fixed `.glow-layer` element in `app.ts` (`aria-hidden`, three
+  large lime radial glows at 16/12/12% centre alpha, `--glow-1..3`, drifting
+  over 26-38 s with `transform` only, static under reduced motion) sits behind
+  all content, so no ancestor of a glass surface may have an opaque background.
+  Glass = `background: var(--glass-bg)` (white 6%) or `--glass-bg-strong` (white
+  10%, controls and active items) or `--glass-bg-menu` (surface 85%, dropdowns and
+  listboxes over arbitrary content), plus `backdrop-filter: var(--glass-filter)`
+  (+ `-webkit-`; blur 20 px and saturate 160%), `border: 1px solid var(--glass-border)`
+  and `box-shadow: var(--glass-highlight)` (inner top highlight; combine it with
+  any other shadow). Alpha variants are written as `--color-*-aNN` (NN = percent;
+  same hues, add one only when used). `backdrop-filter` goes on the few top-level
+  surfaces (header bar via `:host::before` so dropdowns are not inside its
+  backdrop root, panels, sheet, menus, toolbar search, chips); never on list
+  cards or table rows (fill, border and highlight only), and not on elements
+  nested in a glass panel (a backdrop-filter ancestor limits what they can blur).
+  Contrast rule: white, muted and lime text must stay 4.5:1 and control borders
+  3:1 on the fill over the brightest glow (peak 16% lime over `--color-bg`);
+  re-run the check when raising a glow, a fill or a tint (card tints are 8%).
+  Under `prefers-reduced-transparency` the glass tokens become solid surfaces
+  with `--glass-filter: none`, so never hard-code a blur or a translucent fill.
+  The light theme overrides the tokens under `:root[data-theme='light']` (see Theme). Radii: `--radius-lg`
+  (cards), `--radius-md`, `--radius-pill` (buttons, inputs, badges). Type: 17 px body, Manrope (loaded in
+  `index.html`, weights 400-800) is the only font (`--font-sans`; `--font-display`
+  is an alias). Shared classes: `.card`, `.button` (`--primary`,
   `--danger`), `.page-header`, `.actions`, `.badge` (`--recommended`),
-  `.segmented` (radio group as buttons), `.field` (`__hint`, `__error`),
-  `.muted`, `.visually-hidden`. Component styles stay small (4 kB budget).
-- **Theme:** one dark theme only (`color-scheme: dark`); there is no theme
-  toggle. Do not add light-mode styles.
+  `.empty-state`, `.segmented` (radio group as buttons), `.field` (`__hint`, `__error`),
+  `.muted`, `.visually-hidden`. Building blocks in `shared/ui/`: `GlassPanel` (`headingLevel` 1-3 renders
+  the matching `<h1>`-`<h3>`; optional collapse), `PillNav`, `StatChip`, `Tabs` (ARIA tabs, e.g. the
+  metric switch), `SegmentedToggle`, `FilterChip`, `IconButton`, `BottomSheet`; prefer them over new
+  one-off controls. Blur only on a few top-level panels, never per list row. Component styles stay
+  small (4 kB budget).
+- **Theme:** light, dark and system. `ThemeService` (`core/theme/theme.ts`) holds the
+  preference (`'light' | 'dark' | 'system'`, default system, saved in `localStorage` key
+  `routewise.theme`; every storage access is in try/catch and falls back to system), follows
+  `prefers-color-scheme` live while on system, and sets `data-theme` and `color-scheme` on
+  `<html>`. An inline script in `index.html` does the same before first paint (keep the key and
+  values in sync with the service). The header's theme menu (disclosure with three `aria-pressed`
+  buttons, current one also marked with a ✓) changes it. Dark tokens live in `:root`; light tokens
+  redefine them from the same palette (midnight black as ink, white and ink alphas as surfaces).
+  **Lime is a fill only in light mode** (primary buttons, badges, selected tints, glows, the map
+  route over a dark halo): anything that is lime text, a link, a thin line, a stroke or the focus
+  ring uses `--color-primary-ink` (lime in dark, ink in light), selected backgrounds use
+  `--color-selected-bg`, recommended stripes, bar outlines and primary-button borders use
+  `--color-highlight-edge`, and red/amber text uses `--color-danger-text`/`--color-accent-text`
+  (red and amber are borders and fills with ink text in light). Never write `color: var(--color-primary)`.
+  Map tokens (`--map-sea`, `--map-land`, `--map-border`, `--map-city`) have light variants and
+  `--map-route-halo` is the outline under the route and pins. Use only tokens in components so both
+  themes work; check any new pair in light and dark. `prefers-reduced-transparency` makes the glass
+  solid in both themes.
 - **Accessibility:** semantic HTML and landmarks, labels on inputs, visible
   focus, nothing conveyed by color alone, scrollable regions focusable.
   Layouts work down to 375 px.

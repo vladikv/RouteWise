@@ -1,11 +1,18 @@
 @let u = unit();
 
-<div class="frame" [class.frame--interactive]="interactive()">
+<div
+  class="frame"
+  [class.frame--interactive]="interactive()"
+  [class.frame--fill]="fill()"
+  [class.frame--controls-end]="controls() === 'bottom-end'"
+  [style.--inset-start.px]="insetStart()"
+  [style.--inset-end.px]="insetEnd()"
+>
   <svg
     #svg
     class="map"
     [class.map--wide]="isWideView()"
-    [style.aspect-ratio]="aspectRatio()"
+    [style.aspect-ratio]="fill() ? null : aspectRatio()"
     tabindex="-1"
     [attr.viewBox]="viewBox()"
     [attr.role]="interactive() ? 'group' : 'img'"
@@ -30,10 +37,60 @@
       [attr.height]="whole.height"
     />
     <path class="land" [attr.d]="land()" />
+    @if (fades(); as f) {
+      <defs>
+        <linearGradient id="map-fade-start" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" class="fade-stop" stop-opacity="1" />
+          <stop offset="1" class="fade-stop" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient id="map-fade-end" x1="1" x2="0" y1="0" y2="0">
+          <stop offset="0" class="fade-stop" stop-opacity="1" />
+          <stop offset="1" class="fade-stop" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient id="map-fade-top" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" class="fade-stop" stop-opacity="1" />
+          <stop offset="1" class="fade-stop" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient id="map-fade-bottom" x1="0" x2="0" y1="1" y2="0">
+          <stop offset="0" class="fade-stop" stop-opacity="1" />
+          <stop offset="1" class="fade-stop" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+      <g class="fades">
+        <rect
+          [attr.x]="f.west"
+          [attr.y]="f.north"
+          [attr.width]="f.size"
+          [attr.height]="f.height"
+          fill="url(#map-fade-start)"
+        />
+        <rect
+          [attr.x]="f.east - f.size"
+          [attr.y]="f.north"
+          [attr.width]="f.size"
+          [attr.height]="f.height"
+          fill="url(#map-fade-end)"
+        />
+        <rect
+          [attr.x]="f.west"
+          [attr.y]="f.north"
+          [attr.width]="f.width"
+          [attr.height]="f.size"
+          fill="url(#map-fade-top)"
+        />
+        <rect
+          [attr.x]="f.west"
+          [attr.y]="f.south - f.size"
+          [attr.width]="f.width"
+          [attr.height]="f.size"
+          fill="url(#map-fade-bottom)"
+        />
+      </g>
+    }
 
     @if (route(); as route) {
       <path class="route route--halo" [attr.d]="route.path" />
-      <path class="route" [attr.d]="route.path" pathLength="1" />
+      <path class="route" [attr.d]="route.path" />
       @if (!reducedMotion) {
         <circle class="traveller" [attr.r]="4 * u">
           <animateMotion dur="3.2s" repeatCount="indefinite" [attr.path]="route.path" />

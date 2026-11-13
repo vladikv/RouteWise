@@ -1,4 +1,9 @@
-<p class="back"><a routerLink="/trips">← All trips</a></p>
+<p class="back">
+  <a class="back-link" routerLink="/trips">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6" /></svg>
+    All trips
+  </a>
+</p>
 
 @if (trip.isLoading()) {
   <app-spinner label="Loading trip…" />

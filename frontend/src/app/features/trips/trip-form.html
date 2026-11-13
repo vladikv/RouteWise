@@ -44,36 +44,33 @@
             (valueChange)="setStop(i, $event)"
           />
           <div class="stop__actions">
-            <button
-              type="button"
-              class="button stop__button"
-              [attr.aria-label]="'Move stop ' + (i + 1) + ' up'"
-              title="Move up"
+            <app-icon-button
+              [label]="'Move stop ' + (i + 1) + ' up'"
               [disabled]="first"
               (click)="moveStop(i, -1)"
             >
-              <span aria-hidden="true">↑</span>
-            </button>
-            <button
-              type="button"
-              class="button stop__button"
-              [attr.aria-label]="'Move stop ' + (i + 1) + ' down'"
-              title="Move down"
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 19V5M6 11l6-6 6 6" />
+              </svg>
+            </app-icon-button>
+            <app-icon-button
+              [label]="'Move stop ' + (i + 1) + ' down'"
               [disabled]="last"
               (click)="moveStop(i, 1)"
             >
-              <span aria-hidden="true">↓</span>
-            </button>
-            <button
-              type="button"
-              class="button stop__button"
-              [attr.aria-label]="'Remove stop ' + (i + 1)"
-              title="Remove"
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 5v14M6 13l6 6 6-6" />
+              </svg>
+            </app-icon-button>
+            <app-icon-button
+              [label]="'Remove stop ' + (i + 1)"
               [disabled]="stopValues().length <= minStops"
               (click)="removeStop(i)"
             >
-              <span aria-hidden="true">✕</span>
-            </button>
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </app-icon-button>
           </div>
           @if (stopError(i); as message) {
             <span [id]="'trip-stop-' + i + '-error'" class="field__error stop__error">{{
@@ -138,11 +135,11 @@
 
   <fieldset class="field priority">
     <legend>What matters most?</legend>
-    <div class="priority__options">
+    <div class="segmented">
       @for (priority of priorities; track priority) {
-        <label class="priority__option">
+        <label>
           <input type="radio" formControlName="priority" [value]="priority" />
-          {{ priorityLabels[priority] }}
+          <span>{{ priorityLabels[priority] }}</span>
         </label>
       }
     </div>

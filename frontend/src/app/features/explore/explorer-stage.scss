@@ -1,0 +1,189 @@
+/*
+ * Placement of the explorer's parts. The map, the settings dock and the results dock are always
+ * the same elements; only these rules move them, so a layout switch recreates nothing.
+ *   stacked (768-1023 px)  map, settings, results one under the other
+ *   split (from 1024 px)   map left, settings and results in a scrolling column on the right
+ *   map (from 1440 px)     map fills the stage, the docks float over it as glass panels
+ *   sheet (< 768 px)       map; settings and results live in the bottom sheet
+ */
+
+:host {
+  display: block;
+}
+
+.stage {
+  position: relative;
+}
+
+.stage__map {
+  height: clamp(18rem, 52dvh, 30rem);
+}
+
+.stage__side {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+  padding: var(--space-4);
+
+  &:focus-visible {
+    outline-offset: -3px;
+  }
+}
+
+.dock {
+  /* The settings and the comparison table adapt to the width of their dock. */
+  container-type: inline-size;
+}
+
+.intro {
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-muted);
+  font-size: 0.9375rem;
+}
+
+.intro__short {
+  display: none;
+}
+
+.sheet__heading {
+  margin: var(--space-6) 0 var(--space-3);
+  font-size: 1.1rem;
+}
+
+/* The layout choice floats over the map's top edge. */
+.stage__toolbar {
+  position: absolute;
+  top: var(--space-4);
+  z-index: 2;
+}
+
+/* Phones: the map fills the space above the sheet's peek. */
+.stage--sheet {
+  .stage__map {
+    height: calc(100dvh - var(--header-height) - 4.5rem);
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+}
+
+/* Split: the map is pinned at the left, the column at the right scrolls on its own. */
+@media (min-width: 64rem) {
+  .stage--split {
+    display: grid;
+    grid-template-columns: minmax(0, 58fr) minmax(0, 42fr);
+    grid-template-rows: minmax(0, 1fr);
+    height: calc(100dvh - var(--header-height));
+    min-height: 34rem;
+
+    .stage__map {
+      height: 100%;
+    }
+
+    .stage__side {
+      min-height: 0;
+      padding: var(--space-6);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .stage__toolbar {
+      left: var(--space-4);
+    }
+  }
+}
+
+/* Map: the map is the background of the stage; the docks are glass panels over it. */
+.stage--map {
+  height: calc(100dvh - var(--header-height));
+  min-height: 34rem;
+  overflow: hidden;
+
+  .stage__map {
+    position: absolute;
+    inset: 0;
+    height: auto;
+  }
+
+  .stage__toolbar {
+    left: 50%;
+    translate: -50%;
+  }
+
+  .stage__side {
+    display: contents;
+  }
+
+  .dock {
+    position: absolute;
+    top: var(--space-6);
+    width: 24rem;
+  }
+
+  .dock--form {
+    left: var(--space-6);
+  }
+
+  .dock--results {
+    right: var(--space-6);
+  }
+
+  /* A collapsed panel shrinks to a small tab that reopens it. */
+  .dock--collapsed {
+    width: 14rem;
+  }
+
+  .dock__scroll {
+    /* Room left for the panel's padding and heading; scrolls inside, never past the stage. */
+    max-height: calc(100dvh - var(--header-height) - 9.5rem);
+    margin: calc(-1 * var(--space-1));
+    padding: var(--space-1);
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+
+    &:focus-visible {
+      outline-offset: -2px;
+    }
+  }
+
+  .intro {
+    margin-bottom: var(--space-3);
+  }
+
+  .intro__full {
+    display: none;
+  }
+
+  .intro__short {
+    display: inline;
+  }
+
+  /* Until there is something to compare, the results panel is only a hint. */
+  .dock--idle {
+    container-type: normal;
+    width: auto;
+
+    app-glass-panel {
+      display: none;
+    }
+
+    .hint-chip {
+      display: block;
+    }
+  }
+}
+
+.hint-chip {
+  display: none;
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-highlight), var(--shadow-card);
+  color: var(--color-text);
+  font-weight: 600;
+}

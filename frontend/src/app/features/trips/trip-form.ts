@@ -31,6 +31,7 @@ import {
 } from '../../core/api/models';
 import { RouteMap } from '../../shared/map/route-map';
 import { CityPicker } from '../../shared/ui/city-picker';
+import { IconButton } from '../../shared/ui/icon-button';
 import { todayIso } from '../../shared/util/date';
 import { PRIORITIES, PRIORITY_LABELS } from '../../shared/util/labels';
 
@@ -44,6 +45,7 @@ export interface TripPreset {
   departureDate?: string;
   travelers?: number;
   priority?: TripPriority;
+  notes?: string;
 }
 
 const MESSAGES: Record<string, string> = {
@@ -63,7 +65,7 @@ const MESSAGES: Record<string, string> = {
  */
 @Component({
   selector: 'app-trip-form',
-  imports: [ReactiveFormsModule, RouterLink, RouteMap, CityPicker],
+  imports: [ReactiveFormsModule, RouterLink, RouteMap, CityPicker, IconButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './trip-form.html',
   styleUrl: './trip-form.scss',

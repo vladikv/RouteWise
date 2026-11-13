@@ -1,87 +1,28 @@
-.trips {
-  display: grid;
-  gap: var(--space-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.trip {
+.head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-6);
+  gap: var(--space-3) var(--space-8);
+  margin-bottom: var(--space-6);
 }
 
-.trip__main {
-  min-width: 0;
-}
-
-.trip h2 {
-  margin-bottom: var(--space-1);
-  overflow-wrap: anywhere;
-}
-
-.trip h2 a {
-  color: var(--color-text);
-}
-
-.trip__route,
-.trip__meta {
+.head h1 {
   margin: 0;
+  font-size: clamp(2.25rem, 6vw, 3.25rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
 }
 
-.trip__route {
+.kpis {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  font-weight: 600;
+  gap: var(--space-3) var(--space-6);
 }
 
-.trip__route--multi .trip__line {
-  width: 1.5rem;
-}
-
-.trip__stops {
-  font-weight: 700;
-}
-
-/* A small route line between two stops: dot, dashes, dot. */
-.trip__line {
-  position: relative;
-  width: 3rem;
-  height: 0;
-  border-top: 2px dashed var(--color-primary);
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -5px;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--color-primary);
-  }
-
-  &::before {
-    left: -4px;
-  }
-
-  &::after {
-    right: -4px;
-  }
-}
-
-.trip__meta .badge {
-  margin-left: var(--space-2);
-}
-
-.empty {
-  text-align: center;
+.kpis__note {
+  flex-basis: 100%;
+  margin: calc(var(--space-2) * -1) 0 0;
+  font-size: 0.875rem;
 }
 
 .delete-error {

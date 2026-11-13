@@ -1,0 +1,189 @@
+/* Plain translucent fill, no blur: this list can be long. */
+.trips {
+  width: 100%;
+  border: 1px solid var(--glass-border);
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-highlight);
+}
+
+th,
+td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--glass-border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+thead th {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.trip__name {
+  font-weight: 400;
+}
+
+.trip__name a {
+  color: var(--color-text);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+/* Stretched link: covers the whole row (tr is the containing block), so a click anywhere opens the trip. */
+.row {
+  position: relative;
+  cursor: pointer;
+}
+
+.trip__name a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.row--moving > * {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.row:hover .trip__name a {
+  text-decoration: underline;
+}
+
+.row:hover > *,
+.row:focus-within > * {
+  background: var(--glass-bg-strong);
+}
+
+/* The focus ring goes around the row, not just the link text. */
+.row:has(.trip__name a:focus-visible) {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.trip__name a:focus-visible {
+  outline: none;
+}
+
+.sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.sort:hover {
+  color: var(--color-text);
+}
+
+th[aria-sort='ascending'] .sort,
+th[aria-sort='descending'] .sort {
+  color: var(--color-text);
+}
+
+.trip__line {
+  display: block;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.trip__date {
+  white-space: nowrap;
+}
+
+.trip__mode {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 600;
+}
+
+.trip__placeholder {
+  display: inline-block;
+  width: 3.5rem;
+  height: 1.25rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-border);
+  vertical-align: middle;
+}
+
+.trip__actions {
+  width: 1%;
+  white-space: nowrap;
+  padding-left: 0;
+  text-align: right;
+}
+
+.trip__tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.trip__menu {
+  position: relative;
+  z-index: 2;
+}
+
+/* An open menu stays above the quick actions of the rows below it. */
+.trip__menu:focus-within {
+  z-index: 3;
+}
+
+.trip__quick {
+  opacity: 0;
+}
+
+.row:hover .trip__quick,
+.row:focus-within .trip__quick,
+.trip__quick.is-confirming {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .trip__quick {
+    display: none;
+  }
+}
+
+.narrow-only {
+  display: none;
+}
+
+@media (max-width: 47.99rem) {
+  .wide-only {
+    display: none;
+  }
+
+  .narrow-only {
+    display: inline;
+  }
+
+  .trip__quick {
+    display: none;
+  }
+
+  th,
+  td {
+    padding: var(--space-3);
+  }
+}

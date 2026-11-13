@@ -35,6 +35,8 @@ describe('RouteMap with stops', () => {
     map = fixture.nativeElement as HTMLElement;
   });
 
+  afterEach(() => vi.unstubAllGlobals());
+
   async function show(stops: number[]): Promise<void> {
     fixture.componentRef.setInput('stops', stops);
     await fixture.whenStable();

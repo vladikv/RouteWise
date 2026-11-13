@@ -1,68 +1,129 @@
-<div class="page-header">
-  <h1>Trips</h1>
-  <a class="button button--primary" routerLink="/trips/new">New trip</a>
-</div>
-
-@if (deleteError(); as error) {
-  <div class="delete-error">
-    <app-error-message [error]="error" [retryable]="false" />
-  </div>
-}
-
-@if (trips.isLoading()) {
-  <app-spinner label="Loading trips…" />
-} @else if (trips.error(); as error) {
-  <app-error-message [error]="error" (retry)="trips.reload()" />
-} @else if (trips.value(); as list) {
-  @if (list.length === 0) {
-    <section class="card empty">
-      <h2>No trips yet</h2>
-      <p class="muted">Create your first trip to compare how to get there.</p>
-      <a class="button button--primary" routerLink="/trips/new">Create a trip</a>
-    </section>
-  } @else {
-    <ul class="trips">
-      @for (trip of list; track trip.id) {
-        <li class="card trip">
-          <div class="trip__main">
-            <h2>
-              <a [routerLink]="['/trips', trip.id]">{{ trip.title }}</a>
-            </h2>
-            <p class="trip__route" [class.trip__route--multi]="trip.stops.length > 2">
-              @for (stop of trip.stops; track stop.position; let first = $first) {
-                @if (!first) {
-                  <span class="trip__line" aria-hidden="true"></span>
-                  <span class="visually-hidden">to</span>
-                }
-                {{ stop.cityName }}
-              }
-              @if (trip.stops.length > 2) {
-                <span class="badge trip__stops">{{ trip.stops.length }} stops</span>
-              }
-            </p>
-            <p class="trip__meta muted">
-              {{ trip.departureDate | date: 'mediumDate' }} ({{ countdown(trip) }}) ·
-              {{ travelersLabel(trip.travelers) }}
-              <span class="badge">{{ priorityLabels[trip.priority] }}</span>
-            </p>
-          </div>
-          <div class="actions">
-            <a
-              class="button"
-              [routerLink]="['/trips', trip.id, 'edit']"
-              [attr.aria-label]="'Edit ' + trip.title"
-            >
-              Edit
-            </a>
-            <app-confirm-action
-              [ariaLabel]="'Delete ' + trip.title"
-              [question]="'Delete this trip?'"
-              [busy]="deletingId() === trip.id"
-              (confirmed)="delete(trip)"
-            />
-          </div>
-        </li>
+<div class="trips-page">
+  <header class="head">
+    <h1>Trips</h1>
+    @if (trips.hasValue() && trips.value().length > 0) {
+      <div class="kpis">
+        <app-stat-chip label="Trips planned" [value]="'' + kpis().planned">
+          <svg
+            icon
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            focusable="false"
+            aria-hidden="true"
+          >
+            <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" />
+            <circle cx="12" cy="10" r="2.3" />
+          </svg>
+        </app-stat-chip>
+        <app-stat-chip
+          label="CO₂ saved vs car"
+          [loading]="figuresLoading()"
+          [value]="kpis().co2Trips ? ((kpis().co2SavedKg | number: '1.0-0') ?? '') + ' kg' : '–'"
+        >
+          <svg
+            icon
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            focusable="false"
+            aria-hidden="true"
+          >
+            <path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14M5 19c2-4 5-7 9-9" />
+          </svg>
+        </app-stat-chip>
+        <app-stat-chip
+          label="Average cost per trip"
+          [loading]="figuresLoading()"
+          [value]="
+            kpis().averageCost === null
+              ? '–'
+              : ((kpis().averageCost | currency: kpis().currency ?? 'EUR' : 'symbol' : '1.0-0') ??
+                '')
+          "
+        >
+          <svg
+            icon
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            focusable="false"
+            aria-hidden="true"
+          >
+            <path d="M17 6.5A6 6 0 0 0 7.5 9M17 17.5A6 6 0 0 1 7.5 15M5 10.5h8M5 13.5h8" />
+          </svg>
+        </app-stat-chip>
+      </div>
+      @if (!figuresLoading() && kpis().leftOut > 0) {
+        <p class="kpis__note muted">Based on {{ kpis().co2Trips }} of {{ kpis().planned }} trips</p>
       }
-    </ul>
+    }
+  </header>
+
+  @if (deleteError(); as error) {
+    <div class="delete-error">
+      <app-error-message [error]="error" [retryable]="false" />
+    </div>
   }
-}
+
+  @if (trips.isLoading()) {
+    <app-spinner label="Loading trips…" />
+  } @else if (trips.error(); as error) {
+    <app-error-message [error]="error" (retry)="trips.reload()" />
+  } @else if (trips.value(); as list) {
+    @if (list.length === 0) {
+      <section class="empty-state">
+        <h2>No trips yet</h2>
+        <p class="muted">Create your first trip to compare how to get there.</p>
+        <a class="button button--primary" routerLink="/trips/new">Create a trip</a>
+      </section>
+    } @else {
+      <app-trip-toolbar
+        [(search)]="search"
+        [(priorities)]="priorities"
+        [(modes)]="modes"
+        [view]="view()"
+        (viewChange)="setView($event)"
+        [priorityCounts]="priorityCounts()"
+        [modeCounts]="modeCounts()"
+        [total]="total()"
+        [shown]="visible().length"
+      />
+
+      @if (visible().length === 0) {
+        <section class="empty-state">
+          <h2>No trips match your filters</h2>
+          <p class="muted">Try another search or remove a filter.</p>
+          <button type="button" class="button" (click)="clearFilters()">Clear filters</button>
+        </section>
+      } @else if (view() === 'board') {
+        <app-trip-board
+          [columns]="columns()"
+          [deletingId]="deletingId()"
+          [movingIds]="movingIds()"
+          (deleted)="delete($event)"
+          (moved)="move($event)"
+        />
+      } @else {
+        <app-trip-table
+          [entries]="visible()"
+          [(sort)]="sort"
+          [deletingId]="deletingId()"
+          [movingIds]="movingIds()"
+          (deleted)="delete($event)"
+          (moved)="move($event)"
+        />
+      }
+    }
+  }
+  <p class="visually-hidden" role="status">{{ announcement() }}</p>
+</div>

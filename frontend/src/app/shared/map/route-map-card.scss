@@ -1,0 +1,50 @@
+/* Hover / focus card */
+
+.card-tip {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 9rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-highlight), var(--shadow-raised);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  transform: translate(-50%, calc(-100% - 16px));
+  pointer-events: none;
+}
+
+.card-tip--below {
+  transform: translate(-50%, 16px);
+}
+
+.card-tip strong {
+  font-size: 0.9375rem;
+}
+
+.card-tip__country,
+.card-tip__hint {
+  color: var(--color-text-muted);
+}
+
+.card-tip__distance {
+  font-weight: 600;
+}
+
+.status {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.9375rem;
+}
+
+@media (max-width: 30rem) {
+  .hint {
+    display: none;
+  }
+}
