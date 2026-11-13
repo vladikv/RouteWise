@@ -37,9 +37,9 @@ class CityMigrationTest {
 
     @Test
     void migrate_seedsTheV2AndV7Cities() throws SQLException {
-        // 25 from V2 + 125 from V7
-        assertThat(count("SELECT COUNT(*) FROM city")).isEqualTo(150);
-        assertThat(count("SELECT COUNT(DISTINCT name) FROM city")).isEqualTo(150);
+        // 25 from V2 + 125 from V7 - Moscow (removed in V10, see MoscowRemovalMigrationTest)
+        assertThat(count("SELECT COUNT(*) FROM city")).isEqualTo(149);
+        assertThat(count("SELECT COUNT(DISTINCT name) FROM city")).isEqualTo(149);
     }
 
     @Test
