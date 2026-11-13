@@ -52,6 +52,15 @@ class AuthFlowIntegrationTest {
     }
 
     @Test
+    void health_isPublicAndRevealsNoDetails() throws Exception {
+        mockMvc.perform(get("/actuator/health"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"))
+                .andExpect(jsonPath("$.components").doesNotExist());
+        mockMvc.perform(get("/actuator/env")).andExpect(status().isNotFound());
+    }
+
+    @Test
     void protectedEndpoints_withoutLogin_return401() throws Exception {
         mockMvc.perform(get("/api/trips")).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized());
