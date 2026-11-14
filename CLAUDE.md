@@ -76,7 +76,8 @@ UI: http://localhost:4200
 - Screenshots: `cd frontend && npm run screenshots` (Playwright, needs the app running) captures
   every screen at 1920/1280/375 px. Step reviews go to `docs/screenshots/work/` (git-ignored);
   final `before-*`/`after-*` sets of UI milestones go to `docs/screenshots/` and are committed.
-  `docs/photo.jpg` is a design reference: never commit, move or copy it.
+  `docs/photo.jpg` is a design reference: never commit, move or copy it. `docs/trips_details.png` is a
+  local, git-ignored reference screenshot of the trip details page.
 - Do not change public API contracts (paths, DTO fields) without saying so explicitly.
 - Run the relevant tests after changes and report the result honestly.
 - When unsure about a requirement, ask instead of guessing.
