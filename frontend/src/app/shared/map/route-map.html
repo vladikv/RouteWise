@@ -56,6 +56,22 @@
     />
     <circle class="glass-rim" [attr.cx]="d.cx" [attr.cy]="d.cy" [attr.r]="d.r" />
 
+    @if (tripPaths().length > 0) {
+      <g class="trip-arcs" [class.trip-arcs--faded]="route() !== null" aria-hidden="true">
+        @for (arc of tripPaths(); track arc.id) {
+          <path class="trip-arc" [attr.d]="arc.d" />
+          <path
+            class="trip-hit"
+            [attr.d]="arc.d"
+            (pointerenter)="hoverTrip($event, arc.id)"
+            (pointermove)="hoverTrip($event, arc.id)"
+            (pointerleave)="hoveredTrip.set(null)"
+            (click)="openTrip(arc.id)"
+          />
+        }
+      </g>
+    }
+
     @for (leg of legPaths(); track leg.key) {
       <path class="route route--glow" [attr.d]="leg.d" />
       <path class="route" [attr.d]="leg.d" />
@@ -178,6 +194,38 @@
       </button>
       <button type="button" aria-label="Reset view" title="Reset view" (click)="reset()">↺</button>
     </div>
+    @if (toggleCount() > 0) {
+      <div class="toggles">
+        @if (trips().length > 0) {
+          <app-icon-button
+            label="Show my trips"
+            [pressed]="showTrips()"
+            (click)="showTrips.set(!showTrips())"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M3 18C6 6 18 6 21 18" />
+              <circle cx="3" cy="18" r="1.5" />
+              <circle cx="21" cy="18" r="1.5" />
+            </svg>
+          </app-icon-button>
+        }
+        @if (showPause()) {
+          <app-icon-button
+            label="Pause globe rotation"
+            [pressed]="paused()"
+            (click)="togglePause()"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              @if (paused()) {
+                <path d="M8 5l11 7-11 7z" />
+              } @else {
+                <path d="M9 5v14M15 5v14" />
+              }
+            </svg>
+          </app-icon-button>
+        }
+      </div>
+    }
     <p class="hint" aria-hidden="true">
       Drag to rotate · {{ cooperative() ? 'Ctrl + scroll or pinch' : 'scroll or pinch' }} to zoom
     </p>
@@ -186,6 +234,19 @@
     }
     @if (landState() === 'failed') {
       <p class="note" role="status">Coastlines could not be loaded</p>
+    }
+
+    @if (tripTip(); as tip) {
+      <div
+        class="card-tip"
+        [class.card-tip--below]="tip.below"
+        [style.left.%]="tip.left"
+        [style.top.%]="tip.top"
+        aria-hidden="true"
+      >
+        <strong>{{ tip.trip.title }}</strong>
+        <span class="card-tip__country">{{ tip.trip.date | date: 'mediumDate' }}</span>
+      </div>
     }
 
     @if (card(); as card) {

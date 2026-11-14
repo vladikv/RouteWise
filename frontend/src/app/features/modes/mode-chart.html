@@ -8,20 +8,27 @@
   />
   <span id="mode-hint" class="muted hint">{{ definition().hint }}</span>
 </div>
+<p id="mode-best" class="best">
+  <span class="best__mark" aria-hidden="true"></span>
+  Best: {{ bestSummary() }}
+</p>
 
 <div
   role="tabpanel"
   tabindex="0"
   [id]="switch.panelId(metric())"
   [attr.aria-labelledby]="switch.tabId(metric())"
-  aria-describedby="mode-hint"
+  aria-describedby="mode-hint mode-best"
 >
   <ol class="bars">
     @for (row of rows(); track row.mode.code) {
-      <li class="bar">
+      <li class="bar" [class.bar--best]="row.best">
         <span class="bar__label">
           <app-mode-icon [mode]="row.mode.code" />
           {{ labels[row.mode.code] }}
+          @if (row.best) {
+            <span class="visually-hidden">(best)</span>
+          }
         </span>
         <span class="bar__track" aria-hidden="true">
           <span class="bar__fill" [style.width.%]="row.percent"></span>

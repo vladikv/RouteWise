@@ -1,0 +1,50 @@
+/* My trips: faint thin arcs under the route; a wide invisible stroke is the click and hover target. */
+.trip-arc,
+.trip-hit {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.trip-arc {
+  stroke: var(--map-trip);
+  stroke-width: 1.5px;
+  pointer-events: none;
+}
+
+.trip-hit {
+  stroke: transparent;
+  stroke-width: 14px;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.trip-arcs {
+  transition: opacity 0.3s ease;
+}
+
+/* Fades further while a route is selected, so the route stays the one thing to look at. */
+.trip-arcs--faded {
+  opacity: 0.35;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trip-arcs {
+    transition: none;
+  }
+}
+
+.toggles {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  top: var(--space-3);
+  right: calc(var(--space-3) + 2.75rem + var(--space-2));
+}
+
+/* In the bottom-end layout it sits left of the zoom buttons, on their bottom edge. */
+.frame--controls-end .toggles {
+  inset: auto var(--inset-end, 0px) var(--space-6) auto;
+  margin-right: calc(var(--space-4) + 2.75rem + var(--space-2));
+}

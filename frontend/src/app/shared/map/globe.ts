@@ -49,17 +49,21 @@ const EARTH_RADIUS_KM = 6371;
 /** Latitude cosines below this are not used to scale a horizontal drag (it would spin at the poles). */
 const MIN_COSINE = 0.15;
 const FIT_ITERATIONS = 3;
+/** A globe at rest turns once round in this long. */
+export const IDLE_TURN_MS = 120_000;
+/** A frame longer than this (a throttled tab) advances the idle turn by no more than this. */
+const IDLE_MAX_STEP_MS = 250;
 /** One sample per this many degrees along a great-circle arc. */
 const ARC_STEP_DEGREES = 2;
 
 /**
  * A lifted arc: the leg's great-circle path drawn above the surface. Its peak height is
  * `ARC_LIFT_PER_RADIAN` times the leg's angular length as a fraction of the globe radius, kept
- * between `ARC_LIFT_MIN` and `ARC_LIFT_MAX` (Berlin to Vienna, 0.082 rad: 0.041; across an ocean: 0.3).
+ * between `ARC_LIFT_MIN` and `ARC_LIFT_MAX` (Berlin to Vienna, 0.082 rad: 0.021; across an ocean: 0.15).
  */
-export const ARC_LIFT_PER_RADIAN = 0.5;
-export const ARC_LIFT_MIN = 0.02;
-export const ARC_LIFT_MAX = 0.3;
+export const ARC_LIFT_PER_RADIAN = 0.25;
+export const ARC_LIFT_MIN = 0.01;
+export const ARC_LIFT_MAX = 0.15;
 /** A lifted point also moves up the screen by this many times its lift (the globe is seen a little from the side). */
 export const ARC_LIFT_TILT = 1;
 /** An arc is sampled at least this many times, so the lifted curve stays smooth. */
@@ -153,6 +157,15 @@ export function rotateBy(view: GlobeView, dx: number, dy: number, radius: number
     longitude: wrapLongitude(view.longitude - (dx * degreesPerPixel) / cosine),
     latitude: clamp(view.latitude + dy * degreesPerPixel, -90, 90),
   };
+}
+
+/**
+ * The view after `elapsedMs` of idle rotation: the surface moves east (to the right), one full turn
+ * per {@link IDLE_TURN_MS}. Latitude and zoom stay. A long gap between frames counts as a short one.
+ */
+export function idleTurn(view: GlobeView, elapsedMs: number): GlobeView {
+  const step = clamp(elapsedMs, 0, IDLE_MAX_STEP_MS);
+  return { ...view, longitude: wrapLongitude(view.longitude - (360 * step) / IDLE_TURN_MS) };
 }
 
 /** Turns the globe by degrees (arrow keys): positive `east` moves the view east, `north` north. */
