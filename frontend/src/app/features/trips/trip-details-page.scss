@@ -38,23 +38,91 @@
   overflow-wrap: anywhere;
 }
 
-.overview {
+/* One column below 1280 px (facts, map, recommendation, comparison); from 1280 px the globe sits at
+   the right and stays in view while the page scrolls. */
+.layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 18rem);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-6);
-  align-items: start;
 }
 
-@media (max-width: 48rem) {
-  .overview {
-    grid-template-columns: minmax(0, 1fr);
+@media (min-width: 80rem) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) minmax(22rem, 30rem);
+    align-items: start;
+  }
+
+  .layout > * {
+    grid-column: 1;
+  }
+
+  .layout > .map-panel {
+    position: sticky;
+    top: var(--space-4);
+    grid-row: 1 / span 3;
+    grid-column: 2;
   }
 }
 
-/* The map frame matches the tiles. */
-.overview__map {
-  border-radius: var(--radius-md);
+.map-panel {
+  padding: var(--space-3);
   overflow: hidden;
+}
+
+/* The route at a glance: city chips joined by arrows, wrapping as a whole stop. */
+.stop-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-6);
+  padding: 0;
+  list-style: none;
+}
+
+.stop {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.stop__name {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.stop__country {
+  padding: 0.05rem 0.45rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg-strong);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.stop__arrow {
+  color: var(--color-primary);
+  font-weight: 800;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notes {
+  margin: var(--space-6) 0 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--glass-border);
+  color: var(--color-text-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .exact-heading {
@@ -62,53 +130,10 @@
   font-size: 1rem;
 }
 
-.details {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  gap: var(--space-4) var(--space-6);
-  margin: 0;
-}
-
-.details {
-  align-content: start;
-}
-
-/* Each fact sits in a light tile; the route and notes span the full row. */
-.details > div {
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  background: var(--glass-bg-strong);
-  box-shadow: var(--glass-highlight);
-}
-
-.details dt {
-  color: var(--color-text-muted);
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.details dd {
-  margin: 0;
-  font-weight: 600;
-}
-
-.details__wide {
-  grid-column: 1 / -1;
-}
-
-.details dd.details__notes {
-  font-weight: 400;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.card + .card {
-  margin-top: var(--space-6);
-}
-
-/* The route as a numbered list of stops. */
-.route-stops {
-  margin: 0;
-  padding-left: 1.25rem;
+.facts svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }

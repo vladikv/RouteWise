@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { CityApi } from '../../core/api/city-api';
@@ -8,7 +8,8 @@ import { TripApi } from '../../core/api/trip-api';
 import { RouteMap } from '../../shared/map/route-map';
 import { ErrorMessage } from '../../shared/ui/error-message';
 import { Spinner } from '../../shared/ui/spinner';
-import { PRIORITY_LABELS, travelersLabel } from '../../shared/util/labels';
+import { StatChip } from '../../shared/ui/stat-chip';
+import { PRIORITY_LABELS } from '../../shared/util/labels';
 import { TripDeleteDialog } from './trip-delete-dialog';
 import { DeletionHooks, TripDeletion } from './trip-deletion';
 import { AdvicePanel } from './comparison/advice-panel';
@@ -30,6 +31,7 @@ import { LegComparison, legComparison, priorityEditLink } from './comparison/leg
     ItineraryView,
     RouteMap,
     Spinner,
+    StatChip,
     TripDeleteDialog,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -62,7 +64,8 @@ export class TripDetailsPage {
   protected readonly cities = rxResource({ stream: () => this.cityApi.findAll() });
   protected readonly deletion = inject(TripDeletion);
   protected readonly priorityLabels = PRIORITY_LABELS;
-  protected readonly travelersLabel = travelersLabel;
+  /** The leg the map shows in focus (a leg row is hovered or shown on the map); null: the whole route. */
+  protected readonly focusedLeg = signal<number | null>(null);
   /** The stop cities in order, for the map. */
   protected readonly stopIds = computed(
     () => this.trip.value()?.stops.map((stop) => stop.cityId) ?? [],
