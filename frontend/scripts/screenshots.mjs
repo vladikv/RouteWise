@@ -41,7 +41,8 @@ const SCREENS = [
     path: '/trips',
     action: (page) => page.getByRole('radio', { name: 'List' }).first().click(),
   },
-  { name: 'trip-details', path: '/trips/{firstTrip}', settle: 2000 },
+  { name: 'trip-details', path: '/trips/{twoStopTrip}', settle: 2000 },
+  { name: 'trip-details-multi', path: '/trips/{multiStopTrip}', settle: 2500 },
   { name: 'trip-form', path: '/trips/new', settle: 2000 },
   { name: 'trip-form-edit', path: '/trips/{firstTrip}/edit', settle: 2500 },
   {
@@ -152,11 +153,25 @@ async function lookupIds() {
   const page = await context.newPage();
   await login(page);
   const trips = await page.evaluate(async (api) => {
-    const response = await fetch(`${api}/api/trips?size=1`, { credentials: 'include' });
+    const response = await fetch(`${api}/api/trips?size=100`, { credentials: 'include' });
     return response.ok ? response.json() : null;
   }, API_URL);
   await context.close();
-  return { berlin: id('Berlin'), vienna: id('Vienna'), firstTrip: trips?.items?.[0]?.id ?? 1 };
+  const items = trips?.items ?? [];
+  const firstTrip = items[0]?.id ?? 1;
+  // The longest multi-stop trip and a plain A → B trip, so both details layouts are captured.
+  const multi = items.reduce(
+    (best, trip) => (trip.stops.length > (best?.stops.length ?? 2) ? trip : best),
+    null,
+  );
+  const twoStop = items.find((trip) => trip.stops.length === 2);
+  return {
+    berlin: id('Berlin'),
+    vienna: id('Vienna'),
+    firstTrip,
+    twoStopTrip: twoStop?.id ?? firstTrip,
+    multiStopTrip: multi?.id ?? firstTrip,
+  };
 }
 
 function fill(path, ids) {
