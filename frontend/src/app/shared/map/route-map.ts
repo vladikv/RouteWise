@@ -19,7 +19,7 @@ import { DOCUMENT, DatePipe } from '@angular/common';
 import { GeoPermissibleObjects, geoGraticule, geoPath } from 'd3-geo';
 import { City } from '../../core/api/models';
 import { IconButton } from '../ui/icon-button';
-import { IdleRotationPreference } from './idle-rotation-preference';
+import { AutoRotatePreference } from './auto-rotate-preference';
 import { hitRadii, thinOut } from './city-density';
 import { Box, LabelRequest, LabelSide, PlacedLabel, layoutLabels } from './label-layout';
 import {
@@ -153,10 +153,11 @@ type LandState = 'loading' | 'ready' | 'failed';
     '[class.fill]': 'fill()',
     '(document:keydown.escape)': 'dismissCard()',
     '(document:visibilitychange)': 'syncIdle()',
-    '(pointerenter)': 'enter()',
+    '(pointerenter)': 'onHostMove($event)',
+    '(pointermove)': 'onHostMove($event)',
     '(pointerleave)': 'leave()',
     '(keydown)': 'interrupt()',
-    '(focusin)': 'onFocusIn()',
+    '(focusin)': 'onFocusIn($event)',
     '(focusout)': 'onFocusOut($event)',
   },
   templateUrl: './route-map.html',
@@ -211,7 +212,7 @@ export class RouteMap {
   private readonly destroyRef = inject(DestroyRef);
   private readonly document = inject(DOCUMENT);
   private readonly loadLand = inject(LAND_LOADER);
-  private readonly idlePreference = inject(IdleRotationPreference);
+  private readonly autoRotatePreference = inject(AutoRotatePreference);
 
   /** What the globe shows: the point in the middle of the disc and the zoom. Changes every frame while turning. */
   protected readonly view = signal<GlobeView>({ ...DEFAULT_VIEW });
@@ -461,18 +462,22 @@ export class RouteMap {
     };
   });
 
-  /** The pause control is offered wherever the globe can idle, unless motion is reduced. */
-  protected readonly showPause = computed(
-    () => this.autoRotate() && this.interactive() && !this.reducedMotion(),
+  /** The Auto-rotate toggle is offered wherever the globe can idle, also under reduced motion (to opt in). */
+  protected readonly showAutoRotate = computed(() => this.autoRotate() && this.interactive());
+  /**
+   * Whether the globe turns by itself: the user's explicit choice, else on unless motion is reduced.
+   * It decides alone, so a user who prefers reduced motion can still opt in.
+   */
+  protected readonly rotating = computed(
+    () => this.autoRotatePreference.choice() ?? !this.reducedMotion(),
   );
-  protected readonly paused = this.idlePreference.paused;
   protected readonly toggleCount = computed(
-    () => (this.trips().length > 0 ? 1 : 0) + (this.showPause() ? 1 : 0),
+    () => (this.trips().length > 0 ? 1 : 0) + (this.showAutoRotate() ? 1 : 0),
   );
 
-  /** The globe may turn by itself: asked for, interactive, no route and motion allowed. */
+  /** The globe may turn by itself: asked for, interactive and no route (see also {@link rotating}). */
   private readonly idleEligible = computed(
-    () => this.autoRotate() && this.interactive() && this.route() === null && !this.reducedMotion(),
+    () => this.autoRotate() && this.interactive() && this.route() === null,
   );
 
   /** The dash train runs once the whole arc is drawn, and never when motion is reduced. */
@@ -694,7 +699,10 @@ export class RouteMap {
   private idleTimer: ReturnType<typeof setTimeout> | undefined;
   /** Set by an interaction until the 10 s of quiet are over; the pointer inside the map blocks as well. */
   private idleBlocked = false;
+  /** The pointer is over the globe disc (not just the map's rectangle, which can be much larger). */
   private pointerInside = false;
+  /** Where the map's drawing is on the page; read once and then cached, so a pointer move reads no layout. */
+  private svgOrigin: { left: number; top: number } | null = null;
   /** Keyboard focus is inside the map: the globe must not turn a focused city out of sight. */
   private focusInside = false;
   /** Too many slow update frames: no more idle rotation until the page is reloaded. */
@@ -735,11 +743,17 @@ export class RouteMap {
       untracked(() => this.startDraw(key));
     });
 
-    // The pause control takes effect at once, in both directions.
+    // The Auto-rotate toggle (and the motion setting) takes effect at once, in both directions.
     effect(() => {
-      this.paused();
+      this.rotating();
       untracked(() => this.syncIdle());
     });
+    // A scroll moves the map on the page: the cached position is read again at the next pointer move.
+    const forgetOrigin = () => (this.svgOrigin = null);
+    this.document.addEventListener('scroll', forgetOrigin, { capture: true, passive: true });
+    this.destroyRef.onDestroy(() =>
+      this.document.removeEventListener('scroll', forgetOrigin, { capture: true }),
+    );
 
     // Idle rotation follows the conditions: a selected route (or reduced motion) stops it; when they
     // end again it waits for 10 s of quiet, like after an interaction.
@@ -954,9 +968,16 @@ export class RouteMap {
 
   // --- Idle rotation ---------------------------------------------------------------
 
-  protected enter(): void {
-    this.pointerInside = true;
-    this.interrupt();
+  /** Hover means the pointer is over the globe disc: moving onto it stops the rotation, moving off it starts the 10 s. */
+  protected onHostMove(event: PointerEvent): void {
+    if (!this.autoRotate() || !this.interactive()) {
+      return;
+    }
+    const inside = this.overDisc(event);
+    if (inside !== this.pointerInside) {
+      this.pointerInside = inside;
+      this.interrupt();
+    }
   }
 
   protected leave(): void {
@@ -964,12 +985,27 @@ export class RouteMap {
     this.interrupt();
   }
 
-  protected togglePause(): void {
-    this.idlePreference.set(!this.paused());
+  private overDisc(event: PointerEvent): boolean {
+    this.svgOrigin ??= this.svg()?.nativeElement.getBoundingClientRect() ?? null;
+    if (!this.svgOrigin) {
+      return false;
+    }
+    const { cx, cy, r } = this.disc();
+    return (
+      Math.hypot(
+        event.clientX - this.svgOrigin.left - cx,
+        event.clientY - this.svgOrigin.top - cy,
+      ) <= r
+    );
   }
 
-  protected onFocusIn(): void {
-    this.focusInside = true;
+  protected toggleAutoRotate(): void {
+    this.autoRotatePreference.set(!this.rotating());
+  }
+
+  /** Only keyboard focus keeps the globe still (a focused city must not turn out of sight); a focus left by a click does not. */
+  protected onFocusIn(event: FocusEvent): void {
+    this.focusInside = keyboardFocus(event.target);
     this.interrupt();
   }
 
@@ -1003,7 +1039,7 @@ export class RouteMap {
       this.idleEligible() &&
       !this.idleBlocked &&
       !this.idleOff &&
-      !this.paused() &&
+      this.rotating() &&
       !this.pointerInside &&
       !this.focusInside &&
       !this.document.hidden &&
@@ -1267,6 +1303,7 @@ export class RouteMap {
       return;
     }
     const update = () => {
+      this.svgOrigin = null;
       const { width, height } = element.getBoundingClientRect();
       if (width > 0 && height > 0) {
         this.renderedWidth.set(width);
@@ -1280,6 +1317,15 @@ export class RouteMap {
     const observer = new ResizeObserver(update);
     observer.observe(element);
     this.destroyRef.onDestroy(() => observer.disconnect());
+  }
+}
+
+/** True when `target` has focus that came from the keyboard (`:focus-visible`), not from a click. */
+function keyboardFocus(target: EventTarget | null): boolean {
+  try {
+    return target instanceof Element && target.matches(':focus-visible');
+  } catch {
+    return false; // an engine without :focus-visible
   }
 }
 

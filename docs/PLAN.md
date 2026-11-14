@@ -420,6 +420,7 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
 | 2026-11-14 | Idle globe rotation is adaptive: it switches itself off for the session after repeated slow frames; the glass is unchanged | Human choice. Headless measurements without a GPU showed ~40 % frames > 32 ms, caused by the full-shell `backdrop-filter`, not by the globe; isolating the map or moving the blur layer did not help, and weakening the glass was rejected |
 | 2026-11-14 | A visible "Pause globe rotation" toggle (saved in `localStorage`, default rotating) next to the zoom controls | Human choice after the ui-review: WCAG 2.2.2 needs a way to pause motion that starts by itself and lasts over 5 s; hover does not help touch or keyboard users |
 | 2026-11-14 | The "My trips" styles live in their own `route-map-trips.scss` next to `route-map.scss` | A separate concern of the map component; keeps each stylesheet within the 4 kB budget instead of trimming the globe's own styles |
+| 2026-11-14 | The "Auto-rotate" toggle supersedes "Pause globe rotation": on by default, off by default under `prefers-reduced-motion`, an explicit choice (saved) always wins; hover means the pointer over the globe disc, and only keyboard focus (`:focus-visible`) blocks the rotation | Human report: rotation never started because the whole map rectangle counted as hover and a click-left focus blocked it for good; reduced-motion users must be able to opt in. A Playwright check (`npm run e2e`) now guards it |
 
 ## Backlog / ideas
 

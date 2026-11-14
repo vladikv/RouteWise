@@ -12,6 +12,7 @@
   <svg
     #svg
     class="map"
+    [attr.data-longitude]="view().longitude.toFixed(2)"
     [class.map--wide]="isWideView()"
     [style.aspect-ratio]="fill() ? null : aspectRatio()"
     [attr.tabindex]="interactive() ? 0 : -1"
@@ -212,17 +213,13 @@
             </svg>
           </app-icon-button>
         }
-        @if (showPause()) {
-          <app-icon-button
-            label="Pause globe rotation"
-            [pressed]="paused()"
-            (click)="togglePause()"
-          >
+        @if (showAutoRotate()) {
+          <app-icon-button label="Auto-rotate" [pressed]="rotating()" (click)="toggleAutoRotate()">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              @if (paused()) {
-                <path d="M8 5l11 7-11 7z" />
-              } @else {
+              @if (rotating()) {
                 <path d="M9 5v14M15 5v14" />
+              } @else {
+                <path d="M8 5l11 7-11 7z" />
               }
             </svg>
           </app-icon-button>
