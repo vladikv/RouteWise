@@ -243,6 +243,15 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
   - "this weekend" (Saturday, or today on Saturday or Sunday, like the UI shortcut) and "next weekend" (the Saturday after that) are new; "next week" becomes next Monday, matching the UI shortcut (was today + 7); today, tomorrow, "in N days/weeks", "next <weekday>" (its next occurrence after today) and explicit dates such as "Dec 4" keep working
   - Done when: a unit test per expression with a fixed clock (hand-computed dates, incl. Saturday/Sunday edge cases); `backend-reviewer` 🔴 fixed; `./mvnw verify` green
 - [ ] `docs/readme-demo`: README and demo recording
+  - README for reviewers: features, screenshots from `docs/screenshots/`, quick start with the demo account, every
+    environment variable with its default, a short "how it works", architecture and API overview, test commands
+    (`./mvnw verify`, `npm test`, `npm run lint`, `npm run e2e`, `npm run screenshots`), project structure, "Data &
+    assumptions", known limitations and how Claude Code was used; "Work in progress" banner removed
+  - `docs/DEMO.md`: how the app works end to end (comparison engine, screens and their endpoints, advisor fallback,
+    resilience) and a scene-by-scene plan for a 5–6 minute recording (preparation, clicks, narration, recovery)
+  - Recording: done by the human from `docs/DEMO.md`; its link goes into the README's Demo line
+  - Done when: README and `docs/DEMO.md` match the code (demo trips, variables, endpoints, test counts); `./mvnw verify`,
+    `npm test` and `npm run lint` green; the recording is linked from the README
 
 ## Decisions log
 | Date | Decision | Reason |
@@ -421,6 +430,9 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
 | 2026-11-14 | A visible "Pause globe rotation" toggle (saved in `localStorage`, default rotating) next to the zoom controls | Human choice after the ui-review: WCAG 2.2.2 needs a way to pause motion that starts by itself and lasts over 5 s; hover does not help touch or keyboard users |
 | 2026-11-14 | The "My trips" styles live in their own `route-map-trips.scss` next to `route-map.scss` | A separate concern of the map component; keeps each stylesheet within the 4 kB budget instead of trimming the globe's own styles |
 | 2026-11-14 | The "Auto-rotate" toggle supersedes "Pause globe rotation": on by default, off by default under `prefers-reduced-motion`, an explicit choice (saved) always wins; hover means the pointer over the globe disc, and only keyboard focus (`:focus-visible`) blocks the rotation | Human report: rotation never started because the whole map rectangle counted as hover and a click-left focus blocked it for good; reduced-motion users must be able to opt in. A Playwright check (`npm run e2e`) now guards it |
+| 2026-11-14 | The README and `docs/DEMO.md` state four demo trips (the seeder's "Central Europe loop" was added after the 2026-11-12 decision that named three) | The documents follow `DemoDataSeeder`; the code is the source of truth |
+| 2026-11-14 | How the app works and the recording script live in one committed `docs/DEMO.md`, linked from the README; the README keeps a short summary | One place to keep in step with the code; the recording follows the same document a reader can check |
+| 2026-11-14 | `docs/readme-demo` stays unticked until the human records the demo and links it | The milestone includes the recording, which only the human can make |
 
 ## Backlog / ideas
 

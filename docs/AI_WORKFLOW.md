@@ -641,3 +641,19 @@ corrected manually, and why.
 **Why**
 - The frame budget was set by a design choice (full-shell glass) that a single feature cannot fix. Measuring before accepting made the trade-off visible and gave the human a real choice instead of a silent compromise.
 
+
+## docs/readme-demo (README and demo plan; recording pending)
+
+**Delegated to AI**
+- Read the code, `docs/PLAN.md` and `docs/AI_WORKFLOW.md` and wrote the README for reviewers (features, screenshots, quick start, configuration, how it works, architecture, API overview, testing, data & assumptions, limitations, how Claude Code was used) and `docs/DEMO.md` (how the app works end to end and a scene-by-scene plan for a 5–6 minute recording).
+- Checked every stated fact against the code: environment variables against `application.yml`, endpoints against the controllers, the demo trips against `DemoDataSeeder`, and the free-text example against `RuleBasedTripParser`.
+- Ran `./mvnw verify` (455 tests), `npm test` (712 tests) and `npm run lint`, all green, and used those counts in the README.
+
+**Corrected manually / human decisions**
+- The human chose the scope (the planned `docs/readme-demo` milestone, no external requirements list), one committed `docs/DEMO.md`, and to start from `main` after merging `fix/globe-rotation`, so the README covers `npm run e2e`.
+- The README and the plan said the demo has three sample trips; the seeder creates four. The documents now follow the code (decisions log).
+- The first draft of the parser scene put the date after "back home"; the parser reads that as the return day and leaves the departure date empty, so the scene's text puts the date first and `docs/DEMO.md` explains why.
+- The milestone stays unticked: the recording is the human's part.
+
+**Why**
+- A README is only useful if it is true. Each claim was checked against the code, which found the stale demo-trip count that two documents had repeated.
