@@ -29,6 +29,7 @@ checkboxes when a milestone is completed.
   rounded glass shell with a top bar and a left icon rail; Trips board lanes with tinted cards; an
   interactive list (inline details, pagination, keyboard); a Modes page; an account popover; delete
   through a confirm dialog with Undo
+- Trip details page: route at a glance, key figures first, an interactive globe linked to the legs
 
 Out of scope for v1: social login, password reset, email verification,
 real-time timetables, booking.
@@ -243,6 +244,14 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
   - "this weekend" (Saturday, or today on Saturday or Sunday, like the UI shortcut) and "next weekend" (the Saturday after that) are new; "next week" becomes next Monday, matching the UI shortcut (was today + 7); today, tomorrow, "in N days/weeks", "next <weekday>" (its next occurrence after today) and explicit dates such as "Dec 4" keep working
   - Done when: a unit test per expression with a fixed clock (hand-computed dates, incl. Saturday/Sunday edge cases); `backend-reviewer` 🔴 fixed; `./mvnw verify` green
 - [ ] `docs/readme-demo`: README and demo recording
+- [ ] `feat/trip-details-redesign`: a more readable and interactive trip details page (reference: `docs/trips_details.png`, local and git-ignored; frontend only, no API change)
+  - Depends on `fix/ui-cleanup` (comparison chart accent and priority line)
+  - Header: title, then the route as one horizontal stop chain (city chips with arrows, wrapping, a repeated city shown again: Berlin → Prague → Vienna → Munich → Berlin) instead of a numbered list in a box; date (one line, e.g. "Sat, 5 Dec 2026"), travelers and priority as `StatChip`s in one row; notes as a quiet line under them; Edit and Delete stay
+  - Layout from 1280 px: content at the left, the globe in a larger glass panel at the right that stays in view while the page scrolls (sticky); below 1280 px the globe sits under the header at full width
+  - Interactive globe: the details map becomes interactive (drag, zoom, +/−, Reset, keyboard) with `cooperative` gestures because the page scrolls; it still opens on the route and does not idle-rotate
+  - Recommendation: the key figures first (total time, cost and CO₂ of the recommended plan as `StatChip`s, from the comparison's `recommendedItinerary`), then the advisor's summary; the leg sentences become a leg timeline (one row per leg: number, mode icon from `recommendedModes`, the API's sentence); tips as compact callouts; the advisor source badge stays. API text is shown as is, never re-worded or parsed
+  - Map and legs linked: hovering or focusing a leg row (recommendation timeline or itinerary view) highlights that leg on the globe and dims the others; the globe turns to it if it is out of view; leaving restores the whole route. Pointer and keyboard both work, and the leg stays readable without the map (text first)
+  - Done when: Playwright captures of the details page (2-stop and 5-stop trip) at 1920/1280/375 px as `before-`/`after-trip-details-*` in `docs/screenshots/`; specs for the stop chain, the chips, the figures, the leg timeline and the leg highlight (hover, focus, leave); `ui-reviewer` 🔴 fixed; `npm run lint` and `npm test` green
 
 ## Decisions log
 | Date | Decision | Reason |
@@ -422,6 +431,7 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
 | 2026-11-14 | The "My trips" styles live in their own `route-map-trips.scss` next to `route-map.scss` | A separate concern of the map component; keeps each stylesheet within the 4 kB budget instead of trimming the globe's own styles |
 | 2026-11-14 | The "Auto-rotate" toggle supersedes "Pause globe rotation": on by default, off by default under `prefers-reduced-motion`, an explicit choice (saved) always wins; hover means the pointer over the globe disc, and only keyboard focus (`:focus-visible`) blocks the rotation | Human report: rotation never started because the whole map rectangle counted as hover and a click-left focus blocked it for good; reduced-motion users must be able to opt in. A Playwright check (`npm run e2e`) now guards it |
 | 2026-11-14 | `fix/ui-cleanup`: the comparison chart's accent follows the selected metric (best mode, ties all count, as on the Modes page) while the "Recommended" badge stays with the priority; Delete only in the "⋯" menu and on trip details (quick-action and expanded-row buttons removed) | Human report: on the Time tab the lime bar marked the slowest mode next to "Shorter is better"; too many delete buttons on the Trips page |
+| 2026-11-14 | New milestone `feat/trip-details-redesign`: stop chain, key figures, leg timeline and an interactive globe linked to the legs, frontend only | Human request ("more readable and interactive", reference `docs/trips_details.png`): the page was a vertical list in boxes, a text-only recommendation and a static map; all data needed is already in the trip, comparison and advice responses |
 
 ## Backlog / ideas
 
