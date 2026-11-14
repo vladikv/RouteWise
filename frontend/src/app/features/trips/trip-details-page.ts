@@ -15,7 +15,7 @@ import { AdvicePanel } from './comparison/advice-panel';
 import { ComparisonChart } from './comparison/comparison-chart';
 import { ComparisonPanel } from './comparison/comparison-panel';
 import { ItineraryView } from './comparison/itinerary-view';
-import { LegComparison, legComparison } from './comparison/leg-comparison';
+import { LegComparison, legComparison, priorityEditLink } from './comparison/leg-comparison';
 
 /** One trip: details, the advisor's recommendation, the mode comparison, and edit and delete. */
 @Component({
@@ -70,6 +70,10 @@ export class TripDetailsPage {
 
   protected singleLeg(comparison: Comparison): LegComparison {
     return legComparison(comparison, 0);
+  }
+
+  protected editLink(comparison: Comparison): string | null {
+    return priorityEditLink(comparison);
   }
 
   /** After the delete the page leaves for the list; Undo brings the user back to the restored trip. */

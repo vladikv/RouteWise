@@ -1,5 +1,6 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { WritableSignal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { apiErrorInterceptor } from '../../core/api/api-error';
@@ -65,6 +66,12 @@ describe('RouteExplorer', () => {
     return found;
   }
 
+  function clickPriorityNote(): void {
+    explorer
+      .querySelector<HTMLButtonElement>('app-comparison-chart .priority-note button')!
+      .click();
+  }
+
   async function pickRouteAndAnswer(): Promise<void> {
     await pick('Berlin');
     await pick('Vienna');
@@ -103,6 +110,33 @@ describe('RouteExplorer', () => {
 
     expect(explorer.querySelectorAll('app-comparison-chart .bar')).toHaveLength(2);
     expect(explorer.querySelector('.placeholder')).toBeNull();
+  });
+
+  it("moves focus to the chosen priority from the chart's priority line", async () => {
+    await pickRouteAndAnswer();
+
+    clickPriorityNote();
+    await fixture.whenStable();
+
+    const focused = document.activeElement as HTMLInputElement;
+    expect(focused.name).toBe('explorer-priority');
+    expect(focused.checked).toBe(true);
+    expect(focused.value).toBe('BALANCED');
+  });
+
+  it('opens a collapsed settings dock before focusing the priority', async () => {
+    await pickRouteAndAnswer();
+    const state = fixture.componentInstance as unknown as {
+      formCollapsed: WritableSignal<boolean>;
+    };
+    state.formCollapsed.set(true);
+    await fixture.whenStable();
+
+    clickPriorityNote();
+    await fixture.whenStable();
+
+    expect(state.formCollapsed()).toBe(false);
+    expect((document.activeElement as HTMLInputElement).name).toBe('explorer-priority');
   });
 
   it('re-runs the comparison when priority, travelers or direction change', async () => {

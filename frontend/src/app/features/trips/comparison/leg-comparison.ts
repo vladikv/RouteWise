@@ -45,3 +45,8 @@ export function legComparison(comparison: Comparison, index: number): LegCompari
     unavailableGroups: leg.unavailableGroups,
   };
 }
+
+/** Where the trip's priority is changed: its edit page, or nothing for an unsaved comparison (Home). */
+export function priorityEditLink(comparison: Comparison): string | null {
+  return comparison.tripId === null ? null : `/trips/${comparison.tripId}/edit`;
+}

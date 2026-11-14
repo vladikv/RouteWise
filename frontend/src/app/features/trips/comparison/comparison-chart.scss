@@ -32,7 +32,7 @@
 
 .bar {
   display: grid;
-  grid-template-columns: minmax(7rem, 11rem) 1fr minmax(4.5rem, auto);
+  grid-template-columns: minmax(7rem, 13rem) 1fr minmax(4.5rem, auto);
   align-items: center;
   gap: var(--space-2) var(--space-3);
   padding: var(--space-1) var(--space-2);
@@ -56,7 +56,7 @@
   height: 1rem;
 }
 
-/* One accent bar (the recommendation), the rest de-emphasised; square at the
+/* One accent bar (the best mode for the shown metric; several when they tie), the rest de-emphasised; square at the
    baseline, rounded at the data end. */
 .bar__fill {
   display: block;
@@ -73,9 +73,15 @@
   }
 }
 
-.bar--recommended .bar__fill {
+.bar--best .bar__fill {
   background: var(--color-highlight);
   box-shadow: inset 0 0 0 1px var(--color-highlight-edge);
+}
+
+.best-label {
+  color: var(--color-primary-ink);
+  font-size: 0.8125rem;
+  font-weight: 700;
 }
 
 .bar__value {
@@ -83,6 +89,28 @@
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   white-space: nowrap;
+}
+
+.priority-note {
+  margin: 0 0 var(--space-3);
+  font-size: 0.875rem;
+}
+
+/* Reads as a link whether it navigates (trip pages) or focuses the picker (Home). */
+.priority-note__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-primary);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+}
+
+.priority-note__link:hover {
+  color: var(--color-link-hover);
 }
 
 .unavailable {

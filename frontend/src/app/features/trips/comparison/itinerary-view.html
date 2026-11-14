@@ -104,7 +104,7 @@
       Leg {{ item.leg.index + 1 }}: {{ item.leg.from.name }} to {{ item.leg.to.name }}
     </summary>
     @let detail = legDetails(item.leg);
-    <app-comparison-chart [comparison]="detail" />
+    <app-comparison-chart [comparison]="detail" [priorityLink]="editLink()" />
     <app-comparison-panel [comparison]="detail" />
   </details>
 }

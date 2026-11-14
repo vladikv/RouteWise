@@ -132,10 +132,15 @@ src/
   `[wide]="true"` a map at least 720 px wide takes a 16:9 shape instead of the near-square one. `[fill]` makes
   the map take its container's size and centres the globe between the panels. `controls` (`corner` |
   `bottom-end`) places the zoom buttons (`bottom-end`: bottom right, `insetEnd` px in from the edge, clear of
-  the panels). A non-interactive map (trip details) is an image of the route cities only. `ComparisonChart` shows one metric at a time (switched with `Tabs`) with the
-  recommended mode as the only accent bar (score bars are the score itself, 100 = full track; time, cost and
-  CO₂ bars are relative to the longest) (`--color-highlight`, others
-  `--color-bar`). Neither may be the only way to get information: keep a
+  the panels). A non-interactive map (trip details) is an image of the route cities only. `ComparisonChart` shows one metric at a time (switched with `Tabs`), bars sorted best first
+  (`sortByMetric` in `comparison-metric.ts`: stable, so ties keep the API's order; unavailable modes never get a bar).
+  The accent bar (`--color-highlight`, others `--color-bar`) is the best mode for the shown metric (`bestModes`: highest
+  score, lowest time, cost, CO₂; ties all count, as on the Modes page), named next to it ("Best score", "Fastest",
+  "Cheapest", "Lowest CO₂"); the "★ Recommended" badge stays on the API's recommendation on every tab (score bars are
+  the score itself, 100 = full track; time, cost and CO₂ bars are relative to the longest). A line under the bars says
+  "Recommended for your priority: <priority>. Change the priority …": with `priorityLink` (trip pages,
+  `priorityEditLink` → `/trips/:id/edit`) the priority is a link, otherwise a link-styled button emitting `priorityEdit`
+  (Home focuses the checked priority radio). Neither may be the only way to get information: keep a
   text or form equivalent (dropdowns for the map, the table for the chart)
   and state selection in text and `aria-pressed`, not color alone.
   Map details: one city is the tab stop (roving `tabindex`: last focused, else origin, else first; arrows move

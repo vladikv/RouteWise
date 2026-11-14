@@ -181,6 +181,9 @@ describe('TripDetailsPage', () => {
       section('comparison-heading').querySelectorAll('app-comparison-chart .bar'),
     ).toHaveLength(2);
     expect(section('comparison-heading').textContent).toContain('Recommended');
+    expect(
+      section('comparison-heading').querySelector('.priority-note a')?.getAttribute('href'),
+    ).toBe('/trips/7/edit');
     expect(page.querySelector('[role="status"]')).toBeNull();
   });
 
