@@ -641,3 +641,18 @@ corrected manually, and why.
 **Why**
 - The frame budget was set by a design choice (full-shell glass) that a single feature cannot fix. Measuring before accepting made the trade-off visible and gave the human a real choice instead of a silent compromise.
 
+## feat/trip-details-redesign
+
+**Delegated to AI**
+- Main session (no builder subagents): the milestone plan from a reference screenshot (`docs/trips_details.png`, local only), `RouteMap` `pickable` and `focusLeg` with the 60° turn rule, the stop chain and fact chips, the sticky globe layout, the recommendation's figures, leg rows and tip callouts, `LegFocus` / `appLegHover` / `app-leg-map-toggle`, specs, and before/after captures (the screenshot script now captures a 2-stop and a multi-stop trip).
+- `ui-reviewer` audited the branch: 3 🔴, 6 🟡, 5 🟢.
+
+**Corrected manually / human decisions**
+- A focused leg near the rim counted as "visible" (100° of longitude at 50° N is still the near side), so the globe never turned in the spec. The rule became "within 60° of the centre" (`isClearlyVisible`).
+- City and country ran together for screen readers ("BerlinDE"); a visually hidden ", " now separates them.
+- The reviewer proposed 50 % opacity for faded legs to meet 3:1; a contrast check gave 2.8:1, so 60 % (3.35:1) was used.
+- Keyboard access to the map link: list rows are not focusable, so each leg row got a "Show leg N on the map" toggle (`aria-pressed`) instead of a tabindex on the row.
+- Left open (reported, not fixed): the turn check ignores zoom, pinned stop labels can overlap (Munich/Vienna), the figures row appears only once the comparison arrives (layout shift), a pointer leave clears the highlight while focus is still in the row, and the globe sits second in tab order from 1280 px.
+
+**Why**
+- Everything the page needed was already in the trip, comparison and advice responses, so the redesign stayed frontend only; the advisor's sentences are shown as written instead of being parsed, which keeps the AI and rule-based texts interchangeable.
