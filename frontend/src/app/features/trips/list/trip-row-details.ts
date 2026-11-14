@@ -15,7 +15,7 @@ export type RowDetail =
 
 /**
  * The inside of an expanded list row: each leg's recommended mode with its time, cost and CO₂
- * side by side, the weather summary, and Open on map, Edit and Delete. Every number is the API's
+ * side by side, the weather summary, and Open on map and Edit. Every number is the API's
  * (`GET /api/trips/{id}/comparison`); this component only lays them out. The buttons are there
  * while the comparison loads or has failed.
  */
@@ -31,7 +31,6 @@ export class TripRowDetails {
   /** Undefined until the first request starts. */
   readonly detail = input<RowDetail | undefined>(undefined);
   readonly retry = output<void>();
-  readonly deleteRequested = output<void>();
 
   protected readonly comparison = computed(() => {
     const state = this.detail();

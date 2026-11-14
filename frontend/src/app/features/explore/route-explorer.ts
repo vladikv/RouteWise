@@ -2,6 +2,9 @@ import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -99,6 +102,8 @@ export class RouteExplorer {
   private readonly tripApi = inject(TripApi);
   private readonly session = inject(Session);
   private readonly router = inject(Router);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
   private readonly route = inject(ActivatedRoute);
 
   protected readonly homeLayout = inject(HomeLayout);
@@ -316,6 +321,25 @@ export class RouteExplorer {
 
   protected setDestination(id: number | null): void {
     this.destinationId.set(id);
+  }
+
+  /**
+   * The chart's "your priority" link: move focus to the chosen priority so it can be changed. A
+   * collapsed settings dock (Map layout) hides it, so the dock opens first and focus follows the render.
+   */
+  protected focusPriority(): void {
+    this.formCollapsed.set(false);
+    afterNextRender(
+      () => {
+        const host = this.host.nativeElement;
+        const choice =
+          host.querySelector<HTMLInputElement>('input[name="explorer-priority"]:checked') ??
+          host.querySelector<HTMLInputElement>('input[name="explorer-priority"]');
+        choice?.focus();
+        choice?.scrollIntoView?.({ block: 'center' });
+      },
+      { injector: this.injector },
+    );
   }
 
   protected swap(): void {

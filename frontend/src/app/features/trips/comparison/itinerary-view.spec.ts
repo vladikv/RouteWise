@@ -1,10 +1,12 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { Comparison, ModeTotals } from '../../../core/api/models';
 import { ItineraryView } from './itinerary-view';
 import { MULTI_COMPARISON } from './comparison.testing';
 
 describe('ItineraryView', () => {
   async function render(comparison: Comparison): Promise<HTMLElement> {
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
     const fixture = TestBed.createComponent(ItineraryView);
     fixture.componentRef.setInput('comparison', comparison);
     await fixture.whenStable();
@@ -143,5 +145,15 @@ describe('ItineraryView', () => {
 
       expect(view.querySelectorAll(NOTES)).toHaveLength(0);
     });
+  });
+
+  it("links each leg's priority line to the trip's edit page", async () => {
+    const view = await render(MULTI_COMPARISON);
+    const links = Array.from(view.querySelectorAll('.priority-note a'));
+
+    expect(links.length).toBe(MULTI_COMPARISON.legs.length);
+    expect(
+      links.every((link) => link.getAttribute('href') === `/trips/${MULTI_COMPARISON.tripId}/edit`),
+    ).toBe(true);
   });
 });

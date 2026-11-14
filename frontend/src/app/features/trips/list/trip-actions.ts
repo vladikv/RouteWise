@@ -1,12 +1,12 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Trip } from '../../../core/api/models';
 import { duplicateState } from '../trip-duplicate';
 
 /**
- * Quick actions of a trip card or row: open, edit, duplicate and delete as small icon buttons.
- * The parent decides when they show (hover, focus within, never on touch). Delete only asks the
- * page to delete: the page opens the confirm dialog.
+ * Quick actions of a trip card or row: open, edit and duplicate as small icon buttons. The parent
+ * decides when they show (hover, focus within, never on touch). Delete is not one of them: it lives
+ * in the "⋯" menu and on the trip details page.
  */
 @Component({
   selector: 'app-trip-actions',
@@ -45,17 +45,6 @@ import { duplicateState } from '../trip-duplicate';
         <path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3" />
       </svg>
     </a>
-    <button
-      type="button"
-      class="quick"
-      [attr.aria-label]="'Delete ' + trip().title"
-      title="Delete"
-      (click)="deleteRequested.emit()"
-    >
-      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12M10 11v5M14 11v5" />
-      </svg>
-    </button>
   `,
   styles: `
     :host {
@@ -63,7 +52,7 @@ import { duplicateState } from '../trip-duplicate';
       z-index: 2;
       display: inline-flex;
       align-items: center;
-      gap: var(--space-1);
+      gap: var(--space-2);
     }
 
     .quick {
@@ -105,7 +94,6 @@ import { duplicateState } from '../trip-duplicate';
 })
 export class TripActions {
   readonly trip = input.required<Trip>();
-  readonly deleteRequested = output<void>();
 
   protected readonly duplicateState = duplicateState;
 }

@@ -649,10 +649,12 @@ describe('TripListPage', () => {
 
     const dialog = () => page.querySelector('dialog') as HTMLDialogElement;
 
-    /** Presses the row's quick Delete button; the dialog opens and nothing is deleted yet. */
+    /** Chooses Delete in the card's "⋯" menu; the dialog opens and nothing is deleted yet. */
     async function askToDelete(): Promise<void> {
+      rows()[0].querySelector<HTMLButtonElement>('button[aria-label^="Actions for"]')!.click();
+      await settle();
       rows()[0]
-        .querySelector<HTMLButtonElement>('app-trip-actions button[aria-label^="Delete"]')!
+        .querySelector<HTMLButtonElement>('.menu-panel button[aria-label^="Delete"]')!
         .click();
       await settle();
       expect(dialog().hasAttribute('open')).toBe(true);

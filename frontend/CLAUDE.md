@@ -132,10 +132,15 @@ src/
   `[wide]="true"` a map at least 720 px wide takes a 16:9 shape instead of the near-square one. `[fill]` makes
   the map take its container's size and centres the globe between the panels. `controls` (`corner` |
   `bottom-end`) places the zoom buttons (`bottom-end`: bottom right, `insetEnd` px in from the edge, clear of
-  the panels). A non-interactive map (trip details) is an image of the route cities only. `ComparisonChart` shows one metric at a time (switched with `Tabs`) with the
-  recommended mode as the only accent bar (score bars are the score itself, 100 = full track; time, cost and
-  CO₂ bars are relative to the longest) (`--color-highlight`, others
-  `--color-bar`). Neither may be the only way to get information: keep a
+  the panels). A non-interactive map (trip details) is an image of the route cities only. `ComparisonChart` shows one metric at a time (switched with `Tabs`), bars sorted best first
+  (`sortByMetric` in `comparison-metric.ts`: stable, so ties keep the API's order; unavailable modes never get a bar).
+  The accent bar (`--color-highlight`, others `--color-bar`) is the best mode for the shown metric (`bestModes`: highest
+  score, lowest time, cost, CO₂; ties all count, as on the Modes page), named next to it ("Best score", "Fastest",
+  "Cheapest", "Lowest CO₂"); the "★ Recommended" badge stays on the API's recommendation on every tab (score bars are
+  the score itself, 100 = full track; time, cost and CO₂ bars are relative to the longest). A line under the bars says
+  "Recommended for your priority: <priority>. Change the priority …": with `priorityLink` (trip pages,
+  `priorityEditLink` → `/trips/:id/edit`) the priority is a link, otherwise a link-styled button emitting `priorityEdit`
+  (Home focuses the checked priority radio). Neither may be the only way to get information: keep a
   text or form equivalent (dropdowns for the map, the table for the chart)
   and state selection in text and `aria-pressed`, not color alone.
   Map details: one city is the tab stop (roving `tabindex`: last focused, else origin, else first; arrows move
@@ -261,16 +266,16 @@ pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in te
   facets and keeps `toggleSort`/`resultSummary`. No business maths in the UI.
   Cards open the trip as a whole: the title link carries an `::after` stretched over the card (one tab stop;
   the focus ring is drawn on the card via `:has(a:focus-visible)`), the "⋯" menu and `TripActions` (quick icon
-  buttons Open, Edit, Duplicate, Delete) sit above it with a higher z-index. A list row is different: a click on
+  buttons Open, Edit, Duplicate; no Delete) sit above it with a higher z-index. A list row is different: a click on
   it expands it (see List view) and only the title link opens the trip. Quick actions show on hover and on focus
-  within, never under `(hover: none)`; Delete only asks the page to delete (`deleteRequested`). Hover/focus lifts the card 2 px with an edge in its tint
+  within, never under `(hover: none)`. Hover/focus lifts the card 2 px with an edge in its tint
   (`--color-highlight-edge`) and no motion under reduced motion. `TripRoute` is the
   decorative (`aria-hidden`) mini route line: a dot per stop, the leg's mode icon between them (`legModes`).
   The CO₂ bar shows the plan against the car (car = 100 %, from `co2ShareOfCar`/`co2VsCarPercent`) with text.
   `TripTable` shows the rows in API order; its Date, Cost and CO₂ header buttons (`aria-sort` on the `<th>`)
   change the page's sort, which goes to the API.
-  **Delete** is a soft delete and always goes through the glass confirm `Dialog` (card quick action, "⋯" menu,
-  list row, expanded row, trip details). Each of them emits `deleteRequested`; the page keeps a `TripDeletion`
+  **Delete** is a soft delete and always goes through the glass confirm `Dialog`. It is offered in exactly two
+  places: the "⋯" menu (card and row) and the trip details page. Each of them emits `deleteRequested`; the page keeps a `TripDeletion`
   (`features/trips/trip-deletion.ts`, provided per page: `pending`, `busy`, `error`, `request`, `cancel`,
   `confirm(hooks)`) and renders `<app-trip-delete-dialog>` ("Delete trip?", the trip title, Cancel and a danger
   Delete). A failed DELETE stays in the dialog as an error message. On success the dialog closes, the page's
@@ -310,7 +315,7 @@ details"`, projected content such as the save error at its top), and its host is
   has `aria-expanded`, and `aria-controls` while open). The page loads that trip's `TripApi.compare(id)` on the
   first expand only, keeps the result in `details` (`RowDetail`: loading, error with retry, ready) for its
   lifetime and reloads it after a priority change. `TripRowDetails` shows each leg's recommended option side by
-  side (mode icon and name, time, cost, CO₂), the weather lines and Open on map (`/trips/:id`), Edit and Delete;
+  side (mode icon and name, time, cost, CO₂), the weather lines and Open on map (`/trips/:id`) and Edit;
   the buttons are there while loading or after an error; API values only, no maths. The Priority column is a
   native `<select>` (`TripPrioritySelect`) that reports the choice; the page's `move` applies it optimistically
   and rolls it back with an error toast and Retry. Below 768 px the Date, Mode, Priority and CO₂ columns fold
@@ -326,7 +331,7 @@ details"`, projected content such as the save error at its top), and its host is
   unless one of its menus is open (Escape closes that first). Focus entering any control of a row makes that row
   the tab stop. A click on the row's own cells expands it; clicks inside links, buttons, the priority select or a
   menu panel do not. The title link keeps working. An expanded row hides its hover quick actions (its details
-  have Open on map, Edit and Delete); the "⋯" menu stays. Under `(pointer: coarse)` the toggle, priority select
+  have Open on map and Edit); the "⋯" menu stays. Under `(pointer: coarse)` the toggle, priority select
   and quick actions are 44 px.
 - **Pagination:** the board loads up to 100 trips; the list asks the API for 20 per page (`page`, `size`) and
   `Pagination` (`shared/ui/`: zero-based `page`, `totalPages`, `totalItems`, `pageSize`, `itemCount`) shows

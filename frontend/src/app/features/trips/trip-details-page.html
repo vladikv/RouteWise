@@ -81,7 +81,7 @@
     } @else if (comparison.value(); as value) {
       @if (value.legs.length === 1) {
         @let leg = singleLeg(value);
-        <app-comparison-chart [comparison]="leg" />
+        <app-comparison-chart [comparison]="leg" [priorityLink]="editLink(value)" />
         <h3 class="exact-heading">Exact numbers</h3>
         <app-comparison-panel [comparison]="leg" />
       } @else {
