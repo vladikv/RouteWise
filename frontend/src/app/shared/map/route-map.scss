@@ -193,6 +193,19 @@
   stroke-width: 9px;
 }
 
+/* One leg in focus (trip details): it gets heavier, the others fade but stay visible. */
+.route--focused {
+  stroke-width: 4px;
+}
+
+.route--glow.route--focused {
+  stroke-width: 13px;
+}
+
+.route--dimmed {
+  opacity: 0.3;
+}
+
 /* A dash train runs along each arc from origin to destination once it has been drawn. A negative
    offset step moves the dashes forward along the path; the solid line below stays when motion is reduced. */
 .route--flow {
