@@ -83,7 +83,7 @@ src/
   produces one error, not three. Each section shows its own loading and error state.
 - **Map and charts:** `RouteMap` is an interactive orthographic globe drawn as SVG with `d3-geo` (the only
   map dependency: projection, horizon clipping, great-circle interpolation; no 3D, zoom or drag library).
-  Pure maths lives in `globe.ts` (projection, `isVisible`, `maxLabelRank`, `rotateBy`, `fitRoute`,
+  Pure maths lives in `globe.ts` (projection, `isVisible`, `isClearlyVisible`, `maxLabelRank`, `rotateBy`, `fitRoute`,
   `interpolateView`, `idleTurn`, and the lifted arcs: `arcPeak`, `projectLifted`, `arcSamples`, `arcPrefix`, `arcSegments`) and is unit-tested. The view is `{ longitude, latitude, zoom }` (centre of
   the disc and 1-8x the globe fitted into the free space) in one signal; drag (pointer capture, touch too),
   wheel, pinch, the +/- buttons and keys change it, and every change re-projects land, graticule, route and
@@ -132,7 +132,13 @@ src/
   `[wide]="true"` a map at least 720 px wide takes a 16:9 shape instead of the near-square one. `[fill]` makes
   the map take its container's size and centres the globe between the panels. `controls` (`corner` |
   `bottom-end`) places the zoom buttons (`bottom-end`: bottom right, `insetEnd` px in from the edge, clear of
-  the panels). A non-interactive map (trip details) is an image of the route cities only. `ComparisonChart` shows one metric at a time (switched with `Tabs`), bars sorted best first
+  the panels). `[interactive]="false"` makes a map an image of the route cities only.
+  `[pickable]="false"` (trip details) keeps the globe navigable (drag, zoom, keys, `cooperative` gestures there) but
+  draws the cities as `aria-hidden` `g.city--static` marks (route pins, other cities as dimmed dots), so no city is a
+  button that does nothing; the svg's label is the route description plus how to rotate and zoom. `[focusLeg]` (a leg
+  index or null) draws that leg heavier (`.route--focused`, 4 px, glow 13 px) and fades the others (`.route--dimmed`,
+  60 % = 3.35:1 at the lightest globe point, glow 30 %); when an end of the leg is more than `CLEAR_VIEW_ANGLE` (60°)
+  from the centre (`isClearlyVisible`) the globe turns to it, keeping the zoom. `ComparisonChart` shows one metric at a time (switched with `Tabs`), bars sorted best first
   (`sortByMetric` in `comparison-metric.ts`: stable, so ties keep the API's order; unavailable modes never get a bar).
   The accent bar (`--color-highlight`, others `--color-bar`) is the best mode for the shown metric (`bestModes`: highest
   score, lowest time, cost, CO₂; ties all count, as on the Modes page), named next to it ("Best score", "Fastest",
@@ -209,6 +215,20 @@ pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in te
   `legComparison(comparison, index)`). A two-stop trip and the home explorer
   show that single leg as before; a multi-stop trip uses `ItineraryView`
   (leg timeline, whole-trip totals, each leg's details).
+- **Trip details page** (`TripDetailsPage`): the route as a stop chain (`ol.stop-chain`, city name, country chip with a
+  visually hidden ", ", a muted decorative arrow), date / travelers / priority as `StatChip`s (`ul.facts`), the notes as a
+  quiet line; the globe in its own glass panel (`.map-panel`, `pickable=false`). From 1280 px a two-column grid (`#main`
+  84 rem like Trips and Modes, via `#main:has(app-trip-details-page)`): content at the left, the globe panel at the right
+  spanning the three rows and `sticky`, spare height to the last row; below that one column (facts, globe,
+  recommendation, comparison). `AdvicePanel` leads with the plan's totals (`figures` = the comparison's
+  `recommendedItinerary`; no row without them), then the summary, a row per leg (number, `ModeIcon` from
+  `recommendedModes` or ⊘, the advisor's sentence as written) for 2+ legs, and the tips as callouts.
+  **Legs linked to the globe:** `LegFocus` (`comparison/leg-focus.ts`, provided by the page: `hover`, `leave`,
+  `togglePin`, `focused` = hovered ?? pinned) feeds the map's `focusLeg`. `appLegHover` on a leg row (advice rows and
+  the `ItineraryView` timeline) hovers its leg on `pointerenter` and `focusin` and leaves on `pointerleave`/`focusout`,
+  and sets `leg-hover--active` (global style in `styles.scss`) while its leg is in focus; `app-leg-map-toggle` ("Show leg N
+  on the map", `IconButton` with `aria-pressed`) pins a leg for keyboard and touch. Without a `LegFocus` both do nothing
+  and the toggle is not rendered.
 - **Home layouts** (`features/explore/`): two layouts, **Map** and **Split**. `HomeLayout` (`home-layout.ts`)
   holds the preference (`'map' | 'split'`, default Split, `localStorage` key `routewise.homeLayout`, every
   access in try/catch, invalid or failing storage = Split) and `effective()`: Map only while the viewport is
