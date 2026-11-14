@@ -169,7 +169,7 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
   `ClockConfig` when the test saves audited entities.
 - `ArchitectureTest` (ArchUnit) enforces the layering: controllers use no repositories
   and no `@Entity` in public signatures, services and repositories do not depend on
-  upper layers. Keep it green; do not add exceptions without a decision log entry.
+  upper layers. Keep it green; do not add exceptions without an entry in `docs/DECISIONS.md`.
 - Cache and retry wiring: `WeatherClientResilienceTest` (an `ApplicationContextRunner`
   with `WeatherClientConfig` against a local HTTP server that counts requests).
 - `RoutewiseApiApplicationTests` (`@SpringBootTest`) must keep passing; it

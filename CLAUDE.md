@@ -12,15 +12,17 @@ weather forecast into account.
 backend/    Spring Boot REST API (Java 21, Maven)
 frontend/   Angular SPA (TypeScript, standalone components)
 .claude/    Claude Code agents, skills and hooks
-docs/       Architecture notes and decision records
+docs/       Plan, decisions log, AI workflow log, screenshots
 ```
 
 Each module has its own `CLAUDE.md` with module-specific rules.
 Read it before changing code in that module.
 
 Current scope, domain model, API and progress: `docs/PLAN.md`.
-Read it before starting a task; tick the milestone when it is done
-and add notable decisions to its decisions log.
+Read it before starting a task and tick the milestone when it is done.
+Decisions go to `docs/DECISIONS.md`, only those that affect the architecture,
+an API contract, data, security, a dependency or the process (see the file's
+rules); UI details belong in the commit or `frontend/CLAUDE.md`.
 
 ## Commands
 
