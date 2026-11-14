@@ -42,6 +42,7 @@ import {
   isVisible,
   maxLabelRank,
   minDotGap,
+  projectLifted,
   rotateBy,
   rotateByDegrees,
 } from './globe';
@@ -103,10 +104,14 @@ const ZOOM_ZONE_HEIGHT_PX = 176;
 /** The column of round toggles left of the zoom buttons: one button and the gap above it. */
 const TOGGLE_ZONE_WIDTH_PX = 52;
 const TOGGLE_ZONE_STEP_PX = 52;
-/** After this many slow update frames within the window, idle rotation stays off for the session. */
+/** An update frame (the frame after an update) longer than this is slow. */
 const IDLE_SLOW_FRAME_MS = 32;
-const IDLE_SLOW_FRAMES_LIMIT = 5;
-const IDLE_SLOW_WINDOW_MS = 10_000;
+/** Frame times are judged only once the loop has run this long and the land is drawn: start-up is always janky. */
+const IDLE_WARMUP_MS = 3000;
+/** The last this many update frames are judged ... */
+const IDLE_SAMPLE_SIZE = 20;
+/** ... and idle rotation stays off for the session when at least this share of them is slow. */
+const IDLE_SLOW_SHARE = 0.6;
 const SCROLL_HINT_MS = 1600;
 const ZOOM_STEP = 1.6;
 const KEY_ROTATE_DEGREES = 20;
@@ -412,6 +417,7 @@ export class RouteMap {
     return this.trips()
       .map((trip) => ({
         id: trip.id,
+        stops: [...new Set(trip.stops)].flatMap((stopId) => byId.get(stopId) ?? []),
         legs: trip.stops.slice(1).flatMap((stopId, index) => {
           const from = byId.get(trip.stops[index]);
           const to = byId.get(stopId);
@@ -421,7 +427,7 @@ export class RouteMap {
       .filter(({ legs }) => legs.length > 0);
   });
 
-  /** The trip arcs through the current view (re-projected per frame like the route), without the ones behind the globe. */
+  /** The trip arcs and their stop dots through the current view (re-projected per frame like the route), without the ones behind the globe. */
   protected readonly tripPaths = computed(() => {
     if (!this.showTrips()) {
       return [];
@@ -429,9 +435,12 @@ export class RouteMap {
     const view = this.view();
     const geometry = this.geometry();
     return this.tripLegs()
-      .map(({ id, legs }) => ({
+      .map(({ id, legs, stops }) => ({
         id,
         d: legs.map((samples) => pathData(arcSegments(samples, view, geometry))).join(''),
+        stops: stops
+          .map((city) => projectLifted(city, 0, view, geometry))
+          .filter((point) => !point.hidden),
       }))
       .filter(({ d }) => d !== '');
   });
@@ -1010,29 +1019,34 @@ export class RouteMap {
    * One signal write per update, like a drag: the same re-projection of land, arcs and cities. The turn
    * is slow (about 1 px per update at 20 updates a second), and on a device where an update makes the next
    * frame slow (software rendering) the gap grows, up to {@link IDLE_SLOW_UPDATE_MS}, so the globe never
-   * keeps the browser busy. When the frames after updates keep being slow (5 above 32 ms within 10 s) the
-   * rotation switches itself off until the page is reloaded.
+   * keeps the browser busy. After a warm-up of {@link IDLE_WARMUP_MS} with the land drawn, the last
+   * {@link IDLE_SAMPLE_SIZE} update frames are judged: when {@link IDLE_SLOW_SHARE} of them are slow the rotation
+   * switches itself off until the page is reloaded. Start-up jank only drives the back-off, and every restart of
+   * the loop (after an interaction, a hidden tab) starts the warm-up and the samples afresh.
    */
   private startIdle(): void {
     this.idleLast = null;
     let interval = IDLE_UPDATE_MS;
     let frameStart: number | null = null;
     let updated = false;
-    const slow: number[] = [];
+    const samples: boolean[] = [];
+    let started: number | null = null;
     const step = (now: number) => {
+      started ??= now;
       if (updated && frameStart !== null) {
         const frame = now - frameStart;
         interval = Math.min(Math.max(2 * frame, IDLE_UPDATE_MS), IDLE_SLOW_UPDATE_MS);
-        if (frame > IDLE_SLOW_FRAME_MS) {
-          slow.push(now);
-        }
-        while (slow.length > 0 && now - slow[0] > IDLE_SLOW_WINDOW_MS) {
-          slow.shift();
-        }
-        if (slow.length >= IDLE_SLOW_FRAMES_LIMIT) {
-          this.idleOff = true;
-          this.idleFrame = 0;
-          return;
+        if (now - started >= IDLE_WARMUP_MS && this.landState() === 'ready') {
+          samples.push(frame > IDLE_SLOW_FRAME_MS);
+          if (samples.length > IDLE_SAMPLE_SIZE) {
+            samples.shift();
+          }
+          const slow = samples.filter(Boolean).length;
+          if (samples.length === IDLE_SAMPLE_SIZE && slow >= IDLE_SLOW_SHARE * IDLE_SAMPLE_SIZE) {
+            this.idleOff = true;
+            this.idleFrame = 0;
+            return;
+          }
         }
       }
       frameStart = now;

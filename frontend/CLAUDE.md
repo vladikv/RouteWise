@@ -159,8 +159,11 @@ pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in te
   rotation stops at once and resumes `IDLE_RESUME_MS` (10 s) after the last interaction, never while the pointer is over
   the map or keyboard focus is inside it (`focusInside`: set on `focusin`, cleared on `focusout` when `relatedTarget` is
   outside the host; otherwise a focused city would turn behind the globe and lose focus). **Adaptive:** the loop watches
-  the frame after each update; 5 of them above 32 ms within 10 s switch idle rotation off until the page is reloaded
-  (drag and zoom are unaffected). The cause is the shell's full-viewport `backdrop-filter`, which Chromium re-blurs when
+  the frame after each update, but judges only after a warm-up of `IDLE_WARMUP_MS` (3 s) of the running loop with the land
+  drawn (`landState() === 'ready'`): start-up jank (land chunk, label layout, fonts) only drives the back-off. Then the last
+  `IDLE_SAMPLE_SIZE` (20) update frames count, and when at least `IDLE_SLOW_SHARE` (60 %) are above `IDLE_SLOW_FRAME_MS`
+  (32 ms) idle rotation is off until the page is reloaded (drag and zoom are unaffected). Every restart of the loop (after
+  an interaction, a hidden tab) resets the warm-up and the samples. The cause is the shell's full-viewport `backdrop-filter`, which Chromium re-blurs when
   the globe repaints (software rendering feels it most; compositing layers do not help). **Pause control (WCAG 2.2.2):** a
   round `app-icon-button` in the `.toggles` column left of the zoom buttons (fixed label "Pause globe rotation", the state only in
   `aria-pressed`, so screen readers do not announce it twice), shown where `autoRotate` is set and motion is not reduced; the state is
@@ -172,9 +175,12 @@ pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in te
   `TripApi.search({ from: <today ISO>, sort: 'date', direction: 'asc', size: 20 })` when `Session.loggedIn()` (a
   failure, loading or no trips draws nothing and shows no toggle: the layer is decoration) and passes `MapTrip`s
   (`id`, `title`, `date`, city ids) as `[trips]` with the cities Home already loaded. The map draws one thin
-  (1.5 px, `--map-trip`, white 50%) lifted arc per leg, sampled once and re-projected per frame with the view, no
+  (2 px, `--map-trip`, white 75 %) lifted arc per leg and a 3 px dot (same token) at every stop of each trip, so a short
+  leg still reads as a trip at zoom 1; arcs are sampled once and re-projected per frame with the view, no
   animation, in `g.trip-arcs` (`aria-hidden`: the same trips are reachable through Upcoming trips and the Trips page)
-  under the route; the group fades to 35 % opacity while a route is selected. A 14 px transparent
+  under the route; the group fades to 35 % opacity while a route is selected. Contrast of the arcs and dots at the brightest
+  backdrop point: 4.6:1 on the lightest land (land plus the highlight), 10:1 and better on the ocean; the lime route
+  (6.2:1, 2.5 px, opaque, with its glow) stays the dominant mark. A 14 px transparent
   `path.trip-hit` per arc (`pointer-events: stroke`) is the hover and click target: hover shows the glass `card-tip`
   with title and date, a click emits `tripOpen` (not at the end of a drag) and Home navigates to `/trips/:id`. The
   toggle is an `app-icon-button` "Show my trips" (`aria-pressed`, tooltip = label) next to the zoom buttons, shown only

@@ -60,6 +60,9 @@
       <g class="trip-arcs" [class.trip-arcs--faded]="route() !== null" aria-hidden="true">
         @for (arc of tripPaths(); track arc.id) {
           <path class="trip-arc" [attr.d]="arc.d" />
+          @for (stop of arc.stops; track $index) {
+            <circle class="trip-stop" [attr.cx]="stop.x" [attr.cy]="stop.y" r="3" />
+          }
           <path
             class="trip-hit"
             [attr.d]="arc.d"
