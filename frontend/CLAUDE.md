@@ -31,13 +31,14 @@ src/
 
 ## Commands
 
-| Task              | Command                                                     |
-| ----------------- | ----------------------------------------------------------- |
-| Dev server        | `npm start` (http://localhost:4200, needs the API on :8087) |
-| Tests, single run | `npm test` (`npm run test:watch` to watch)                  |
-| Lint              | `npm run lint`                                              |
-| Format            | `npm run format` (`npm run format:check` to verify)         |
-| Production build  | `npm run build`                                             |
+| Task              | Command                                                                                                                                         |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dev server        | `npm start` (http://localhost:4200, needs the API on :8087)                                                                                     |
+| Tests, single run | `npm test` (`npm run test:watch` to watch)                                                                                                      |
+| Lint              | `npm run lint`                                                                                                                                  |
+| Format            | `npm run format` (`npm run format:check` to verify)                                                                                             |
+| Production build  | `npm run build`                                                                                                                                 |
+| End-to-end checks | `npm run e2e` (Playwright, `e2e/`; uses the running app on :4200 and API on :8087, starts `npm start` if :4200 is free; not part of `npm test`) |
 
 ## Conventions
 
@@ -151,26 +152,34 @@ pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in te
   whole-trip totals. Never word reasons in the UI.
   Mode icons (`ModeIcon`) are decorative and always sit next to the name.
   **Idle rotation** (`[autoRotate]`, set by Home and the trip form): with no route (`route()` null), an interactive map
-  and no reduced motion, the globe turns once round in `IDLE_TURN_MS` (2 min, east; `idleTurn` in `globe.ts` is the
+  and Auto-rotate on, the globe turns once round in `IDLE_TURN_MS` (2 min, east; `idleTurn` in `globe.ts` is the
   pure step, clamped to 250 ms per update) from one `requestAnimationFrame` loop that writes `view` like a drag does
   (no layout reads). It updates every 50 ms (about 1 px a step) and, when the frame after an update is slow, backs off to
-  at most every 200 ms. Any interaction calls `interrupt()`: hover over the map (host `pointerenter`/`pointerleave`),
+  at most every 200 ms. Any interaction calls `interrupt()`: hover over the globe (see below),
   `pointerdown`, wheel and pinch, any key, focus moving in, the zoom buttons, Reset, and an animated move (a new route);
   rotation stops at once and resumes `IDLE_RESUME_MS` (10 s) after the last interaction, never while the pointer is over
-  the map or keyboard focus is inside it (`focusInside`: set on `focusin`, cleared on `focusout` when `relatedTarget` is
-  outside the host; otherwise a focused city would turn behind the globe and lose focus). **Adaptive:** the loop watches
+  the globe or keyboard focus is inside the map. **Hover is the globe disc only**, not the map's rectangle (which can be far
+  larger: the Map layout's map fills the stage behind the docks): the host's `pointerenter`/`pointermove` compare the pointer
+  with `disc()` (centre and radius, in the map's own coordinates; the svg's page position is cached in `svgOrigin`, refreshed
+  on resize and after a scroll, so moves read no layout); `pointerleave` of the host counts as leaving. **Only keyboard focus
+  blocks**: `onFocusIn` sets `focusInside` when the target matches `:focus-visible`, so a focus left by a mouse click does not
+  stop the 10 s resume, while a keyboard-focused city never turns out of sight (`focusout` to outside the host clears it).
+  The svg exposes the angle as `data-longitude` (the e2e checks read it). **Adaptive:** the loop watches
   the frame after each update, but judges only after a warm-up of `IDLE_WARMUP_MS` (3 s) of the running loop with the land
   drawn (`landState() === 'ready'`): start-up jank (land chunk, label layout, fonts) only drives the back-off. Then the last
   `IDLE_SAMPLE_SIZE` (20) update frames count, and when at least `IDLE_SLOW_SHARE` (60 %) are above `IDLE_SLOW_FRAME_MS`
   (32 ms) idle rotation is off until the page is reloaded (drag and zoom are unaffected). Every restart of the loop (after
   an interaction, a hidden tab) resets the warm-up and the samples. The cause is the shell's full-viewport `backdrop-filter`, which Chromium re-blurs when
-  the globe repaints (software rendering feels it most; compositing layers do not help). **Pause control (WCAG 2.2.2):** a
-  round `app-icon-button` in the `.toggles` column left of the zoom buttons (fixed label "Pause globe rotation", the state only in
-  `aria-pressed`, so screen readers do not announce it twice), shown where `autoRotate` is set and motion is not reduced; the state is
-  `IdleRotationPreference` (`shared/map/idle-rotation-preference.ts`, key `routewise.globePaused`, try/catch, invalid or
-  failing storage = rotating, default rotating) and a pause is never auto-resumed. Labels keep clear of the `.toggles`
+  the globe repaints (software rendering feels it most; compositing layers do not help). **Auto-rotate toggle (WCAG 2.2.2):** a
+  round `app-icon-button` in the `.toggles` column left of the zoom buttons (fixed label and tooltip "Auto-rotate", the
+  state only in `aria-pressed` = rotating; a pause icon while on, a play icon while off), shown wherever `autoRotate` is set,
+  also under reduced motion. `rotating()` = the explicit choice, else on unless `prefers-reduced-motion` is set (so a user who
+  prefers reduced motion can opt in and then the globe turns). The choice is `AutoRotatePreference`
+  (`shared/map/auto-rotate-preference.ts`, key `routewise.autoRotate` = `'on'` | `'off'`, try/catch, invalid or failing
+  storage = no explicit choice; an old `routewise.globePaused = 'true'` reads as an explicit off, migration only in that
+  service). It applies at once in both directions. Labels keep clear of the `.toggles`
   column (`TOGGLE_ZONE_*` in `cornerZones`/`endZones`). A selected route stops it, and when the route is cleared it waits the 10 s too. `visibilitychange`
-  pauses it while `document.hidden`; a live `prefers-reduced-motion` change stops it. It never sets `adjusted`, so a
+  pauses it while `document.hidden`; a live `prefers-reduced-motion` change switches the default while the user has not chosen. It never sets `adjusted`, so a
   resize still refits the home view. **"My trips" layer** (Home, logged in only): `RouteExplorer` loads
   `TripApi.search({ from: <today ISO>, sort: 'date', direction: 'asc', size: 20 })` when `Session.loggedIn()` (a
   failure, loading or no trips draws nothing and shows no toggle: the layer is decoration) and passes `MapTrip`s
@@ -471,6 +480,7 @@ details"`, projected content such as the save error at its top), and its host is
   `trip-details-page.spec.ts`).
 - Forms: drive them through the DOM with the helpers in
   `features/trips/trip-form.testing.ts` (`typeInto`, `choose`, `submit`).
-- Never call the real API in tests.
+- Never call the real API in tests. (`e2e/*.spec.ts` are the exception: Playwright checks of the running app, for what
+  jsdom cannot show, e.g. that the globe really turns with the mouse beside it; run with `npm run e2e`, linted with the rest.)
 - Restart `npm start` after switching git branches: the dev server does not
   recover when the project files disappear during a checkout.
