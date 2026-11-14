@@ -55,7 +55,8 @@ Argument: the milestone name as written in docs/PLAN.md
 2. docs/PLAN.md: tick the milestone, update the sections it changed,
    add notable decisions to the decisions log (today's date).
 3. Append the `docs/AI_WORKFLOW.md` entry: milestone, what was
-   delegated to AI, what was corrected manually, and why.
+   delegated to AI, Human decisions, Found by the human, AI
+   self-corrections, and why (see the file's summary for the format).
 4. Commit as `docs: complete <milestone summary> milestone`.
 5. Report the branch, the commits and the test results. Pushing,
    the PR and merging are done by a human.

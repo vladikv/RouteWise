@@ -83,7 +83,9 @@ UI: http://localhost:4200
 - When unsure about a requirement, ask instead of guessing.
 - Keep this file and module `CLAUDE.md` files up to date when conventions change.
 - After completing a milestone, append a short entry to `docs/AI_WORKFLOW.md`:
-  milestone, what was delegated to AI, what was corrected manually, and why.
+  milestone, what was delegated to AI, then **Human decisions**, **Found by the human** and
+  **AI self-corrections** (what tests, review agents or the AI itself caught), and why. Never
+  attribute a correction to the human that the AI made; when unsure who did what, ask.
 - Any feature not already in docs/PLAN.md is added as a new milestone
   first (use the `add-milestone` skill) and approved before any code is
   written. Never implement unplanned features "on the way".

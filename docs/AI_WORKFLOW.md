@@ -1,7 +1,39 @@
 # AI Workflow Log
 
-One entry per milestone: what was delegated to AI (Claude Code), what was
-corrected manually, and why.
+One entry per milestone: what was delegated to AI (Claude Code), what the human decided, what the human
+found, what the AI found and corrected itself, and why.
+
+## Summary
+
+**How the work was split.** Claude Code wrote most of the code, the tests and the docs. Most of it came from
+the main session; subagents built UI (`ui-builder`), wrote tests (`test-writer`) and reviewed work
+(`backend-reviewer`, `ui-reviewer`). The human:
+- wrote the rules in the `CLAUDE.md` files;
+- approved a plan in `docs/PLAN.md` before each milestone, and every new dependency;
+- made the product and trade-off decisions;
+- reviewed screenshots and the running app;
+- pushed and merged.
+
+**How to read an entry.**
+- **Human decisions:** choices and approvals.
+- **Found by the human:** problems the human noticed or reported.
+- **AI self-corrections:** what the AI found and fixed itself, through failing tests, review agents,
+  screenshots it took or the running app.
+
+Most corrections are AI self-corrections. That is the point of the setup: tests and review agents catch
+mistakes before a human has to.
+
+**Examples worth knowing.**
+- *H2 bug (backend-trips):* the AI guessed a Hibernate cause, the fix did not help, and a minimal
+  reproduction showed a bug in H2 2.4.240. The human approved pinning 2.3.232.
+- *Retry that never fired (backend-depth):* JDK interface proxies hid `@Retryable`. Only a test with the
+  real Spring proxies caught it.
+- *CSRF token (auth):* Spring Security 7 creates it lazily, so a fresh browser's first POST would have
+  failed. End-to-end tests in a real browser found it.
+- *Missing work (visual-refresh):* the human noticed that requested UI work was missing; an earlier branch
+  had never been pushed.
+- *Glass versus rotation (living-globe):* the AI measured dropped frames and traced them to the shell's
+  blur. The human chose to keep the glass and let rotation switch itself off.
 
 ## `feat/backend-setup` (2026-11-11)
 
@@ -18,8 +50,13 @@ corrected manually, and why.
 - Ran `./mvnw verify` and checked by hand that the app starts and that
   Swagger UI, `/v3/api-docs` and the H2 console are reachable.
 
-**Corrected manually / human decisions**
+**Human decisions**
 - The plan was reviewed and approved before any code was written.
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
 - Port 8080 was taken by an unrelated local service, so the startup check
   ran on port 8081 (`--server.port=8081`). No code change was needed.
 
@@ -31,8 +68,7 @@ corrected manually, and why.
 ## `feat/backend-trips` (2026-11-11)
 
 **Delegated to AI**
-- Proposed the plan; the human chose seed scope (25 European cities),
-  the trip response shape (nested city summary) and the travelers limit (1–9).
+- Proposed the plan.
 - Wrote Flyway migrations V1–V3 (reference tables, seed data, trip table
   with FKs and CHECK constraints), the `city`, `transportmode` and `trip`
   feature packages, and `FieldValidationException` for business-rule 400s.
@@ -40,15 +76,25 @@ corrected manually, and why.
   and a `@DataJpaTest` against the real Flyway schema.
 - Ran the API on port 8081 and exercised create/read/update/delete with curl.
 
-**Corrected manually / human decisions**
+**Human decisions**
+- Seed scope (25 European cities), the trip response shape (nested city
+  summary) and the travelers limit (1–9).
+- Approved pinning H2 to 2.3.232 once the H2 bug was found (dependency
+  versions stay a human decision).
+- Chose "allow if the date is unchanged" for editing past trips.
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
 - The `@DataJpaTest` inserts failed with "Check constraint invalid". The
   AI first assumed Hibernate's native enum binding was at fault and added
   `@JdbcTypeCode(VARCHAR)`. That did not help, so it was reverted. Tracing
   the nested cause ("database has been closed") and reproducing with plain
-  JDBC showed an H2 2.4.240 bug. The human approved pinning H2 to 2.3.232.
+  JDBC showed an H2 2.4.240 bug.
 - The backend-reviewer flagged that `@FutureOrPresent` on the shared request
-  DTO made past trips uneditable. The human chose "allow if the date is
-  unchanged", so the rule moved into `TripService` (with an injected `Clock`).
+  DTO made past trips uneditable; the rule moved into `TripService` (with an
+  injected `Clock`).
 - The first unit-test draft mocked the `City` entity; replaced with a
   `TestCities` fixture that builds real instances.
 
@@ -62,8 +108,7 @@ corrected manually, and why.
 
 **Delegated to AI**
 - Proposed the engine design: detour factors, priority weights, normalisation
-  and weather rules. The human chose that weather adjusts scores, that both
-  cities' forecasts count, and 5 seats per car.
+  and weather rules.
 - Wrote the `weather` feature: an Open-Meteo client behind `WeatherClient`,
   timeouts, and a best-effort `WeatherService` that queries both cities in
   parallel on virtual threads. Also wrote the `comparison` feature: a pure
@@ -73,15 +118,20 @@ corrected manually, and why.
 - Verified end to end against live Open-Meteo, and with an unreachable
   provider (comparison still 200, weather empty, warnings logged).
 
-**Corrected manually / human decisions**
-- Boot 4 has no `RestClient.Builder` without `spring-boot-starter-restclient`.
-  The AI asked before adding it, and the human approved.
+**Human decisions**
+- Weather adjusts scores, both cities' forecasts count, and a car has 5 seats.
+- Approved `spring-boot-starter-restclient` (Boot 4 has no `RestClient.Builder`
+  without it); the AI asked before adding it.
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
 - Two engine tests had wrong expectations (a near-tie between TRAIN and BUS,
   and assuming the bike wins a short GREENEST trip, although the bus is
   greener once time counts). The AI recomputed the scores by hand from the
   seed values and rewrote the tests to assert unambiguous properties. The
   engine itself was unchanged.
-
 - The backend-reviewer found no blockers. Fixed after review:
   - ranking used the rounded score, so 61.4 could lose to 60.6 on enum order;
     it now ranks by the raw score
@@ -117,10 +167,15 @@ corrected manually, and why.
   zero-config `@SpringBootTest`.
 - Verified end to end with zero configuration against live Open-Meteo.
 
-**Corrected manually / human decisions**
-- The human chose the official SDK over raw `RestClient` calls, when asked
-  before the dependency was added. `backend/CLAUDE.md` now records this as
-  the one exception to the `RestClient` rule.
+**Human decisions**
+- The official SDK over raw `RestClient` calls, when asked before the
+  dependency was added. `backend/CLAUDE.md` now records this as the one
+  exception to the `RestClient` rule.
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
 - The AI expected the SDK to send `x-api-key`. The fake server showed that
   SDK 3.3.0 sends `Authorization: Bearer <key>`. The AI checked that it was
   the configured key, not an ambient credential, and fixed the test.
@@ -136,9 +191,9 @@ corrected manually, and why.
   - missing tests: zero-config wiring, `AdviceFacts`, `max_tokens`,
     malformed JSON, missing text block
   - the absence of a rate limit is now recorded as a v1 decision
-- No live Claude call was made. No API key was available, and calls cost
-  money. The real request shape, especially the `fallbacks` beta, is
-  verified only against the fake server.
+- Limitation: no live Claude call was made. No API key was available, and
+  calls cost money. The real request shape, especially the `fallbacks` beta,
+  is verified only against the fake server.
 
 **Why**
 - LLM output is untrusted input. Validating it with the same resolver as the
@@ -160,12 +215,17 @@ corrected manually, and why.
   Chrome screenshots at desktop and 375 px width.
 - Wrote `frontend/CLAUDE.md`.
 
-**Corrected manually / human decisions**
-- The human dismissed the question about UI library and dev tools and asked
+**Human decisions**
+- The human skipped the question about a UI library and dev tools and asked
   to continue. The AI therefore took the most conservative path: no UI
   library, only the tools the repository already referenced (ESLint for
   `npm run lint`, Prettier for the format hook), and no root `dev` script.
   These remain open for the human to change.
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
 - One test hung: it awaited `whenStable()` while its own unanswered request
   kept the app unstable. The AI fixed the test sequencing and recorded the
   rule in `frontend/CLAUDE.md`.
@@ -193,13 +253,18 @@ corrected manually, and why.
 - Opened and merged the `feat/frontend-setup` pull request at the human's
   explicit request.
 
-**Corrected manually / human decisions**
+**Human decisions**
 - The human asked the AI to push and merge the setup branch. The push was
   blocked by the repository's own deny rule for `git push`. The AI did not
   work around it; the human ran the push, and the AI then opened and merged
   the PR.
 - The UI-library question stayed unanswered, so the AI kept to native form
   controls and logged the choice.
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
 - The first screenshots showed "Page not found" on every trip page. The
   cause was not the code: the dev server had been running since before the
   branch switch and was stuck on a failed rebuild. Restarting it fixed it;
@@ -228,10 +293,15 @@ corrected manually, and why.
   trip, create it, read the recommendation and comparison, delete it. No
   console errors.
 
-**Corrected manually / human decisions**
+**Human decisions**
 - The human pushed the trips branch and merged its PR themselves; the AI's
   attempt to open that PR was blocked by a permission check because the
   human had not asked for it in words that time.
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
 - A test caught a real bug: the description form had no form directive, so
   its submit handler never ran (in a browser the page would have reloaded).
 - Test fixes: selectors that matched the new description form instead of
@@ -248,9 +318,9 @@ corrected manually, and why.
 ## `feat/ui-experience` (2026-11-12)
 
 **Delegated to AI**
-- Proposed the direction in plan mode after the human asked for a more
-  unique and interactive site: an interactive route map as the signature
-  element, instant comparison without saving a trip, and a visual chart.
+- Proposed the direction in plan mode: an interactive route map as the
+  signature element, instant comparison without saving a trip, and a visual
+  chart.
 - Backend: `POST /api/comparisons` for unsaved routes, with tests.
 - Frontend: the SVG route map (home page, trip form, trip details), the route
   explorer with live priority, travelers and date controls, the comparison
@@ -260,9 +330,15 @@ corrected manually, and why.
 - Drove the real app in headless Chrome through the whole flow, and reviewed
   screenshots in light and dark themes, at 375 px and with reduced motion.
 
-**Corrected manually / human decisions**
-- The human approved the plan as proposed.
-- Found by looking at the running app, not by tests:
+**Human decisions**
+- Asked for a more unique and interactive site, and approved the plan as
+  proposed.
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
+- Found by using the running app, not by tests:
   - the distance badge on the map covered city names; it was removed, since
     the distance is already stated in text below the map
   - the small map on trip details was unreadable; it now zooms to the route
@@ -285,9 +361,7 @@ corrected manually, and why.
 ## `feat/map-filters` (2026-11-12)
 
 **Delegated to AI**
-- Planned in plan mode after the human asked to make the map and filters
-  "more readable and interactive" and to add accounts; accounts are the
-  separate `feat/auth` milestone.
+- Planned in plan mode. Accounts became the separate `feat/auth` milestone.
 - Map: Natural Earth land and borders (processed by a script, public domain),
   zoom and pan (wheel, pinch, drag, buttons, keys), labels placed without
   overlaps, a hover/focus card with the distance from the origin, arrow-key
@@ -299,9 +373,16 @@ corrected manually, and why.
   overlap at any zoom (measured), pickers, Back button, shared links, phone
   width, dark theme.
 
-**Corrected manually / human decisions**
-- The human decided the auth questions up front (private trips, in-memory
-  accounts, Spring Security approved).
+**Human decisions**
+- Asked to make the map and filters "more readable and interactive" and to
+  add accounts.
+- Decided the auth questions up front (private trips, in-memory accounts,
+  Spring Security approved).
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
 - Found by using the page, not by tests: labels cut off at the map edge and
   under the zoom buttons, a few near-touching labels, the Home tab no longer
   highlighted once the URL had parameters, and cramped priority cards on
@@ -337,9 +418,25 @@ corrected manually, and why.
   trip, a second user sees nothing of the first, taken email; screenshots
   in dark theme and at 375 px.
 
-**Corrected manually / human decisions**
-- The human chose to include the UI in this milestone, after the AI
-  pointed out that a backend-only change leaves the trip pages broken.
+**Human decisions**
+- Included the UI in this milestone, after the AI pointed out that a
+  backend-only change leaves the trip pages broken.
+- Kept session login when the review checklist was written for token auth:
+  the token items (secret, expiry, interceptor adding a token) were mapped to
+  the session design and recorded in the decisions log.
+
+**Found by the human**
+- Follow-up review against the human's checklist (same day). The AI checked
+  each item against the code and reported which were already met. Gaps
+  closed:
+  - a demo account with sample trips, a "Try the demo" button and README
+    credentials (marked by the human as most important)
+  - 409 instead of 400 for a taken email
+  - an explicit, configurable session timeout
+  - tests for PUT on another user's trip and for CORS allowing
+    `Authorization`
+
+**AI self-corrections**
 - The work spanned two sessions. The second found the first one's test
   updates half done: a scripted edit had put the new owner argument in
   the wrong call in `TripServiceTest`, and imports were unsorted.
@@ -363,79 +460,63 @@ corrected manually, and why.
   real browser: the slice tests used test helpers that hide exactly the
   cookie and CORS behaviour that broke.
 
-**Follow-up: review checklist (same day)**
-- The human reviewed the milestone against a checklist. The AI checked
-  each item against the code and reported which were already met.
-- Gaps closed: demo account with sample trips plus a "Try the demo"
-  button and README credentials (the item the human marked as most
-  important); 409 instead of 400 for a taken email; an explicit,
-  configurable session timeout; tests for PUT on another user's trip and
-  for CORS allowing `Authorization`.
-- Items written for token auth (token secret, token expiry, interceptor
-  adding a token) were mapped to the session design instead of switching
-  to JWT: there is no signing secret, expiry is the session timeout, and
-  the interceptor sends the cookie and CSRF header. Recorded in the
-  decisions log.
-
 ## `feat/visual-refresh` (2026-11-12)
 
 **Delegated to AI**
-- Offered three visual directions with palette previews; the human chose
-  "fresh travel" (ocean blue + sunset, Manrope, 17 px body).
+- Offered three visual directions with palette previews.
 - Rewrote the design tokens for both themes, base typography, buttons,
   inputs, badges and the recommended-mode styling; header polish.
 - Checked every token pair with a contrast script (both themes) and
   reviewed screenshots of home, login, trips and trip details in light,
   dark and at 375 px.
+- Follow-up (midnight / white / lime): asked three questions with previews
+  and planned the change before coding; then one dark token set, the theme
+  toggle and `ThemeService` removed, a split-screen auth page with the form
+  first in the DOM. Screenshots at 1280 and 375 px.
+- Follow-up (full-width map): settings went left, results right. The square
+  map would have grown about 1000 px tall at full width, so `RouteMap` got a
+  `wide` mode that shows more of the land outline instead.
 
-**Corrected manually / human decisions**
-- The human pointed out that the requested UI work was missing. It turned
-  out the earlier `feat/map-filters` work had never been pushed, and a new
-  palette had never been started. The AI merged `main` into
-  `feat/map-filters` (header and docs conflicts, both sides kept) and
-  built this milestone on top of it.
-- The first light highlight color failed 3:1 against white (2.98); it was
-  darkened before use.
+**Human decisions**
+- Chose "fresh travel" (ocean blue + sunset, Manrope, 17 px body) from the
+  three directions.
+- After seeing it, set a strict 60/30/10 brief: midnight black, pure white,
+  lime accent. Chose white as text and lines, dark only, and a split-screen
+  login.
+- Asked for the home map at full width, with the other controls below,
+  split into left and right.
+
+**Found by the human**
+- The requested UI work was missing. It turned out the earlier
+  `feat/map-filters` work had never been pushed, and a new palette had never
+  been started. The AI merged `main` into `feat/map-filters` (header and docs
+  conflicts, both sides kept) and built this milestone on top of it.
+- The login page looked wrong with everything on the left.
+
+**AI self-corrections**
+- The first light highlight colour failed 3:1 against white (2.98); it was
+  darkened before use. In the dark token set one grey failed at 2.27:1 and
+  was lightened.
+- Found by looking at the screenshots: the score meters in the comparison
+  table were lime on every row, which broke the "lime = recommended" rule;
+  they are now grey except for the recommended mode.
+- A new spec caught a bug in the first `wide` map: the small maps also lost
+  their height limit.
+- The full UI suite became flaky (5 s timeouts on the first test of map
+  pages). A/B runs showed the same code taking 9-23 s just to compile,
+  so the cause was machine load (app, Maven and Chrome running in
+  parallel), not the change; reruns with less load pass.
 
 **Why**
 - A request spanning several sessions got split across branches, and only
   part of it reached `main`. Checking unpushed branches against the
   original request would have caught it before the human did.
 
-**Follow-up: midnight / white / lime (same day)**
-- After seeing the first palette, the human set a strict 60/30/10 brief:
-  midnight black, pure white, lime accent, and said the login page
-  looked wrong with everything on the left.
-- The AI asked three questions with previews (where the 30% white goes,
-  what happens to the theme toggle, which login layout) and planned the
-  change before coding. The human chose white as text and lines, dark
-  only, and a split-screen login.
-- Done: one dark token set (contrast script: one gray failed at 2.27:1
-  and was lightened), theme toggle and `ThemeService` removed, split-screen
-  auth page with the form first in the DOM. Screenshots at 1280 and 375 px.
-- Found by looking at the screenshots: the score meters in the comparison
-  table were lime on every row, which broke the "lime = recommended" rule;
-  they are now gray except for the recommended mode.
-
-**Follow-up: full-width map on the home page (same day)**
-- The human asked for the map at full width with the other controls
-  below, split into left and right. Settings went left, results right.
-- The square map would have grown about 1000 px tall at full width, so
-  `RouteMap` got a `wide` mode that shows more of the land outline
-  instead. A new spec caught a bug in the first version: the small maps
-  also lost their height limit.
-- The full UI suite became flaky (5 s timeouts on the first test of map
-  pages). A/B runs showed the same code taking 9-23 s just to compile,
-  so the cause was machine load (app, Maven and Chrome running in
-  parallel), not the change; reruns with less load pass.
-
 ## `feat/multi-stop-trips` (2026-11-12)
 
 **Delegated to AI**
 - Planned the milestone with the new `add-milestone` skill before any code:
-  impact analysis, breaking API changes marked in `docs/PLAN.md`, and three
-  open points settled with the human first (preview endpoint takes stops,
-  no new cities, every leg uses the trip date).
+  impact analysis and breaking API changes marked in `docs/PLAN.md`.
 - Backend: `TripStop` aggregate and V5 migration, `StopResolver`, per-leg
   comparison with a pure `ItineraryCalculator`, multi-stop parsing (rules
   and Claude schema) and leg-by-leg advice, demo loop with 5 stops.
@@ -446,14 +527,21 @@ corrected manually, and why.
   test from a V4 database with data) and 9 new UI tests (177 in total).
   Checked the running app in headless Chrome at 1280 and 375 px.
 
-**Corrected manually / human decisions**
-- The human's spec named `/start-milestone`, which does not exist; the AI
-  followed the existing branch-and-implement rules instead.
+**Human decisions**
+- Settled three open points before any code: the preview endpoint takes
+  stops, no new cities, every leg uses the trip date.
 - The parse example (Rzeszów, Zakopane) uses cities that are not seeded;
   the human chose warnings over new reference data.
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
+- The human's spec named `/start-milestone`, which did not exist yet; the AI
+  followed the existing branch-and-implement rules instead.
 - Found by looking at the running app, not by tests: with the demo's
   BALANCED priority every leg chose the bus, so the "mixed itinerary" never
-  showed; the AI measured several routes and priorities through the API
+  showed. The AI measured several routes and priorities through the API
   and switched the sample to FASTEST (train, train, plane, plane). The
   whole-trip table also repeated the plan as "Bus for every leg"; that
   duplicate row is now hidden.
@@ -471,10 +559,9 @@ corrected manually, and why.
 
 **Delegated to AI**
 - Planned with `add-milestone` from the human's written spec and a style
-  reference image; the AI listed where the colours live, found that the
-  trip list has no figures for the KPIs, and asked where they should come
-  from (human: one comparison request per trip, no API change). The AI
-  also added the missing `start-milestone` skill on its own branch first.
+  reference image. The AI listed where the colours live, found that the trip
+  list has no figures for the KPIs, and asked where they should come from.
+  It also added the missing `start-milestone` skill on its own branch first.
 - Implemented in six `ui-builder` runs, one commit each: tokens and glass
   foundation, shared building blocks (glass panel, pill nav, stat chip,
   tabs, segmented toggle, filter chip, icon button, bottom sheet), header,
@@ -484,20 +571,27 @@ corrected manually, and why.
   Chrome script (no new dependency); contrast composited over the
   background and the brightest glow for every new pair.
 
-**Corrected manually / human decisions**
+**Human decisions**
+- Wrote the spec and supplied the style reference.
+- KPI figures come from one comparison request per trip, with no API change.
+
+**Found by the human**
+- Screenshots, not tests, showed the Home layout problems: map not full-bleed
+  (a specificity clash), letterboxed land with hard edges, clipped right
+  panel at 1280 px, and the route line broken into dashes at the new map
+  scale. All went back to the subagent with the screenshots.
+
+**AI self-corrections**
+- The human's spec asked for both "tint by mode" and "no new hues"; the AI
+  resolved the conflict as lime/amber/neutral tints with the mode in text.
 - Review between runs caught what the subagents' green tests did not:
   `inject()` inside an `afterNextRender` callback (would throw in the
   browser; the test environment has no `ResizeObserver`), a menu closing via
   a click handler that needed two a11y lint rules switched off (now closes
   on navigation), and Home never shown as the active nav item because the
   exact match compared query parameters.
-- Screenshots, not tests, found the Home layout problems: map not
-  full-bleed (a specificity clash), letterboxed land with hard edges,
-  clipped right panel at 1280 px, and the route line broken into dashes at
-  the new map scale. All went back to the subagent with the screenshots.
 - A subagent spec that regex-parsed injected CSS to guard the route stroke
-  was removed as too brittle; the human's "tint by mode" and "no new hues"
-  conflicted, resolved as lime/amber/neutral tints with the mode in text.
+  was removed as too brittle.
 - The style reference image (another product's UI) stayed out of the repo.
 
 **Why**
@@ -520,7 +614,15 @@ corrected manually, and why.
   `ui-reviewer` (1 blocker, 15 should-fix), then fixes and the greyed-out
   unavailable modes by `ui-builder` (477 UI tests green).
 
-**Corrected manually / human decisions**
+**Human decisions**
+- `docs/` is ignored by git and screenshots are no longer part of any
+  milestone; the UI reviewer works from code and tokens. (Superseded later:
+  screenshots returned in `feat/ui-reference-style`.)
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
 - The DEFRA factors could not be confirmed online (only partial
   third-party copies); the 2023 economy values with radiative forcing are
   flagged for checking against the official spreadsheet.
@@ -531,8 +633,6 @@ corrected manually, and why.
   sandbox blocks interactive rebase) before the first push.
 - The plane factors moved from the city seed to their own migration (V8)
   after the backend review; a subagent's scratch scripts were deleted.
-- Human decision: `docs/` is ignored by git and screenshots are no longer
-  part of any milestone; the UI reviewer works from code and tokens.
 - One UI spec timed out once under machine load and passed on reruns.
 
 **Why**
@@ -544,7 +644,7 @@ corrected manually, and why.
 ## feat/backend-depth
 
 **Delegated to AI**
-- Milestone planning in docs/PLAN.md, with two human decisions asked up front: weather-free list figures computed in memory, and approval of Caffeine, Actuator and ArchUnit (main session).
+- Milestone planning in docs/PLAN.md (main session).
 - Implementation in 13 commits (main session):
   - JPA auditing via the injected clock, ArchUnit layering rules, soft delete with a restore window (V9), Moscow removal (V10).
   - Grouped unavailable-mode sentences via a pure `RoutePlanner` shared by comparisons and trip figures.
@@ -554,8 +654,14 @@ corrected manually, and why.
 - Tests: `test-writer` wrote the search, specification, figures and stats suites (98 tests) and rewrote the Trips page, drag and comparison specs for the new HTTP flow.
 - Reviews: two `backend-reviewer` passes (no 🔴; the 🟡 items were fixed). Final results: 437 backend tests, 478 UI tests, lint and build green.
 
-**Corrected manually / human decisions**
-- Human decisions: weather-free list figures computed in memory, keeping "comparison computed, not stored"; the three dependencies.
+**Human decisions**
+- Weather-free list figures computed in memory, keeping "comparison computed, not stored".
+- Approved Caffeine, Actuator and ArchUnit.
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
 - `@Retryable` on the weather client never fired. The cache and retry proxies were JDK interface proxies, so the interceptor saw the unannotated interface method. `WeatherClientResilienceTest` caught it, and the proxies are now class-based.
 - The priority filter runs in memory, not as a Specification as first planned, because the priority facet must count every priority anyway. The plan was corrected.
 - After the first review: the restore window must be at least 1 s, the active-trip lookup got a short `@Query` name, and an ArchUnit rule for repositories was added.
@@ -573,7 +679,7 @@ corrected manually, and why.
 ## feat/ui-reference-style
 
 **Delegated to AI**
-- Planning in docs/PLAN.md (main session), with human decisions asked up front: Playwright for screenshots, the screenshot rules and folders, and Preferences as an optional step.
+- Planning in docs/PLAN.md (main session).
 - Tooling: `npm run screenshots` (Playwright 1.64.1, demo login, all screens at 1920/1280/375), written in the main session.
 - Four review steps, each built by `ui-builder`, reviewed by `ui-reviewer`, fixed by the builder, then stopped for human review with screenshots before the commit:
   1. Smoky backdrop, glass shell, top bar, icon rail, dark only.
@@ -582,8 +688,15 @@ corrected manually, and why.
   4. Account popover, delete dialog with Undo, interactive list.
 - Final checks and screenshots (main session): `./mvnw verify`, `npm run lint`, `npm test`, `npm run build`, and 24 `after-*` screenshots.
 
-**Corrected manually / human decisions**
-- Human decisions: approved each step's look from the screenshots without changes; skipped step 5 (Preferences); added a backlog item for connecting flights via hubs.
+**Human decisions**
+- Up front: Playwright for screenshots, the screenshot rules and folders, and Preferences as an optional step.
+- Approved each step's look from the screenshots without changes; skipped step 5 (Preferences); added a backlog item for connecting flights via hubs.
+- Accepted splitting the Home explorer's styles into two files to stay under the per-file budget, as a known compromise.
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
 - Headless Chromium reports a light colour scheme and reduced transparency, so the first captures showed the old light theme and solid glass. The script now forces dark mode and emulates no reduced transparency.
 - The reviewer's 🔴 findings, all fixed before each commit:
   - Step 1: a removed token was still used, and muted text failed AA on 12 % controls.
@@ -595,7 +708,7 @@ corrected manually, and why.
   - A stray space before a comma in the weather line.
   - An expanded row showed three sets of actions.
   - Modes cards wrapped as 4 + 1.
-- Deviations from a reviewer: the route animation is not limited to a few loops, because the user asked for an animated route; it pauses while dragging instead. The Home explorer's styles were split into two files to stay under the per-file budget, which the human accepted as a known compromise.
+- A reviewer suggestion not taken: the route animation is not limited to a few loops, because the user asked for an animated route; it pauses while dragging instead.
 - A builder left a scratch edit script in the repo, and it was deleted before the step-1 commit.
 
 **Why**
@@ -608,8 +721,13 @@ corrected manually, and why.
 - Planning and implementation (main session): "this weekend", "next weekend", and "next week" as next Monday in `RuleBasedTripParser.findDate`, with a test per expression and a fixed clock.
 - Review: `backend-reviewer` (no 🔴).
 
-**Corrected manually / human decisions**
-- Human decision: "next week" follows the UI shortcut (next Monday), not today + 7.
+**Human decisions**
+- "Next week" follows the UI shortcut (next Monday), not today + 7.
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
 - The first build of the new patterns put raw backspace characters into the Java source. Doubled backslashes in a shell heredoc were collapsed on the way in, so `"\\b"` reached the file as `"\b"` and the tests failed. The lines were rewritten with the file editor.
 - After the review: a weekday named with a weekend now picks that day; "next week" is matched as a word; the today/tonight pattern became a constant; tests were added for Friday as today, "weekends", and the return split.
 
@@ -619,7 +737,7 @@ corrected manually, and why.
 ## feat/living-globe
 
 **Delegated to AI**
-- Planning (main session) with three human decisions up front: the best mode gets the accent in the Modes chart, the milestones start from main, and "next week" means next Monday (parser milestone).
+- Planning (main session).
 - Implementation by `ui-builder`:
   - idle rotation, with an adaptive switch-off and a pause toggle
   - the "My trips" layer
@@ -629,12 +747,18 @@ corrected manually, and why.
 - Measurements: page scroll and frame-time probes at 1920 and 1440.
 - Review: `ui-reviewer` (two 🔴, fixed). Final checks: 695 UI tests, lint and build green.
 
-**Corrected manually / human decisions**
-- The frame-time requirement ("no frame drops while rotating") was not met in headless Chromium: about 40 % of frames over 32 ms.
-  - The builder traced the cost to the existing full-shell `backdrop-filter`. Isolating the map or moving the blur layer did not help; turning the blur off did.
-  - Human decision: keep the glass and make idle rotation switch itself off after repeated slow frames.
+**Human decisions**
+- Up front: the best mode gets the accent in the Modes chart, the milestones start from main, and "next week" means next Monday (parser milestone).
+- Keep the glass and make idle rotation switch itself off after repeated slow frames.
+- A saved "Pause globe rotation" toggle for WCAG 2.2.2.
+
+**Found by the human**
+- After the merge: rotation never started, because the whole map rectangle counted as hover and a focus left by a mouse click blocked it for good. Fixed in `fix/globe-rotation` (hover is the globe disc only, only keyboard focus blocks, an "Auto-rotate" toggle that also lets reduced-motion users opt in) with a Playwright check.
+
+**AI self-corrections**
+- The frame-time requirement ("no frame drops while rotating") was not met in headless Chromium: about 40 % of frames over 32 ms. The builder traced the cost to the existing full-shell `backdrop-filter`. Isolating the map or moving the blur layer did not help; turning the blur off did.
 - The ui-reviewer found that rotation resumed under a keyboard-focused city, which then spun away and lost focus. Focus inside the map now blocks rotation.
-- The ui-reviewer also found that WCAG 2.2.2 needs a visible pause control. Human decision: a saved "Pause globe rotation" toggle.
+- The ui-reviewer also found that WCAG 2.2.2 needs a visible pause control.
 - Main session: the pause toggle first switched its label between Pause and Resume while also using `aria-pressed`, so screen readers announced the state twice. It now has a fixed label and the state lives only in `aria-pressed`.
 - One `styles.scss` hunk per concern was staged separately (`git apply --cached`), so the globe token and the Modes width landed in their own commits.
 
@@ -647,7 +771,13 @@ corrected manually, and why.
 - Main session (no builder subagents): the milestone plan from a reference screenshot (`docs/trips_details.png`, local only), `RouteMap` `pickable` and `focusLeg` with the 60° turn rule, the stop chain and fact chips, the sticky globe layout, the recommendation's figures, leg rows and tip callouts, `LegFocus` / `appLegHover` / `app-leg-map-toggle`, specs, and before/after captures (the screenshot script now captures a 2-stop and a multi-stop trip).
 - `ui-reviewer` audited the branch: 3 🔴, 6 🟡, 5 🟢.
 
-**Corrected manually / human decisions**
+**Human decisions**
+- Asked for the page to be "more readable and interactive", with the reference screenshot, and approved the milestone plan before any code.
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
 - A focused leg near the rim counted as "visible" (100° of longitude at 50° N is still the near side), so the globe never turned in the spec. The rule became "within 60° of the centre" (`isClearlyVisible`).
 - City and country ran together for screen readers ("BerlinDE"); a visually hidden ", " now separates them.
 - The reviewer proposed 50 % opacity for faded legs to meet 3:1; a contrast check gave 2.8:1, so 60 % (3.35:1) was used.
