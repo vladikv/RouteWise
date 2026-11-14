@@ -66,8 +66,5 @@
   <div class="buttons">
     <a class="button button--primary" [routerLink]="['/trips', trip().id]">Open on map</a>
     <a class="button" [routerLink]="['/trips', trip().id, 'edit']">Edit</a>
-    <button type="button" class="button button--danger" (click)="deleteRequested.emit()">
-      Delete
-    </button>
   </div>
 </div>

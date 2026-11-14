@@ -95,7 +95,7 @@ describe('TripCard', () => {
     expect(card.querySelectorAll('h3 a')).toHaveLength(1);
   });
 
-  it('offers open, edit, duplicate and delete as quick actions, and the menu trigger', async () => {
+  it('offers open, edit and duplicate as quick actions, and the menu trigger', async () => {
     const card = await render(ready());
     const actions = card.querySelector('app-trip-actions')!;
 
@@ -108,20 +108,17 @@ describe('TripCard', () => {
     expect(
       actions.querySelector('a[aria-label="Duplicate Berlin to Vienna"]')?.getAttribute('href'),
     ).toBe('/trips/new');
-    expect(actions.querySelector('button[aria-label="Delete Berlin to Vienna"]')).not.toBeNull();
+    expect(actions.querySelector('[aria-label^="Delete"]')).toBeNull();
+    expect(actions.querySelectorAll('.quick')).toHaveLength(3);
     expect(card.querySelector('button[aria-label="Actions for Berlin to Vienna"]')).not.toBeNull();
   });
 
-  it('asks the page to delete from the quick action and from the menu, without confirming itself', async () => {
+  it('asks the page to delete from the menu, without confirming itself', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
     const fixture = TestBed.createComponent(Host);
     fixture.componentInstance.figures.set(ready());
     await fixture.whenStable();
     const card = (fixture.nativeElement as HTMLElement).querySelector('article')!;
-
-    card.querySelector<HTMLButtonElement>('app-trip-actions button[aria-label^="Delete"]')!.click();
-    expect(fixture.componentInstance.deleteRequests).toBe(1);
-    expect(card.querySelector('.button--danger')).toBeNull();
 
     card.querySelector<HTMLButtonElement>('button[aria-label^="Actions for"]')!.click();
     await fixture.whenStable();
@@ -130,7 +127,8 @@ describe('TripCard', () => {
       .click();
     await fixture.whenStable();
 
-    expect(fixture.componentInstance.deleteRequests).toBe(2);
+    expect(fixture.componentInstance.deleteRequests).toBe(1);
+    expect(card.querySelector('.button--danger')).toBeNull();
     expect(card.querySelector('.menu-panel')).toBeNull();
   });
 
