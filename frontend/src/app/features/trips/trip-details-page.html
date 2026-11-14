@@ -20,75 +20,104 @@
     </div>
   </div>
 
-  <section class="card overview" aria-label="Trip details">
-    <dl class="details">
-      <div class="details__wide">
-        <dt>Route</dt>
-        <dd>
-          <ol class="route-stops">
-            @for (stop of trip.stops; track stop.position) {
-              <li>{{ stop.cityName }} ({{ stop.country }})</li>
+  <div class="layout">
+    <section class="card overview" aria-label="Trip details">
+      <ol class="stop-chain" aria-label="Route">
+        @for (stop of trip.stops; track stop.position; let last = $last) {
+          <li class="stop">
+            <span class="stop__name">{{ stop.cityName }}</span>
+            <span class="stop__country"
+              ><span class="visually-hidden">, </span>{{ stop.country }}</span
+            >
+            @if (!last) {
+              <span class="stop__arrow" aria-hidden="true">→</span>
             }
-          </ol>
-        </dd>
-      </div>
-      <div>
-        <dt>Departure</dt>
-        <dd>{{ trip.departureDate | date: 'fullDate' }}</dd>
-      </div>
-      <div>
-        <dt>Travelers</dt>
-        <dd>{{ travelersLabel(trip.travelers) }}</dd>
-      </div>
-      <div>
-        <dt>Priority</dt>
-        <dd>{{ priorityLabels[trip.priority] }}</dd>
-      </div>
+          </li>
+        }
+      </ol>
+
+      <ul class="facts" aria-label="Trip facts">
+        <li>
+          <app-stat-chip
+            label="Departure"
+            [value]="(trip.departureDate | date: 'EEE, d MMM y') ?? ''"
+          >
+            <svg icon viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <rect x="4" y="5" width="16" height="15" rx="2" />
+              <path d="M8 3v4M16 3v4M4 10h16" />
+            </svg>
+          </app-stat-chip>
+        </li>
+        <li>
+          <app-stat-chip
+            [label]="trip.travelers === 1 ? 'Traveler' : 'Travelers'"
+            [value]="'' + trip.travelers"
+          >
+            <svg icon viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <circle cx="9" cy="8" r="3.5" />
+              <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6" />
+            </svg>
+          </app-stat-chip>
+        </li>
+        <li>
+          <app-stat-chip label="Priority" [value]="priorityLabels[trip.priority]">
+            <svg icon viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M5 21V4M5 4h11l-2 4 2 4H5" />
+            </svg>
+          </app-stat-chip>
+        </li>
+      </ul>
+
       @if (trip.notes) {
-        <div class="details__wide">
-          <dt>Notes</dt>
-          <dd class="details__notes">{{ trip.notes }}</dd>
-        </div>
+        <p class="notes"><span class="visually-hidden">Notes: </span>{{ trip.notes }}</p>
       }
-    </dl>
-    @if (cities.value(); as cityList) {
-      <app-route-map
-        class="overview__map"
-        [cities]="cityList"
-        [stops]="stopIds()"
-        [interactive]="false"
-      />
-    }
-  </section>
+    </section>
 
-  <section class="card" aria-labelledby="advice-heading">
-    <h2 id="advice-heading">Recommendation</h2>
-    @if (advice.isLoading()) {
-      <app-spinner label="Asking the advisor…" />
-    } @else if (advice.error(); as error) {
-      <app-error-message [error]="error" (retry)="advice.reload()" />
-    } @else if (advice.value(); as value) {
-      <app-advice-panel [advice]="value" />
-    }
-  </section>
-
-  <section class="card" aria-labelledby="comparison-heading">
-    <h2 id="comparison-heading">Compare modes</h2>
-    @if (comparison.isLoading()) {
-      <app-spinner label="Comparing transport modes…" />
-    } @else if (comparison.error(); as error) {
-      <app-error-message [error]="error" (retry)="comparison.reload()" />
-    } @else if (comparison.value(); as value) {
-      @if (value.legs.length === 1) {
-        @let leg = singleLeg(value);
-        <app-comparison-chart [comparison]="leg" [priorityLink]="editLink(value)" />
-        <h3 class="exact-heading">Exact numbers</h3>
-        <app-comparison-panel [comparison]="leg" />
-      } @else {
-        <app-itinerary-view [comparison]="value" />
+    <section class="card map-panel" aria-label="Route map">
+      @if (cities.value(); as cityList) {
+        <app-route-map
+          [cities]="cityList"
+          [stops]="stopIds()"
+          [pickable]="false"
+          gestures="cooperative"
+          [focusLeg]="legFocus.focused()"
+        />
       }
-    }
-  </section>
+    </section>
+
+    <section class="card" aria-labelledby="advice-heading">
+      <h2 id="advice-heading">Recommendation</h2>
+      @if (advice.isLoading()) {
+        <app-spinner label="Asking the advisor…" />
+      } @else if (advice.error(); as error) {
+        <app-error-message [error]="error" (retry)="advice.reload()" />
+      } @else if (advice.value(); as value) {
+        <app-advice-panel
+          [advice]="value"
+          [figures]="comparison.value()?.recommendedItinerary ?? null"
+          [currency]="comparison.value()?.currency ?? 'EUR'"
+        />
+      }
+    </section>
+
+    <section class="card" aria-labelledby="comparison-heading">
+      <h2 id="comparison-heading">Compare modes</h2>
+      @if (comparison.isLoading()) {
+        <app-spinner label="Comparing transport modes…" />
+      } @else if (comparison.error(); as error) {
+        <app-error-message [error]="error" (retry)="comparison.reload()" />
+      } @else if (comparison.value(); as value) {
+        @if (value.legs.length === 1) {
+          @let leg = singleLeg(value);
+          <app-comparison-chart [comparison]="leg" [priorityLink]="editLink(value)" />
+          <h3 class="exact-heading">Exact numbers</h3>
+          <app-comparison-panel [comparison]="leg" />
+        } @else {
+          <app-itinerary-view [comparison]="value" />
+        }
+      }
+    </section>
+  </div>
 }
 
 <app-trip-delete-dialog

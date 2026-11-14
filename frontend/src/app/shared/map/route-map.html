@@ -77,15 +77,25 @@
     }
 
     @for (leg of legPaths(); track leg.key) {
-      <path class="route route--glow" [attr.d]="leg.d" />
-      <path class="route" [attr.d]="leg.d" />
+      <path
+        class="route route--glow"
+        [class.route--dimmed]="leg.dimmed"
+        [class.route--focused]="leg.focused"
+        [attr.d]="leg.d"
+      />
+      <path
+        class="route"
+        [class.route--dimmed]="leg.dimmed"
+        [class.route--focused]="leg.focused"
+        [attr.d]="leg.d"
+      />
       @if (flowing()) {
-        <path class="route route--flow" [attr.d]="leg.d" />
+        <path class="route route--flow" [class.route--dimmed]="leg.dimmed" [attr.d]="leg.d" />
       }
     }
 
     @for (marker of markers(); track marker.city.id) {
-      @if (interactive()) {
+      @if (interactive() && pickable()) {
         <g
           class="city"
           [attr.data-id]="marker.city.id"
@@ -152,25 +162,35 @@
       } @else {
         <g
           class="city city--static"
+          [class.city--dimmed]="marker.dimmed"
           [class.city--origin]="marker.role === 'origin'"
           [class.city--destination]="marker.role === 'destination'"
           [class.city--stop]="marker.role === 'stop'"
           aria-hidden="true"
         >
-          <circle
-            class="city__ring"
-            [attr.cx]="marker.point.x"
-            [attr.cy]="marker.point.y"
-            [attr.r]="marker.pin.length > 2 ? 14 : 10"
-          />
-          <text
-            class="city__letter"
-            [attr.x]="marker.point.x"
-            [attr.y]="marker.point.y + 3.8"
-            [attr.font-size]="marker.pin.length > 2 ? 9 : 11"
-          >
-            {{ marker.pin }}
-          </text>
+          @if (marker.role) {
+            <circle
+              class="city__ring"
+              [attr.cx]="marker.point.x"
+              [attr.cy]="marker.point.y"
+              [attr.r]="marker.pin.length > 2 ? 14 : 10"
+            />
+            <text
+              class="city__letter"
+              [attr.x]="marker.point.x"
+              [attr.y]="marker.point.y + 3.8"
+              [attr.font-size]="marker.pin.length > 2 ? 9 : 11"
+            >
+              {{ marker.pin }}
+            </text>
+          } @else {
+            <circle
+              class="city__dot"
+              [attr.cx]="marker.point.x"
+              [attr.cy]="marker.point.y"
+              [attr.r]="dotRadius"
+            />
+          }
           @if (marker.label; as label) {
             <text
               class="city__name"

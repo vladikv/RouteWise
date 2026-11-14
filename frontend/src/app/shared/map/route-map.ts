@@ -39,6 +39,7 @@ import {
   haversineKm,
   idleTurn,
   interpolateView,
+  isClearlyVisible,
   isVisible,
   maxLabelRank,
   minDotGap,
@@ -193,6 +194,16 @@ export class RouteMap {
   /** An ordered route of city ids (2+ stops); replaces origin/destination when given. */
   readonly stops = input<number[] | null>(null);
   /**
+   * Whether cities can be picked. `false` keeps the globe navigable (drag, zoom, keys) but draws the
+   * cities as plain marks, for a map that shows a saved route (trip details).
+   */
+  readonly pickable = input(true);
+  /**
+   * A leg (index into the route) to stand out: it is drawn heavier, the other legs fade, and the
+   * globe turns to it when it is out of view. `null` shows the whole route evenly.
+   */
+  readonly focusLeg = input<number | null>(null);
+  /**
    * With no route selected the globe turns once round in about two minutes. Any interaction (hover,
    * drag, wheel, keys, a selected route) stops it at once; it resumes after 10 s without one. Off
    * under reduced motion and while the tab is hidden.
@@ -239,6 +250,9 @@ export class RouteMap {
 
   protected readonly cooperative = computed(() => this.gestures() === 'cooperative');
   protected readonly instructions = computed(() => {
+    if (!this.pickable()) {
+      return `${this.description()} Drag or use the arrow keys to rotate the globe, plus and minus zoom, zero resets the view.`;
+    }
     const choose =
       this.stops() !== null
         ? 'Select a city to add it as the next stop.'
@@ -397,8 +411,11 @@ export class RouteMap {
     const geometry = this.geometry();
     const key = this.routeKey();
     const progress = this.drawn() * route.legs.length;
+    const focus = this.focusLeg();
     return route.legs.map((leg, index) => ({
       key: `${key}:${index}`,
+      focused: focus === index,
+      dimmed: focus !== null && focus !== index,
       d: pathData(
         arcSegments(
           arcPrefix(leg.samples, Math.min(Math.max(progress - index, 0), 1)),
@@ -770,6 +787,22 @@ export class RouteMap {
       });
     });
 
+    // A focused leg that is out of view or squeezed at the rim: turn the globe to it, keeping the zoom.
+    effect(() => {
+      const index = this.focusLeg();
+      const route = this.route();
+      untracked(() => {
+        const leg = index === null ? undefined : route?.legs[index];
+        const view = this.view();
+        if (!leg || (isClearlyVisible(leg.from, view) && isClearlyVisible(leg.to, view))) {
+          return;
+        }
+        const target = fitRoute([leg.from, leg.to], this.frame(), FIT_MARGIN_PX);
+        this.adjusted = true;
+        this.moveTo({ ...target, zoom: view.zoom }, this.interactive());
+      });
+    });
+
     // Turn to a newly chosen route (smoothly), and back to Europe when it is cleared. When only the
     // size of the map or the space the panels leave changes (a layout switch, a resize), a view the
     // user has moved is kept (same centre, same zoom) and otherwise the route is fitted again,
@@ -795,7 +828,7 @@ export class RouteMap {
   // --- Selection ---------------------------------------------------------------
 
   protected pick(city: City): void {
-    if (!this.interactive() || this.consumeDrag()) {
+    if (!this.interactive() || !this.pickable() || this.consumeDrag()) {
       return;
     }
     if (this.stops() !== null) {

@@ -1,0 +1,75 @@
+@let data = advice();
+
+@if (figures(); as plan) {
+  <ul class="figures" aria-label="Recommended plan in total">
+    <li>
+      <app-stat-chip label="Travel time" [value]="durationLabel(plan.durationMinutes)">
+        <svg icon viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="8.5" />
+          <path d="M12 7.5V12l3 2" />
+        </svg>
+      </app-stat-chip>
+    </li>
+    <li>
+      <app-stat-chip
+        label="Cost for all travelers"
+        [value]="(plan.totalCost | currency: currency() : 'symbol' : '1.0-0') ?? ''"
+      >
+        <svg icon viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="8.5" />
+          <path d="M15 9a3.5 3.5 0 1 0 0 6M8 11h5M8 13.5h5" />
+        </svg>
+      </app-stat-chip>
+    </li>
+    <li>
+      <app-stat-chip label="CO₂" [value]="(plan.co2Kg | number: '1.0-0') + ' kg'">
+        <svg icon viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M5 19c0-8 5-13 15-14-1 10-6 15-14 15M5 19l8-8" />
+        </svg>
+      </app-stat-chip>
+    </li>
+  </ul>
+}
+
+<p class="summary">{{ data.summary }}</p>
+
+@if (data.legs.length > 1) {
+  <ol class="legs" aria-label="Leg by leg">
+    @for (leg of data.legs; track $index) {
+      @let mode = data.recommendedModes[$index];
+      <li class="leg" [appLegHover]="$index">
+        <span class="leg__number" aria-hidden="true">{{ $index + 1 }}</span>
+        @if (mode) {
+          <app-mode-icon class="leg__mode" [mode]="mode" />
+        } @else {
+          <span class="leg__mode leg__mode--none" aria-hidden="true">⊘</span>
+        }
+        <span class="leg__text">{{ leg }}</span>
+        <app-leg-map-toggle [leg]="$index" />
+      </li>
+    }
+  </ol>
+}
+
+@if (data.tips.length > 0) {
+  <ul class="tips">
+    @for (tip of data.tips; track tip) {
+      <li class="tip">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="8.5" />
+          <path d="M12 11v5M12 8h.01" />
+        </svg>
+        <span>{{ tip }}</span>
+      </li>
+    }
+  </ul>
+}
+
+<p class="source muted">
+  <span class="badge">{{ data.source === 'AI' ? 'AI advisor' : 'Rule-based advisor' }}</span>
+  @if (data.source === 'AI') {
+    Written by AI from the comparison below; the recommended mode itself is computed.
+  } @else {
+    Generated from the comparison below without AI.
+  }
+</p>

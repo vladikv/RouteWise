@@ -1,5 +1,6 @@
 import {
   DEFAULT_VIEW,
+  isClearlyVisible,
   GlobeFrame,
   GlobeGeometry,
   GlobeView,
@@ -30,6 +31,22 @@ const VIENNA = { latitude: 48.2082, longitude: 16.3738 };
 const SYDNEY = { latitude: -33.8688, longitude: 151.2093 };
 const MADRID = { latitude: 40.4168, longitude: -3.7038 };
 const FRAME: GlobeFrame = { width: 1000, height: 700, start: 0, end: 0 };
+
+describe('isClearlyVisible', () => {
+  const centre = { latitude: 0, longitude: 0 };
+
+  it('is true within 60° of the centre of the disc', () => {
+    expect(isClearlyVisible(centre, centre)).toBe(true);
+    expect(isClearlyVisible({ latitude: 0, longitude: 59 }, centre)).toBe(true);
+  });
+
+  it('is false near the rim, though still on the near side, and on the far side', () => {
+    expect(isClearlyVisible({ latitude: 0, longitude: 61 }, centre)).toBe(false);
+    expect(isVisible({ latitude: 0, longitude: 80 }, centre)).toBe(true);
+    expect(isClearlyVisible({ latitude: 0, longitude: 80 }, centre)).toBe(false);
+    expect(isClearlyVisible({ latitude: 0, longitude: 180 }, centre)).toBe(false);
+  });
+});
 
 describe('isVisible', () => {
   const centre = { latitude: 50, longitude: 10 };

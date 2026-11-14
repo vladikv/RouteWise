@@ -8,7 +8,8 @@ import { TripApi } from '../../core/api/trip-api';
 import { RouteMap } from '../../shared/map/route-map';
 import { ErrorMessage } from '../../shared/ui/error-message';
 import { Spinner } from '../../shared/ui/spinner';
-import { PRIORITY_LABELS, travelersLabel } from '../../shared/util/labels';
+import { StatChip } from '../../shared/ui/stat-chip';
+import { PRIORITY_LABELS } from '../../shared/util/labels';
 import { TripDeleteDialog } from './trip-delete-dialog';
 import { DeletionHooks, TripDeletion } from './trip-deletion';
 import { AdvicePanel } from './comparison/advice-panel';
@@ -16,6 +17,7 @@ import { ComparisonChart } from './comparison/comparison-chart';
 import { ComparisonPanel } from './comparison/comparison-panel';
 import { ItineraryView } from './comparison/itinerary-view';
 import { LegComparison, legComparison, priorityEditLink } from './comparison/leg-comparison';
+import { LegFocus } from './comparison/leg-focus';
 
 /** One trip: details, the advisor's recommendation, the mode comparison, and edit and delete. */
 @Component({
@@ -30,12 +32,13 @@ import { LegComparison, legComparison, priorityEditLink } from './comparison/leg
     ItineraryView,
     RouteMap,
     Spinner,
+    StatChip,
     TripDeleteDialog,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './trip-details-page.html',
   styleUrl: './trip-details-page.scss',
-  providers: [TripDeletion],
+  providers: [TripDeletion, LegFocus],
 })
 export class TripDetailsPage {
   /** Route parameter. */
@@ -62,7 +65,8 @@ export class TripDetailsPage {
   protected readonly cities = rxResource({ stream: () => this.cityApi.findAll() });
   protected readonly deletion = inject(TripDeletion);
   protected readonly priorityLabels = PRIORITY_LABELS;
-  protected readonly travelersLabel = travelersLabel;
+  /** The leg the map shows in focus (a leg row is hovered or shown on the map); null: the whole route. */
+  protected readonly legFocus = inject(LegFocus);
   /** The stop cities in order, for the map. */
   protected readonly stopIds = computed(
     () => this.trip.value()?.stops.map((stop) => stop.cityId) ?? [],
