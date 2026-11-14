@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { Advice, ItineraryTotals } from '../../../core/api/models';
 import { ModeIcon } from '../../../shared/ui/mode-icon';
 import { StatChip } from '../../../shared/ui/stat-chip';
-import { MODE_LABELS, durationLabel } from '../../../shared/util/labels';
+import { durationLabel } from '../../../shared/util/labels';
 import { LegHover, LegMapToggle } from './leg-focus';
 
 /**
@@ -24,6 +24,5 @@ export class AdvicePanel {
   readonly figures = input<ItineraryTotals | null>(null);
   readonly currency = input('EUR');
 
-  protected readonly modeLabels = MODE_LABELS;
   protected readonly durationLabel = durationLabel;
 }

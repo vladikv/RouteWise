@@ -49,6 +49,8 @@
 @media (min-width: 80rem) {
   .layout {
     grid-template-columns: minmax(0, 1fr) minmax(22rem, 30rem);
+    /* The map spans the three rows; spare height goes to the last one, not between the cards. */
+    grid-template-rows: auto auto 1fr;
     align-items: start;
   }
 
@@ -103,7 +105,7 @@
 }
 
 .stop__arrow {
-  color: var(--color-primary);
+  color: var(--color-text-muted);
   font-weight: 800;
 }
 

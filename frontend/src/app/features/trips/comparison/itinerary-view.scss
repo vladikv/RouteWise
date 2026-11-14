@@ -20,12 +20,6 @@
   border-radius: var(--radius-md);
 }
 
-/* The leg shown on the map (row hovered, focused or pinned with its toggle). */
-.leg-hover--active {
-  border-color: var(--color-highlight-edge);
-  background: var(--glass-bg-strong);
-}
-
 .leg:not(:last-child)::before {
   content: '';
   position: absolute;

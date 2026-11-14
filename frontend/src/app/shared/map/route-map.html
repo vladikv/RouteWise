@@ -162,6 +162,7 @@
       } @else {
         <g
           class="city city--static"
+          [class.city--dimmed]="marker.dimmed"
           [class.city--origin]="marker.role === 'origin'"
           [class.city--destination]="marker.role === 'destination'"
           [class.city--stop]="marker.role === 'stop'"

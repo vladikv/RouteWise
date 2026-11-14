@@ -202,7 +202,12 @@
   stroke-width: 13px;
 }
 
+/* 60 % keeps a faded leg at 3.35:1 against the lightest globe point (lime alone is 6.2:1). */
 .route--dimmed {
+  opacity: 0.6;
+}
+
+.route--glow.route--dimmed {
   opacity: 0.3;
 }
 

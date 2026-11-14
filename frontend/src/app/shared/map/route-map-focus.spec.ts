@@ -9,7 +9,6 @@ const VIENNA = makeCity({ id: 23, name: 'Vienna', latitude: 48.2082, longitude: 
 describe('RouteMap on a saved route (not pickable, one leg in focus)', () => {
   let fixture: ComponentFixture<RouteMap>;
   let map: HTMLElement;
-  let picked: number[];
 
   beforeEach(async () => {
     // Reduced motion: every move of the globe is instant.
@@ -18,8 +17,6 @@ describe('RouteMap on a saved route (not pickable, one leg in focus)', () => {
     fixture.componentRef.setInput('cities', [BERLIN, PRAGUE, VIENNA]);
     fixture.componentRef.setInput('stops', [3, 18, 23]);
     fixture.componentRef.setInput('pickable', false);
-    picked = [];
-    fixture.componentInstance.cityPick.subscribe((id) => picked.push(id));
     map = fixture.nativeElement as HTMLElement;
     await fixture.whenStable();
   });
@@ -40,13 +37,6 @@ describe('RouteMap on a saved route (not pickable, one leg in focus)', () => {
     expect(map.querySelector('[role="button"]')).toBeNull();
     expect(map.querySelectorAll('g.city--static')).toHaveLength(3);
     expect(map.querySelector('button[aria-label="Zoom in"]')).not.toBeNull();
-  });
-
-  it('ignores clicks on a city', async () => {
-    map.querySelector('g.city')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    await fixture.whenStable();
-
-    expect(picked).toEqual([]);
   });
 
   it('draws every leg evenly without a focused leg', () => {

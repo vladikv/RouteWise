@@ -666,3 +666,9 @@ textarea[aria-invalid='true'] {
     max-width: 100rem;
   }
 }
+
+/* A leg row whose leg the trip details globe shows in focus (`appLegHover`: hovered, focused or pinned). */
+.leg-hover--active {
+  border-color: var(--color-highlight-edge);
+  background: var(--glass-bg-strong);
+}
