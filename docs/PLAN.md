@@ -421,6 +421,7 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
 | 2026-11-14 | A visible "Pause globe rotation" toggle (saved in `localStorage`, default rotating) next to the zoom controls | Human choice after the ui-review: WCAG 2.2.2 needs a way to pause motion that starts by itself and lasts over 5 s; hover does not help touch or keyboard users |
 | 2026-11-14 | The "My trips" styles live in their own `route-map-trips.scss` next to `route-map.scss` | A separate concern of the map component; keeps each stylesheet within the 4 kB budget instead of trimming the globe's own styles |
 | 2026-11-14 | The "Auto-rotate" toggle supersedes "Pause globe rotation": on by default, off by default under `prefers-reduced-motion`, an explicit choice (saved) always wins; hover means the pointer over the globe disc, and only keyboard focus (`:focus-visible`) blocks the rotation | Human report: rotation never started because the whole map rectangle counted as hover and a click-left focus blocked it for good; reduced-motion users must be able to opt in. A Playwright check (`npm run e2e`) now guards it |
+| 2026-11-14 | `fix/ui-cleanup`: the comparison chart's accent follows the selected metric (best mode, ties all count, as on the Modes page) while the "Recommended" badge stays with the priority; Delete only in the "⋯" menu and on trip details (quick-action and expanded-row buttons removed) | Human report: on the Time tab the lime bar marked the slowest mode next to "Shorter is better"; too many delete buttons on the Trips page |
 
 ## Backlog / ideas
 
