@@ -8,7 +8,12 @@
 
 .trip-arc {
   stroke: var(--map-trip);
-  stroke-width: 1.5px;
+  stroke-width: 2px;
+  pointer-events: none;
+}
+
+.trip-stop {
+  fill: var(--map-trip);
   pointer-events: none;
 }
 

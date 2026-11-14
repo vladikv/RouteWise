@@ -148,6 +148,14 @@ describe('RouteMap trips layer', () => {
     expect(opened).toEqual([8]);
   });
 
+  it('marks every stop of a trip with a small dot inside the hidden group', async () => {
+    await render();
+
+    const dots = Array.from(host.querySelectorAll('g.trip-arcs circle.trip-stop'));
+    expect(dots).toHaveLength(2 + 2); // Berlin and Vienna; Paris and Berlin (the round trip's Paris counts once)
+    expect(dots.every((dot) => dot.getAttribute('r') === '3')).toBe(true);
+  });
+
   it('has a hit path on top of each thin arc with the same shape', async () => {
     await render();
 

@@ -11,16 +11,24 @@ const BERLIN = makeCity({ id: 3, name: 'Berlin', latitude: 52.52, longitude: 13.
  */
 describe('RouteMap idle rotation on slow frames', () => {
   let fixture: ComponentFixture<RouteMap>;
-  let pending: FrameRequestCallback[];
+  const queue = new Map<number, FrameRequestCallback>();
+  let nextId = 0;
+  /** The frames waiting to run (Angular's own scheduler uses the stub too). */
+  const pending = {
+    get length(): number {
+      return queue.size;
+    },
+  };
   let now: number;
 
-  beforeEach(() => {
-    pending = [];
+  beforeEach(async () => {
+    queue.clear();
     now = 1000;
-    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
-      pending.push(callback),
-    );
-    vi.stubGlobal('cancelAnimationFrame', () => undefined);
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      queue.set(++nextId, callback);
+      return nextId;
+    });
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => queue.delete(id));
     TestBed.configureTestingModule({
       providers: [{ provide: LAND_LOADER, useValue: () => Promise.resolve({ LAND_RINGS: [] }) }],
     });
@@ -28,15 +36,21 @@ describe('RouteMap idle rotation on slow frames', () => {
     fixture.componentRef.setInput('cities', [BERLIN]);
     fixture.componentRef.setInput('autoRotate', true);
     fixture.detectChanges();
+    await fixture.whenStable(); // the land is drawn
   });
 
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
 
   const longitude = (): number => (fixture.componentInstance['view']() as GlobeView).longitude;
 
   function frame(gap: number): void {
     now += gap;
-    pending.splice(0).forEach((callback) => callback(now));
+    const callbacks = [...queue.values()];
+    queue.clear();
+    callbacks.forEach((callback) => callback(now));
   }
 
   /** Frames of `gap` ms until the globe has moved once more; returns how many frames that took. */
@@ -73,11 +87,64 @@ describe('RouteMap idle rotation on slow frames', () => {
     expect(untilUpdate(16)).toBeLessThanOrEqual(4);
   });
 
-  it('switches itself off for the session after 5 slow update frames within 10 s', () => {
+  /** Fast frames up to just before the 3 s warm-up of the running loop is over (no sample is taken yet). */
+  function warmUp(): void {
+    for (let i = 0; i < 187; i++) {
+      frame(16);
+    }
+  }
+
+  /** One call per update frame: true = the frame after that update is slow, false = fast. */
+  function updates(pattern: boolean[]): void {
+    for (const slow of pattern) {
+      untilUpdate(slow ? 100 : 16, 8);
+    }
+    untilUpdate(16, 8); // measures the last one
+  }
+
+  const slowShare = (slow: number, fast: number): boolean[] => [
+    ...Array<boolean>(fast).fill(false),
+    ...Array<boolean>(slow).fill(true),
+  ];
+
+  it('ignores slow frames during the warm-up and is still turning after it', () => {
     frame(100);
-    for (let i = 0; i < 12 && pending.length > 0; i++) {
+    while (now < 1000 + 2500) {
+      untilUpdate(100, 4); // start-up jank: every update frame is slow
+    }
+    expect(pending.length).toBeGreaterThan(0);
+
+    for (let i = 0; i < 200; i++) {
+      frame(16);
+    }
+
+    expect(pending.length).toBeGreaterThan(0);
+    expect(untilUpdate(16, 8)).toBeLessThanOrEqual(4);
+  });
+
+  it('does not count slow frames before the land is drawn', async () => {
+    TestBed.resetTestingModule();
+    queue.clear();
+    TestBed.configureTestingModule({
+      providers: [{ provide: LAND_LOADER, useValue: () => new Promise(() => undefined) }],
+    });
+    fixture = TestBed.createComponent(RouteMap);
+    fixture.componentRef.setInput('cities', [BERLIN]);
+    fixture.componentRef.setInput('autoRotate', true);
+    fixture.detectChanges();
+
+    frame(100);
+    for (let i = 0; i < 60; i++) {
       untilUpdate(100, 4);
     }
+
+    expect(pending.length).toBeGreaterThan(0);
+  });
+
+  it('switches itself off for the session when 60 % of the last 20 update frames are slow', () => {
+    frame(16);
+    warmUp();
+    updates(slowShare(13, 7));
 
     expect(pending).toHaveLength(0);
     const stopped = longitude();
@@ -90,17 +157,43 @@ describe('RouteMap idle rotation on slow frames', () => {
     expect(pending).toHaveLength(0);
   });
 
+  it('keeps turning when less than 60 % of the last 20 are slow', () => {
+    frame(16);
+    warmUp();
+    updates(slowShare(11, 9));
+
+    expect(pending.length).toBeGreaterThan(0);
+  });
+
+  it('starts the warm-up and the samples afresh when the loop restarts after an interaction', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    frame(16);
+    warmUp();
+    updates(slowShare(15, 0)); // 15 slow samples, not yet 20
+
+    (fixture.nativeElement as HTMLElement).dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'a' }),
+    );
+    expect(pending).toHaveLength(0);
+    vi.advanceTimersByTime(10_000);
+    expect(pending.length).toBeGreaterThan(0);
+
+    warmUp();
+    updates(slowShare(5, 0)); // would be 20 slow ones if the old samples had been kept
+
+    expect(pending.length).toBeGreaterThan(0);
+  });
+
   it('keeps turning when only some update frames are slow', () => {
     frame(16);
     for (let round = 0; round < 3; round++) {
       untilUpdate(16);
       untilUpdate(100); // one slow update frame ...
       for (let i = 0; i < 4; i++) {
-        untilUpdate(16); // ... then fast ones: no five slow ones in a row, within 10 s
+        untilUpdate(16); // ... then fast ones
       }
       expect(pending.length).toBeGreaterThan(0);
     }
-    now += 20_000; // slow frames older than the 10 s window do not count
     untilUpdate(100);
     untilUpdate(100);
     expect(pending.length).toBeGreaterThan(0);
