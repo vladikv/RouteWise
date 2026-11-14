@@ -52,7 +52,9 @@ Argument: the milestone name as written in docs/PLAN.md
 1. Run everything that applies: `./mvnw verify`, `npm run lint`,
    `npm test`, plus the milestone's own "Done when" items.
    Report results honestly; do not tick a milestone with failures.
-2. docs/PLAN.md: tick the milestone and update the sections it changed.
+2. docs/PLAN.md: tick the milestone, shorten its entry to the one-line
+   goal (drop the sub-bullets; the details are in the commits and
+   docs/AI_WORKFLOW.md), and update the sections it changed.
    docs/DECISIONS.md: add the decisions worth recording (its rules; today's
    date), mark replaced entries superseded, and update "Key decisions"
    if one of them changed.
