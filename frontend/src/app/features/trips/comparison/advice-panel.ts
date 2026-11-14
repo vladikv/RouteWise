@@ -1,59 +1,29 @@
+import { CurrencyPipe, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { Advice } from '../../../core/api/models';
+import { Advice, ItineraryTotals } from '../../../core/api/models';
+import { ModeIcon } from '../../../shared/ui/mode-icon';
+import { StatChip } from '../../../shared/ui/stat-chip';
+import { MODE_LABELS, durationLabel } from '../../../shared/util/labels';
+import { LegHover, LegMapToggle } from './leg-focus';
 
-/** The advisor's explanation of the recommendation, and who wrote it. */
+/**
+ * The advisor's explanation of the recommendation, and who wrote it. The plan's key figures come
+ * first (from the comparison, when it has arrived), then the summary, one row per leg (mode icon and
+ * the advisor's sentence, linked to the map) and the tips. The advisor's text is shown as written.
+ */
 @Component({
   selector: 'app-advice-panel',
+  imports: [CurrencyPipe, DecimalPipe, LegHover, LegMapToggle, ModeIcon, StatChip],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    @let data = advice();
-    <p class="summary">{{ data.summary }}</p>
-    @if (data.legs.length > 1) {
-      <ol class="legs" aria-label="Leg by leg">
-        @for (leg of data.legs; track $index) {
-          <li>{{ leg }}</li>
-        }
-      </ol>
-    }
-    @if (data.tips.length > 0) {
-      <ul class="tips">
-        @for (tip of data.tips; track tip) {
-          <li>{{ tip }}</li>
-        }
-      </ul>
-    }
-    <p class="source muted">
-      <span class="badge">{{ data.source === 'AI' ? 'AI advisor' : 'Rule-based advisor' }}</span>
-      @if (data.source === 'AI') {
-        Written by AI from the comparison above; the recommended mode itself is computed.
-      } @else {
-        Generated from the comparison above without AI.
-      }
-    </p>
-  `,
-  styles: `
-    .summary {
-      font-size: 1.0625rem;
-      font-weight: 600;
-    }
-
-    .tips {
-      display: grid;
-      gap: var(--space-2);
-      margin: 0 0 var(--space-4);
-      padding-left: 1.25rem;
-    }
-
-    .source {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: var(--space-2);
-      margin: 0;
-      font-size: 0.875rem;
-    }
-  `,
+  templateUrl: './advice-panel.html',
+  styleUrl: './advice-panel.scss',
 })
 export class AdvicePanel {
   readonly advice = input.required<Advice>();
+  /** Totals of the recommended plan; no figures row without them. */
+  readonly figures = input<ItineraryTotals | null>(null);
+  readonly currency = input('EUR');
+
+  protected readonly modeLabels = MODE_LABELS;
+  protected readonly durationLabel = durationLabel;
 }

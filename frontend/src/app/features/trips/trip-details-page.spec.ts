@@ -156,13 +156,63 @@ describe('TripDetailsPage', () => {
       'Not possible for the whole trip: bike (too far between Berlin and Prague)',
     );
 
-    const adviceLegs = Array.from(section('advice-heading').querySelectorAll('.legs li'), (li) =>
-      li.textContent?.trim(),
+    const adviceLegs = Array.from(
+      section('advice-heading').querySelectorAll('.legs .leg__text'),
+      (li) => li.textContent?.trim(),
     );
     expect(adviceLegs).toEqual([
       'Leg 1, Berlin to Prague: train.',
       'Leg 2, Prague to Vienna: bus.',
     ]);
+  });
+
+  it('shows the leg of a hovered or pinned row in focus on the globe', async () => {
+    await loadTrip({
+      ...TRIP,
+      stops: [
+        { cityId: 3, cityName: 'Berlin', country: 'DE', position: 0 },
+        { cityId: 18, cityName: 'Prague', country: 'CZ', position: 1 },
+        { cityId: 23, cityName: 'Vienna', country: 'AT', position: 2 },
+      ],
+    });
+    httpTesting.expectOne(COMPARISON_URL).flush(MULTI_COMPARISON);
+    httpTesting.expectOne(ADVICE_URL).flush({
+      ...ADVICE,
+      recommendedModes: ['TRAIN', 'BUS'],
+      legs: ['Leg 1, Berlin to Prague: train.', 'Leg 2, Prague to Vienna: bus.'],
+    });
+    await fixture.whenStable();
+    const mapLegs = () =>
+      Array.from(
+        page.querySelectorAll('.map-panel path.route:not(.route--glow):not(.route--flow)'),
+        (path) =>
+          path.classList.contains('route--focused')
+            ? 'focused'
+            : path.classList.contains('route--dimmed')
+              ? 'dimmed'
+              : 'even',
+      );
+    expect(mapLegs()).toEqual(['even', 'even']);
+
+    const adviceRows = section('advice-heading').querySelectorAll('.legs .leg');
+    adviceRows[1].dispatchEvent(new PointerEvent('pointerenter'));
+    await fixture.whenStable();
+    expect(mapLegs()).toEqual(['dimmed', 'focused']);
+    adviceRows[1].dispatchEvent(new PointerEvent('pointerleave'));
+    await fixture.whenStable();
+    expect(mapLegs()).toEqual(['even', 'even']);
+
+    section('comparison-heading')
+      .querySelector<HTMLButtonElement>('.timeline button[aria-label="Show leg 1 on the map"]')!
+      .click();
+    await fixture.whenStable();
+    expect(mapLegs()).toEqual(['focused', 'dimmed']);
+    // The same leg is pressed wherever it is listed.
+    expect(
+      section('advice-heading')
+        .querySelector('button[aria-label="Show leg 1 on the map"]')
+        ?.getAttribute('aria-pressed'),
+    ).toBe('true');
   });
 
   it('omits the notes row when the trip has no notes', async () => {

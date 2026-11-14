@@ -1,0 +1,103 @@
+/* Key figures of the recommended plan, before any text. */
+.figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-8);
+  margin: 0 0 var(--space-6);
+  padding: 0;
+  list-style: none;
+}
+
+svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.summary {
+  max-width: 70ch;
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+/* One row per leg: number, mode icon, the advisor's sentence and the map toggle. */
+.legs {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  list-style: none;
+}
+
+.leg {
+  display: grid;
+  grid-template-columns: 2rem 1.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+}
+
+.leg-hover--active {
+  border-color: var(--color-highlight-edge);
+  background: var(--glass-bg-strong);
+}
+
+.leg__number {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--color-highlight);
+  color: var(--color-on-primary);
+  font-weight: 800;
+}
+
+.leg__mode {
+  justify-self: center;
+}
+
+.leg__mode--none {
+  color: var(--color-text-muted);
+}
+
+.tips {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  list-style: none;
+}
+
+/* A tip is a quiet callout: an info icon and the advisor's sentence. */
+.tip {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  max-width: 70ch;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+
+  svg {
+    flex: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-top: 0.15rem;
+    color: var(--color-primary-ink);
+  }
+}
+
+.source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: 0.875rem;
+}

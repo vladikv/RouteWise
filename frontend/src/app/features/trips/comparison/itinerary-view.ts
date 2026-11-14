@@ -12,6 +12,7 @@ import {
 import { ComparisonChart } from './comparison-chart';
 import { ComparisonPanel } from './comparison-panel';
 import { LegComparison, legComparison, priorityEditLink } from './leg-comparison';
+import { LegHover, LegMapToggle } from './leg-focus';
 
 /**
  * A multi-stop route: a timeline of legs with each leg's recommended mode, the
@@ -20,7 +21,16 @@ import { LegComparison, legComparison, priorityEditLink } from './leg-comparison
  */
 @Component({
   selector: 'app-itinerary-view',
-  imports: [ComparisonChart, ComparisonPanel, CurrencyPipe, DatePipe, DecimalPipe, ModeIcon],
+  imports: [
+    ComparisonChart,
+    ComparisonPanel,
+    CurrencyPipe,
+    DatePipe,
+    DecimalPipe,
+    LegHover,
+    LegMapToggle,
+    ModeIcon,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './itinerary-view.html',
   styleUrl: './itinerary-view.scss',

@@ -80,7 +80,7 @@
           [stops]="stopIds()"
           [pickable]="false"
           gestures="cooperative"
-          [focusLeg]="focusedLeg()"
+          [focusLeg]="legFocus.focused()"
         />
       }
     </section>
@@ -92,7 +92,11 @@
       } @else if (advice.error(); as error) {
         <app-error-message [error]="error" (retry)="advice.reload()" />
       } @else if (advice.value(); as value) {
-        <app-advice-panel [advice]="value" />
+        <app-advice-panel
+          [advice]="value"
+          [figures]="comparison.value()?.recommendedItinerary ?? null"
+          [currency]="comparison.value()?.currency ?? 'EUR'"
+        />
       }
     </section>
 

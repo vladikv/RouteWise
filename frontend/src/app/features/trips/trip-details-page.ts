@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { CityApi } from '../../core/api/city-api';
@@ -17,6 +17,7 @@ import { ComparisonChart } from './comparison/comparison-chart';
 import { ComparisonPanel } from './comparison/comparison-panel';
 import { ItineraryView } from './comparison/itinerary-view';
 import { LegComparison, legComparison, priorityEditLink } from './comparison/leg-comparison';
+import { LegFocus } from './comparison/leg-focus';
 
 /** One trip: details, the advisor's recommendation, the mode comparison, and edit and delete. */
 @Component({
@@ -37,7 +38,7 @@ import { LegComparison, legComparison, priorityEditLink } from './comparison/leg
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './trip-details-page.html',
   styleUrl: './trip-details-page.scss',
-  providers: [TripDeletion],
+  providers: [TripDeletion, LegFocus],
 })
 export class TripDetailsPage {
   /** Route parameter. */
@@ -65,7 +66,7 @@ export class TripDetailsPage {
   protected readonly deletion = inject(TripDeletion);
   protected readonly priorityLabels = PRIORITY_LABELS;
   /** The leg the map shows in focus (a leg row is hovered or shown on the map); null: the whole route. */
-  protected readonly focusedLeg = signal<number | null>(null);
+  protected readonly legFocus = inject(LegFocus);
   /** The stop cities in order, for the map. */
   protected readonly stopIds = computed(
     () => this.trip.value()?.stops.map((stop) => stop.cityId) ?? [],
