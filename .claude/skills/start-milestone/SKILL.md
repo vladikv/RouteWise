@@ -1,6 +1,6 @@
 ---
 name: start-milestone
-description: Starts and carries out a planned RouteWise milestone from docs/PLAN.md — creates its branch from an up-to-date main, implements it in Conventional Commits, and closes it (tests, plan tick, decisions log, AI_WORKFLOW entry). Use when the user asks to start, begin or implement a milestone.
+description: Starts and carries out a planned RouteWise milestone from docs/PLAN.md — creates its branch from an up-to-date main, implements it in Conventional Commits, and closes it (tests, plan tick, decisions, AI_WORKFLOW entry). Use when the user asks to start, begin or implement a milestone.
 ---
 
 # Start a milestone
@@ -27,8 +27,8 @@ Argument: the milestone name as written in docs/PLAN.md
 ## 3. Prepare
 
 1. Read the milestone entry with its sub-bullets, the related Scope,
-   Domain model and API sections and the recent decisions log in
-   docs/PLAN.md.
+   Domain model and API sections in docs/PLAN.md, and the key
+   decisions and recent entries in docs/DECISIONS.md.
 2. Read the `CLAUDE.md` of every module the milestone touches.
 3. Post a short work plan: steps in commit order, main files, tests,
    and which subagents do what (`ui-builder`, `test-writer`,
@@ -52,10 +52,15 @@ Argument: the milestone name as written in docs/PLAN.md
 1. Run everything that applies: `./mvnw verify`, `npm run lint`,
    `npm test`, plus the milestone's own "Done when" items.
    Report results honestly; do not tick a milestone with failures.
-2. docs/PLAN.md: tick the milestone, update the sections it changed,
-   add notable decisions to the decisions log (today's date).
+2. docs/PLAN.md: tick the milestone, shorten its entry to the one-line
+   goal (drop the sub-bullets; the details are in the commits and
+   docs/AI_WORKFLOW.md), and update the sections it changed.
+   docs/DECISIONS.md: add the decisions worth recording (its rules; today's
+   date), mark replaced entries superseded, and update "Key decisions"
+   if one of them changed.
 3. Append the `docs/AI_WORKFLOW.md` entry: milestone, what was
-   delegated to AI, what was corrected manually, and why.
+   delegated to AI, Human decisions, Found by the human, AI
+   self-corrections, and why (see the file's summary for the format).
 4. Commit as `docs: complete <milestone summary> milestone`.
 5. Report the branch, the commits and the test results. Pushing,
    the PR and merging are done by a human.

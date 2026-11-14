@@ -78,3 +78,11 @@ RouteWise gives estimates for comparing options, not quotes or timetables.
   rain).
 - **Deleted trips** can be restored for 30 seconds (`ROUTEWISE_TRIPS_RESTORE_WINDOW`).
 - **Map:** land and borders from Natural Earth 1:110m (public domain).
+
+## Project docs
+
+- [Key decisions](docs/DECISIONS.md#key-decisions): the architecture, security, data and AI decisions
+  and why they were made; the full log is below them.
+- [Plan](docs/PLAN.md): scope, domain model, API and milestones.
+- [AI workflow](docs/AI_WORKFLOW.md): how the project was built with Claude Code, per milestone: what
+  was delegated, what the human decided and found, and what the AI corrected itself.
