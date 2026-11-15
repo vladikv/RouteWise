@@ -9,7 +9,7 @@ with the weather forecast taken into account and an AI travel advisor that expla
 
 ## Demo
 
-VIDEO_URL_PLACEHOLDER
+https://github.com/user-attachments/assets/e34f0275-c0e7-4730-b6d0-537878ed7d0a
 
 Full walkthrough with voice-over: [docs/demo/routewise-demo.mp4](docs/demo/routewise-demo.mp4)
 
