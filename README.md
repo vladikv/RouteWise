@@ -3,10 +3,15 @@
 Multimodal trip planner that compares train, bus, car, bike and plane by travel time, cost and CO₂ emissions, leg by leg,
 with the weather forecast taken into account and an AI travel advisor that explains the recommendation.
 
-![Home: comparing Berlin to Vienna on the globe](docs/screenshots/after-home-route-1920.png)
+![RouteWise preview](docs/demo/routewise-preview.gif)
 
-- **Demo video:** *link added after recording*
 - **Plan, decisions and progress:** [docs/PLAN.md](docs/PLAN.md) · **AI workflow log:** [docs/AI_WORKFLOW.md](docs/AI_WORKFLOW.md)
+
+## Demo
+
+VIDEO_URL_PLACEHOLDER
+
+Full walkthrough with voice-over: [docs/demo/routewise-demo.mp4](docs/demo/routewise-demo.mp4)
 
 ## Features
 
