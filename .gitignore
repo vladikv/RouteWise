@@ -24,7 +24,5 @@ application-local.yml
 # Claude Code (local only)
 .claude/settings.local.json
 
-# Design reference (not ours, never commit)
-docs/photo.jpg
 # Working captures from step reviews
 docs/screenshots/work/
