@@ -200,6 +200,24 @@ describe('TripTable', () => {
     });
   });
 
+  describe('deleting', () => {
+    it('offers Delete only in the "⋯" menu, not in the quick actions', async () => {
+      expect(rows()[1].querySelector('app-trip-actions [aria-label^="Delete"]')).toBeNull();
+      expect(
+        Array.from(rows()[1].querySelectorAll('app-trip-actions [aria-label]')).map(
+          (action) => action.getAttribute('aria-label')?.split(' ')[0],
+        ),
+      ).toEqual(['Open', 'Edit', 'Duplicate']);
+
+      rows()[1].querySelector<HTMLButtonElement>('button[aria-label^="Actions"]')!.click();
+      await settle();
+      rows()[1].querySelector<HTMLButtonElement>('.menu-panel [aria-label^="Delete"]')!.click();
+      await settle();
+
+      expect(fixture.componentInstance.deleteRequests).toEqual([8]);
+    });
+  });
+
   describe('expanding', () => {
     it('expands on a click on the row, but not on a click on a link, button or select inside it', async () => {
       rows()[0].querySelector<HTMLElement>('td.trip__date')!.click();
@@ -213,7 +231,13 @@ describe('TripTable', () => {
         });
       rows()[1].querySelector<HTMLElement>('.trip__name a')!.click();
       rows()[1].querySelector('select')!.click();
-      rows()[1].querySelector<HTMLElement>('button[aria-label^="Delete"]')!.click();
+      rows()[1]
+        .querySelector<HTMLElement>('a[aria-label^="Duplicate"]')!
+        .addEventListener('click', (e) => {
+          e.preventDefault();
+        });
+      rows()[1].querySelector<HTMLElement>('a[aria-label^="Duplicate"]')!.click();
+      rows()[1].querySelector<HTMLElement>('button[aria-label^="Actions"]')!.click();
       await settle();
       expect(fixture.componentInstance.expandedId()).toBe(7);
     });
@@ -247,7 +271,7 @@ describe('TripTable', () => {
       expect(toggle(0).getAttribute('aria-expanded')).toBe('false');
     });
 
-    it('shows the passed comparison in the detail row with Open on map, Edit and Delete', async () => {
+    it('shows the passed comparison in the detail row with Open on map and Edit, but no Delete', async () => {
       fixture.componentInstance.details.set(
         new Map<number, RowDetail>([[7, { status: 'ready', comparison: COMPARISON }]]),
       );
@@ -273,10 +297,11 @@ describe('TripTable', () => {
         ['Edit', '/trips/7/edit'],
       ]);
 
-      Array.from(detail.querySelectorAll('button'))
-        .find((button) => button.textContent?.includes('Delete'))!
-        .click();
-      expect(fixture.componentInstance.deleteRequests).toEqual([7]);
+      expect(
+        Array.from(detail.querySelectorAll('button')).some((button) =>
+          button.textContent?.includes('Delete'),
+        ),
+      ).toBe(false);
     });
 
     it('lists every leg of a multi-stop trip with its recommended mode, and says when there is no forecast', async () => {

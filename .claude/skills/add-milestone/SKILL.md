@@ -1,6 +1,6 @@
 ---
 name: add-milestone
-description: Adds a new feature to docs/PLAN.md as a milestone (scope, domain model, API, definition of done, decisions log) before implementation. Use whenever the user asks for a feature that is not in the plan.
+description: Adds a new feature to docs/PLAN.md as a milestone (scope, domain model, API, definition of done) and its decisions to docs/DECISIONS.md before implementation. Use whenever the user asks for a feature that is not in the plan.
 ---
 
 # Add a milestone
@@ -16,8 +16,10 @@ description: Adds a new feature to docs/PLAN.md as a milestone (scope, domain mo
   - **Milestones**: a new line `feat/<kebab-name>: <one-line goal>`,
     placed after the milestones it depends on
   - **Definition of Done**: new items only if the feature needs them
-  - **Decisions log**: date, decision, reason (why it is worth adding)
-4. Show the diff of docs/PLAN.md and wait for approval.
-5. After approval, commit it with the `commit` skill
+4. Update docs/DECISIONS.md, only if the milestone makes a decision worth
+   recording there (see its rules): the next number, date, decision, reason,
+   status Active; mark any entry it replaces "Superseded by #N".
+5. Show the diff of docs/PLAN.md (and docs/DECISIONS.md) and wait for approval.
+6. After approval, commit it with the `commit` skill
    (`docs(plan): add <feature> milestone`). Do not start implementation;
    that is done with the `start-milestone` skill.

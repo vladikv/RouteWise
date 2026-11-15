@@ -104,11 +104,7 @@
         </td>
         <td class="trip__actions">
           <div class="trip__tools">
-            <app-trip-actions
-              class="trip__quick"
-              [trip]="trip"
-              (deleteRequested)="deleteRequested.emit(trip)"
-            />
+            <app-trip-actions class="trip__quick" [trip]="trip" />
             <app-trip-menu
               class="trip__menu"
               [trip]="trip"
@@ -125,7 +121,6 @@
               [trip]="trip"
               [detail]="details().get(trip.id)"
               (retry)="detailRetry.emit(trip)"
-              (deleteRequested)="deleteRequested.emit(trip)"
             />
           </td>
         </tr>

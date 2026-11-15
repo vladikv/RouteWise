@@ -77,22 +77,38 @@ describe('TripDetailsPage', () => {
     return page.querySelector(`section[aria-labelledby="${headingId}"]`) as HTMLElement;
   }
 
-  it('shows the trip details with an edit link', async () => {
+  const stopChain = () =>
+    Array.from(page.querySelectorAll('.stop-chain li'), (li) =>
+      li.textContent?.replace('→', '').trim(),
+    );
+  const facts = () =>
+    Array.from(
+      page.querySelectorAll('.facts li'),
+      (li) =>
+        `${li.querySelector('.value')?.textContent?.trim()} ${li.querySelector('.label')?.textContent?.trim()}`,
+    );
+
+  it('shows the route as a chain of stops, the facts as chips and the notes', async () => {
     await loadAll();
 
     expect(page.querySelector('h1')?.textContent).toContain('Berlin to Vienna');
-    const details = page.querySelector('dl')?.textContent ?? '';
-    expect(details).toContain('Berlin (DE)');
-    expect(details).toContain('Vienna (AT)');
-    expect(details).toContain('Wednesday, May 20, 2099');
-    expect(details).toContain('2 travelers');
-    expect(details).toContain('Greenest');
-    expect(details).toContain('Window seat');
+    expect(stopChain()).toEqual(['Berlin, DE', 'Vienna, AT']);
+    expect(page.querySelector('.stop-chain')?.getAttribute('aria-label')).toBe('Route');
+    expect(facts()).toEqual(['Wed, 20 May 2099 Departure', '2 Travelers', 'Greenest Priority']);
+    expect(page.querySelector('.notes')?.textContent?.trim()).toBe('Notes: Window seat');
     expect(page.querySelector('.actions a')?.getAttribute('href')).toBe('/trips/7/edit');
-    expect(page.querySelector('app-route-map svg')?.getAttribute('role')).toBe('img');
-    expect(page.querySelector('app-route-map svg')?.getAttribute('aria-label')).toBe(
-      'Route Berlin → Vienna, 524 km straight-line.',
+  });
+
+  it('shows the route on a globe that can be explored but offers no city buttons', async () => {
+    await loadAll();
+    const map = page.querySelector('.map-panel app-route-map')!;
+
+    expect(map.querySelector('svg')?.getAttribute('role')).toBe('group');
+    expect(map.querySelector('svg')?.getAttribute('aria-label')).toMatch(
+      /^Route Berlin → Vienna, 524 km straight-line\. Drag or use the arrow keys/,
     );
+    expect(map.querySelector('[role="button"]')).toBeNull();
+    expect(map.querySelector('button[aria-label="Reset view"]')).not.toBeNull();
   });
 
   it('shows a multi-stop trip as a leg timeline with whole-trip totals and advice per leg', async () => {
@@ -115,10 +131,7 @@ describe('TripDetailsPage', () => {
     });
     await fixture.whenStable();
 
-    const route = Array.from(page.querySelectorAll('.route-stops li')).map((li) =>
-      li.textContent?.trim(),
-    );
-    expect(route).toEqual(['Berlin (DE)', 'Prague (CZ)', 'Vienna (AT)']);
+    expect(stopChain()).toEqual(['Berlin, DE', 'Prague, CZ', 'Vienna, AT']);
     expect(page.querySelector('app-route-map svg')?.getAttribute('aria-label')).toContain(
       'Route Berlin → Prague → Vienna',
     );
@@ -143,8 +156,9 @@ describe('TripDetailsPage', () => {
       'Not possible for the whole trip: bike (too far between Berlin and Prague)',
     );
 
-    const adviceLegs = Array.from(section('advice-heading').querySelectorAll('.legs li'), (li) =>
-      li.textContent?.trim(),
+    const adviceLegs = Array.from(
+      section('advice-heading').querySelectorAll('.legs .leg__text'),
+      (li) => li.textContent?.trim(),
     );
     expect(adviceLegs).toEqual([
       'Leg 1, Berlin to Prague: train.',
@@ -152,10 +166,59 @@ describe('TripDetailsPage', () => {
     ]);
   });
 
+  it('shows the leg of a hovered or pinned row in focus on the globe', async () => {
+    await loadTrip({
+      ...TRIP,
+      stops: [
+        { cityId: 3, cityName: 'Berlin', country: 'DE', position: 0 },
+        { cityId: 18, cityName: 'Prague', country: 'CZ', position: 1 },
+        { cityId: 23, cityName: 'Vienna', country: 'AT', position: 2 },
+      ],
+    });
+    httpTesting.expectOne(COMPARISON_URL).flush(MULTI_COMPARISON);
+    httpTesting.expectOne(ADVICE_URL).flush({
+      ...ADVICE,
+      recommendedModes: ['TRAIN', 'BUS'],
+      legs: ['Leg 1, Berlin to Prague: train.', 'Leg 2, Prague to Vienna: bus.'],
+    });
+    await fixture.whenStable();
+    const mapLegs = () =>
+      Array.from(
+        page.querySelectorAll('.map-panel path.route:not(.route--glow):not(.route--flow)'),
+        (path) =>
+          path.classList.contains('route--focused')
+            ? 'focused'
+            : path.classList.contains('route--dimmed')
+              ? 'dimmed'
+              : 'even',
+      );
+    expect(mapLegs()).toEqual(['even', 'even']);
+
+    const adviceRows = section('advice-heading').querySelectorAll('.legs .leg');
+    adviceRows[1].dispatchEvent(new PointerEvent('pointerenter'));
+    await fixture.whenStable();
+    expect(mapLegs()).toEqual(['dimmed', 'focused']);
+    adviceRows[1].dispatchEvent(new PointerEvent('pointerleave'));
+    await fixture.whenStable();
+    expect(mapLegs()).toEqual(['even', 'even']);
+
+    section('comparison-heading')
+      .querySelector<HTMLButtonElement>('.timeline button[aria-label="Show leg 1 on the map"]')!
+      .click();
+    await fixture.whenStable();
+    expect(mapLegs()).toEqual(['focused', 'dimmed']);
+    // The same leg is pressed wherever it is listed.
+    expect(
+      section('advice-heading')
+        .querySelector('button[aria-label="Show leg 1 on the map"]')
+        ?.getAttribute('aria-pressed'),
+    ).toBe('true');
+  });
+
   it('omits the notes row when the trip has no notes', async () => {
     await loadAll({ ...TRIP, notes: null });
 
-    expect(page.querySelector('dl')?.textContent).not.toContain('Notes');
+    expect(page.querySelector('.notes')).toBeNull();
   });
 
   it('shows the trip first, then the recommendation and the comparison as they arrive', async () => {
@@ -181,7 +244,11 @@ describe('TripDetailsPage', () => {
       section('comparison-heading').querySelectorAll('app-comparison-chart .bar'),
     ).toHaveLength(2);
     expect(section('comparison-heading').textContent).toContain('Recommended');
-    expect(page.querySelector('[role="status"]')).toBeNull();
+    expect(
+      section('comparison-heading').querySelector('.priority-note a')?.getAttribute('href'),
+    ).toBe('/trips/7/edit');
+    expect(section('advice-heading').querySelector('[role="status"]')).toBeNull();
+    expect(section('comparison-heading').querySelector('[role="status"]')).toBeNull();
   });
 
   it('keeps the comparison when only the advice fails, and retries the advice', async () => {

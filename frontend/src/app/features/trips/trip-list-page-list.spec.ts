@@ -70,6 +70,14 @@ describe('TripListPage list view', () => {
   }
 
   const rows = () => Array.from(page.querySelectorAll<HTMLElement>('tbody tr.row'));
+
+  /** Opens the row's "⋯" menu and chooses Delete: the confirm dialog opens. */
+  async function deleteFromMenu(row: HTMLElement): Promise<void> {
+    row.querySelector<HTMLButtonElement>('button[aria-label^="Actions for"]')!.click();
+    await settle();
+    row.querySelector<HTMLButtonElement>('.menu-panel button[aria-label^="Delete"]')!.click();
+    await settle();
+  }
   const rowTitles = () => rows().map((row) => row.querySelector('th a')?.textContent?.trim());
   const detail = () => page.querySelector<HTMLElement>('tr.detail');
   const button = (text: string) =>
@@ -112,7 +120,7 @@ describe('TripListPage list view', () => {
       expect(open.textContent).toContain('Vienna: Rain');
       expect(open.querySelector('a[href="/trips/7"]')?.textContent).toContain('Open on map');
       expect(open.querySelector('a[href="/trips/7/edit"]')?.textContent).toContain('Edit');
-      expect(open.textContent).toContain('Delete');
+      expect(open.querySelector('button.button--danger')).toBeNull();
     });
 
     it('requests the comparison only once: collapsing and expanding again reuses it', async () => {
@@ -178,16 +186,13 @@ describe('TripListPage list view', () => {
       expect(detail()?.textContent).toContain('6 h 13 min');
     });
 
-    it('deletes from the expanded row through the confirm dialog', async () => {
+    it('deletes an expanded row from its "⋯" menu through the confirm dialog, with Undo', async () => {
       await load([TRIP, SOLO_TRIP]);
       await expandFirst();
       httpTesting.expectOne({ method: 'GET', url: COMPARISON_URL }).flush(COMPARISON);
       await settle();
 
-      Array.from(detail()!.querySelectorAll('button'))
-        .find((b) => b.textContent?.includes('Delete'))!
-        .click();
-      await settle();
+      await deleteFromMenu(rows()[0]);
       const dialog = page.querySelector('dialog')!;
       expect(dialog.hasAttribute('open')).toBe(true);
       httpTesting.expectNone({ method: 'DELETE' });
@@ -210,6 +215,7 @@ describe('TripListPage list view', () => {
       httpTesting.expectOne(STATS_URL).flush(statsOf([SOLO_TRIP]));
       await settle();
       expect(toasts.toasts()[0].message).toBe('Deleted "Berlin to Vienna"');
+      expect(toasts.toasts()[0].action?.label).toBe('Undo');
     });
   });
 
@@ -281,12 +287,7 @@ describe('TripListPage list view', () => {
       button('Next').click();
       await answerSearch([SOLO_TRIP], { ...PAGED, page: 1, totalItems: 21, totalPages: 2 });
 
-      page
-        .querySelector<HTMLButtonElement>(
-          'tbody tr.row app-trip-actions button[aria-label^="Delete"]',
-        )!
-        .click();
-      await settle();
+      await deleteFromMenu(page.querySelector<HTMLElement>('tbody tr.row')!);
       Array.from(page.querySelectorAll<HTMLButtonElement>('dialog button'))
         .find((b) => b.textContent?.trim() === 'Delete')!
         .click();

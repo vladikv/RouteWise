@@ -9,7 +9,7 @@
 
 <ol class="timeline" aria-label="Legs">
   @for (item of legs(); track item.leg.index) {
-    <li class="leg" [class.leg--blocked]="!item.best">
+    <li class="leg" [class.leg--blocked]="!item.best" [appLegHover]="item.leg.index">
       <span class="leg__number" aria-hidden="true">{{ item.leg.index + 1 }}</span>
       <div class="leg__body">
         <p class="leg__route">
@@ -39,6 +39,7 @@
           }
         }
       </div>
+      <app-leg-map-toggle [leg]="item.leg.index" />
     </li>
   }
 </ol>
@@ -104,7 +105,7 @@
       Leg {{ item.leg.index + 1 }}: {{ item.leg.from.name }} to {{ item.leg.to.name }}
     </summary>
     @let detail = legDetails(item.leg);
-    <app-comparison-chart [comparison]="detail" />
+    <app-comparison-chart [comparison]="detail" [priorityLink]="editLink()" />
     <app-comparison-panel [comparison]="detail" />
   </details>
 }

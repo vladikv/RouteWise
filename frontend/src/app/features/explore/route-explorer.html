@@ -141,7 +141,7 @@
         <app-error-message [error]="error" (retry)="comparison.reload()" />
       } @else if (shownLeg(); as result) {
         <div class="results__content">
-          <app-comparison-chart [comparison]="result" />
+          <app-comparison-chart [comparison]="result" (priorityEdit)="focusPriority()" />
           <app-weather-card [weather]="result.weather" [date]="result.departureDate" />
           <details class="exact">
             <summary>Exact numbers</summary>

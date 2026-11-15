@@ -5,7 +5,7 @@ with the weather forecast taken into account and an AI travel advisor that expla
 
 ![RouteWise preview](docs/demo/routewise-preview.gif)
 
-- **Plan, decisions and progress:** [docs/PLAN.md](docs/PLAN.md) · **AI workflow log:** [docs/AI_WORKFLOW.md](docs/AI_WORKFLOW.md)
+- **Plan:** [docs/PLAN.md](docs/PLAN.md) · **Key decisions:** [docs/DECISIONS.md](docs/DECISIONS.md#key-decisions) · **AI workflow log:** [docs/AI_WORKFLOW.md](docs/AI_WORKFLOW.md)
 
 ## Demo
 
@@ -139,7 +139,7 @@ Everything else needs a login; another user's trip answers 404. Full details in 
 ```
 backend/     Spring Boot REST API (Java 21, Maven)
 frontend/    Angular SPA (TypeScript, standalone components)
-docs/        PLAN.md (scope, API, milestones, decisions), AI_WORKFLOW.md, screenshots/
+docs/        PLAN.md (scope, API, milestones), DECISIONS.md, AI_WORKFLOW.md, demo/, screenshots/
 .claude/     Claude Code agents, skills, hooks and permissions
 ```
 
@@ -195,9 +195,18 @@ RouteWise was built milestone by milestone with [Claude Code](https://claude.com
 written rules and with a human deciding scope, dependencies and design:
 
 - **Rules:** [CLAUDE.md](CLAUDE.md), [backend/CLAUDE.md](backend/CLAUDE.md), [frontend/CLAUDE.md](frontend/CLAUDE.md).
-- **Plan first:** every feature is a milestone in [docs/PLAN.md](docs/PLAN.md), approved before any code, with a decisions log.
+- **Plan first:** every feature is a milestone in [docs/PLAN.md](docs/PLAN.md), approved before any code; decisions and
+  their reasons are logged in [docs/DECISIONS.md](docs/DECISIONS.md).
 - **Review and tests:** sub-agents in [.claude/agents](.claude/agents) (`backend-reviewer`, `ui-reviewer`, `test-writer`,
   `ui-builder`), workflow skills in [.claude/skills](.claude/skills), and hooks that block edits to applied migrations and `.env`
   files.
-- **Honest log:** [docs/AI_WORKFLOW.md](docs/AI_WORKFLOW.md) records, per milestone, what was delegated to the AI, what was
-  corrected by hand and why.
+- **Honest log:** [docs/AI_WORKFLOW.md](docs/AI_WORKFLOW.md) records, per milestone, what was delegated to the AI, what the
+  human decided and found, what the AI corrected itself, and why.
+
+## Project docs
+
+- [Key decisions](docs/DECISIONS.md#key-decisions): the architecture, security, data and AI decisions
+  and why they were made; the full log is below them.
+- [Plan](docs/PLAN.md): scope, domain model, API and milestones.
+- [AI workflow](docs/AI_WORKFLOW.md): how the project was built with Claude Code, per milestone: what
+  was delegated, what the human decided and found, and what the AI corrected itself.

@@ -34,11 +34,7 @@
     } @else {
       <p class="muted">No available route</p>
     }
-    <app-trip-actions
-      class="trip__actions"
-      [trip]="trip()"
-      (deleteRequested)="deleteRequested.emit()"
-    />
+    <app-trip-actions class="trip__actions" [trip]="trip()" />
   </div>
   @if (plan) {
     <p class="trip__secondary muted">{{ plan.co2Kg | number: '1.0-0' }} kg CO₂</p>

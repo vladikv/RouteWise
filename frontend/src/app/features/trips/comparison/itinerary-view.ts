@@ -11,7 +11,8 @@ import {
 } from '../../../shared/util/labels';
 import { ComparisonChart } from './comparison-chart';
 import { ComparisonPanel } from './comparison-panel';
-import { LegComparison, legComparison } from './leg-comparison';
+import { LegComparison, legComparison, priorityEditLink } from './leg-comparison';
+import { LegHover, LegMapToggle } from './leg-focus';
 
 /**
  * A multi-stop route: a timeline of legs with each leg's recommended mode, the
@@ -20,7 +21,16 @@ import { LegComparison, legComparison } from './leg-comparison';
  */
 @Component({
   selector: 'app-itinerary-view',
-  imports: [ComparisonChart, ComparisonPanel, CurrencyPipe, DatePipe, DecimalPipe, ModeIcon],
+  imports: [
+    ComparisonChart,
+    ComparisonPanel,
+    CurrencyPipe,
+    DatePipe,
+    DecimalPipe,
+    LegHover,
+    LegMapToggle,
+    ModeIcon,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './itinerary-view.html',
   styleUrl: './itinerary-view.scss',
@@ -33,6 +43,7 @@ export class ItineraryView {
   protected readonly priorityLabels = PRIORITY_LABELS;
   protected readonly durationLabel = durationLabel;
   protected readonly travelersLabel = travelersLabel;
+  protected readonly editLink = computed(() => priorityEditLink(this.comparison()));
 
   /** Each leg with its recommended option, if any. */
   protected readonly legs = computed(() =>

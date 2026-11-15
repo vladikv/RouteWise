@@ -88,6 +88,17 @@ export function haversineKm(from: GeoPoint, to: GeoPoint): number {
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(a));
 }
 
+/** Points further than this from the centre of the disc sit near the rim, foreshortened and hard to read. */
+export const CLEAR_VIEW_ANGLE = Math.PI / 3;
+
+/** True when `point` is within `CLEAR_VIEW_ANGLE` (60°) of the centre of the disc: clearly in view, not squeezed at the rim. */
+export function isClearlyVisible(point: GeoPoint, rotation: GeoPoint): boolean {
+  return (
+    geoDistance([point.longitude, point.latitude], [rotation.longitude, rotation.latitude]) <
+    CLEAR_VIEW_ANGLE
+  );
+}
+
 /** True when `point` is on the visible half of the globe whose disc is centred on `rotation`. */
 export function isVisible(point: GeoPoint, rotation: GeoPoint): boolean {
   return (

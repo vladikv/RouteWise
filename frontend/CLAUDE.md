@@ -83,7 +83,7 @@ src/
   produces one error, not three. Each section shows its own loading and error state.
 - **Map and charts:** `RouteMap` is an interactive orthographic globe drawn as SVG with `d3-geo` (the only
   map dependency: projection, horizon clipping, great-circle interpolation; no 3D, zoom or drag library).
-  Pure maths lives in `globe.ts` (projection, `isVisible`, `maxLabelRank`, `rotateBy`, `fitRoute`,
+  Pure maths lives in `globe.ts` (projection, `isVisible`, `isClearlyVisible`, `maxLabelRank`, `rotateBy`, `fitRoute`,
   `interpolateView`, `idleTurn`, and the lifted arcs: `arcPeak`, `projectLifted`, `arcSamples`, `arcPrefix`, `arcSegments`) and is unit-tested. The view is `{ longitude, latitude, zoom }` (centre of
   the disc and 1-8x the globe fitted into the free space) in one signal; drag (pointer capture, touch too),
   wheel, pinch, the +/- buttons and keys change it, and every change re-projects land, graticule, route and
@@ -132,10 +132,21 @@ src/
   `[wide]="true"` a map at least 720 px wide takes a 16:9 shape instead of the near-square one. `[fill]` makes
   the map take its container's size and centres the globe between the panels. `controls` (`corner` |
   `bottom-end`) places the zoom buttons (`bottom-end`: bottom right, `insetEnd` px in from the edge, clear of
-  the panels). A non-interactive map (trip details) is an image of the route cities only. `ComparisonChart` shows one metric at a time (switched with `Tabs`) with the
-  recommended mode as the only accent bar (score bars are the score itself, 100 = full track; time, cost and
-  CO₂ bars are relative to the longest) (`--color-highlight`, others
-  `--color-bar`). Neither may be the only way to get information: keep a
+  the panels). `[interactive]="false"` makes a map an image of the route cities only.
+  `[pickable]="false"` (trip details) keeps the globe navigable (drag, zoom, keys, `cooperative` gestures there) but
+  draws the cities as `aria-hidden` `g.city--static` marks (route pins, other cities as dimmed dots), so no city is a
+  button that does nothing; the svg's label is the route description plus how to rotate and zoom. `[focusLeg]` (a leg
+  index or null) draws that leg heavier (`.route--focused`, 4 px, glow 13 px) and fades the others (`.route--dimmed`,
+  60 % = 3.35:1 at the lightest globe point, glow 30 %); when an end of the leg is more than `CLEAR_VIEW_ANGLE` (60°)
+  from the centre (`isClearlyVisible`) the globe turns to it, keeping the zoom. `ComparisonChart` shows one metric at a time (switched with `Tabs`), bars sorted best first
+  (`sortByMetric` in `comparison-metric.ts`: stable, so ties keep the API's order; unavailable modes never get a bar).
+  The accent bar (`--color-highlight`, others `--color-bar`) is the best mode for the shown metric (`bestModes`: highest
+  score, lowest time, cost, CO₂; ties all count, as on the Modes page), named next to it ("Best score", "Fastest",
+  "Cheapest", "Lowest CO₂"); the "★ Recommended" badge stays on the API's recommendation on every tab (score bars are
+  the score itself, 100 = full track; time, cost and CO₂ bars are relative to the longest). A line under the bars says
+  "Recommended for your priority: <priority>. Change the priority …": with `priorityLink` (trip pages,
+  `priorityEditLink` → `/trips/:id/edit`) the priority is a link, otherwise a link-styled button emitting `priorityEdit`
+  (Home focuses the checked priority radio). Neither may be the only way to get information: keep a
   text or form equivalent (dropdowns for the map, the table for the chart)
   and state selection in text and `aria-pressed`, not color alone.
   Map details: one city is the tab stop (roving `tabindex`: last focused, else origin, else first; arrows move
@@ -204,6 +215,20 @@ pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in te
   `legComparison(comparison, index)`). A two-stop trip and the home explorer
   show that single leg as before; a multi-stop trip uses `ItineraryView`
   (leg timeline, whole-trip totals, each leg's details).
+- **Trip details page** (`TripDetailsPage`): the route as a stop chain (`ol.stop-chain`, city name, country chip with a
+  visually hidden ", ", a muted decorative arrow), date / travelers / priority as `StatChip`s (`ul.facts`), the notes as a
+  quiet line; the globe in its own glass panel (`.map-panel`, `pickable=false`). From 1280 px a two-column grid (`#main`
+  84 rem like Trips and Modes, via `#main:has(app-trip-details-page)`): content at the left, the globe panel at the right
+  spanning the three rows and `sticky`, spare height to the last row; below that one column (facts, globe,
+  recommendation, comparison). `AdvicePanel` leads with the plan's totals (`figures` = the comparison's
+  `recommendedItinerary`; no row without them), then the summary, a row per leg (number, `ModeIcon` from
+  `recommendedModes` or ⊘, the advisor's sentence as written) for 2+ legs, and the tips as callouts.
+  **Legs linked to the globe:** `LegFocus` (`comparison/leg-focus.ts`, provided by the page: `hover`, `leave`,
+  `togglePin`, `focused` = hovered ?? pinned) feeds the map's `focusLeg`. `appLegHover` on a leg row (advice rows and
+  the `ItineraryView` timeline) hovers its leg on `pointerenter` and `focusin` and leaves on `pointerleave`/`focusout`,
+  and sets `leg-hover--active` (global style in `styles.scss`) while its leg is in focus; `app-leg-map-toggle` ("Show leg N
+  on the map", `IconButton` with `aria-pressed`) pins a leg for keyboard and touch. Without a `LegFocus` both do nothing
+  and the toggle is not rendered.
 - **Home layouts** (`features/explore/`): two layouts, **Map** and **Split**. `HomeLayout` (`home-layout.ts`)
   holds the preference (`'map' | 'split'`, default Split, `localStorage` key `routewise.homeLayout`, every
   access in try/catch, invalid or failing storage = Split) and `effective()`: Map only while the viewport is
@@ -261,16 +286,16 @@ pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in te
   facets and keeps `toggleSort`/`resultSummary`. No business maths in the UI.
   Cards open the trip as a whole: the title link carries an `::after` stretched over the card (one tab stop;
   the focus ring is drawn on the card via `:has(a:focus-visible)`), the "⋯" menu and `TripActions` (quick icon
-  buttons Open, Edit, Duplicate, Delete) sit above it with a higher z-index. A list row is different: a click on
+  buttons Open, Edit, Duplicate; no Delete) sit above it with a higher z-index. A list row is different: a click on
   it expands it (see List view) and only the title link opens the trip. Quick actions show on hover and on focus
-  within, never under `(hover: none)`; Delete only asks the page to delete (`deleteRequested`). Hover/focus lifts the card 2 px with an edge in its tint
+  within, never under `(hover: none)`. Hover/focus lifts the card 2 px with an edge in its tint
   (`--color-highlight-edge`) and no motion under reduced motion. `TripRoute` is the
   decorative (`aria-hidden`) mini route line: a dot per stop, the leg's mode icon between them (`legModes`).
   The CO₂ bar shows the plan against the car (car = 100 %, from `co2ShareOfCar`/`co2VsCarPercent`) with text.
   `TripTable` shows the rows in API order; its Date, Cost and CO₂ header buttons (`aria-sort` on the `<th>`)
   change the page's sort, which goes to the API.
-  **Delete** is a soft delete and always goes through the glass confirm `Dialog` (card quick action, "⋯" menu,
-  list row, expanded row, trip details). Each of them emits `deleteRequested`; the page keeps a `TripDeletion`
+  **Delete** is a soft delete and always goes through the glass confirm `Dialog`. It is offered in exactly two
+  places: the "⋯" menu (card and row) and the trip details page. Each of them emits `deleteRequested`; the page keeps a `TripDeletion`
   (`features/trips/trip-deletion.ts`, provided per page: `pending`, `busy`, `error`, `request`, `cancel`,
   `confirm(hooks)`) and renders `<app-trip-delete-dialog>` ("Delete trip?", the trip title, Cancel and a danger
   Delete). A failed DELETE stays in the dialog as an error message. On success the dialog closes, the page's
@@ -310,7 +335,7 @@ details"`, projected content such as the save error at its top), and its host is
   has `aria-expanded`, and `aria-controls` while open). The page loads that trip's `TripApi.compare(id)` on the
   first expand only, keeps the result in `details` (`RowDetail`: loading, error with retry, ready) for its
   lifetime and reloads it after a priority change. `TripRowDetails` shows each leg's recommended option side by
-  side (mode icon and name, time, cost, CO₂), the weather lines and Open on map (`/trips/:id`), Edit and Delete;
+  side (mode icon and name, time, cost, CO₂), the weather lines and Open on map (`/trips/:id`) and Edit;
   the buttons are there while loading or after an error; API values only, no maths. The Priority column is a
   native `<select>` (`TripPrioritySelect`) that reports the choice; the page's `move` applies it optimistically
   and rolls it back with an error toast and Retry. Below 768 px the Date, Mode, Priority and CO₂ columns fold
@@ -326,7 +351,7 @@ details"`, projected content such as the save error at its top), and its host is
   unless one of its menus is open (Escape closes that first). Focus entering any control of a row makes that row
   the tab stop. A click on the row's own cells expands it; clicks inside links, buttons, the priority select or a
   menu panel do not. The title link keeps working. An expanded row hides its hover quick actions (its details
-  have Open on map, Edit and Delete); the "⋯" menu stays. Under `(pointer: coarse)` the toggle, priority select
+  have Open on map and Edit); the "⋯" menu stays. Under `(pointer: coarse)` the toggle, priority select
   and quick actions are 44 px.
 - **Pagination:** the board loads up to 100 trips; the list asks the API for 20 per page (`page`, `size`) and
   `Pagination` (`shared/ui/`: zero-based `page`, `totalPages`, `totalItems`, `pageSize`, `itemCount`) shows

@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { ModeOption } from '../../../core/api/models';
 import { LegComparison } from './leg-comparison';
 import { ComparisonChart } from './comparison-chart';
@@ -85,6 +86,19 @@ describe('ComparisonChart', () => {
     Array.from(chart.querySelectorAll('.bar')).map((bar) =>
       (bar.textContent ?? '').replace(/\s+/g, ' ').trim(),
     );
+  const accented = (): string[] =>
+    Array.from(chart.querySelectorAll('.bar--best .bar__label')).map((label) =>
+      (label.textContent ?? '')
+        .replace(/★ Recommended|Best score|Fastest|Cheapest|Lowest CO₂/g, '')
+        .trim(),
+    );
+  const recommended = (): string | undefined =>
+    chart
+      .querySelector('.badge--recommended')
+      ?.closest('.bar')
+      ?.querySelector('.bar__label')
+      ?.textContent?.replace(/★ Recommended|Best score|Fastest|Cheapest|Lowest CO₂/g, '')
+      .trim();
   const widths = (): string[] =>
     Array.from(chart.querySelectorAll<HTMLElement>('.bar__fill')).map((fill) => fill.style.width);
 
@@ -103,14 +117,14 @@ describe('ComparisonChart', () => {
     await fixture.whenStable();
   }
 
-  it('starts with the score, best first, and marks the recommended mode in words', () => {
+  it('starts with the score, best first, and names the best and the recommended mode in words', () => {
     expect(chart.querySelector('.insight')?.textContent).toBe(
       'Train instead of car saves 72 kg CO₂.',
     );
-    expect(rows()).toEqual(['Train ★ Recommended 87 out of 100', 'Car 52 out of 100']);
+    expect(rows()).toEqual(['Train Best score ★ Recommended 87 out of 100', 'Car 52 out of 100']);
     // Score bars are the score itself: 100 fills the track.
     expect(widths()).toEqual(['87%', '52%']);
-    expect(chart.querySelector('.bar--recommended .bar__label')?.textContent).toContain('Train');
+    expect(accented()).toEqual(['Train']);
     expect(chart.querySelector('.hint')?.textContent).toBe('Higher is better');
   });
 
@@ -128,15 +142,79 @@ describe('ComparisonChart', () => {
     await chooseMetric('Cost');
 
     // Cheapest first: car €136.14, then train €150.80 (the longest bar).
-    expect(rows()).toEqual(['Car €136.14', 'Train ★ Recommended €150.80']);
+    expect(rows()).toEqual(['Car Cheapest €136.14', 'Train ★ Recommended €150.80']);
     expect(widths()[1]).toBe('100%');
     expect(chart.querySelector('.hint')?.textContent).toBe('Lower is better');
 
     await chooseMetric('Time');
-    expect(rows()).toEqual(['Train ★ Recommended 6 h 13 min', 'Car 8 h 4 min']);
+    expect(rows()).toEqual(['Train Fastest ★ Recommended 6 h 13 min', 'Car 8 h 4 min']);
 
     await chooseMetric('CO₂');
-    expect(rows()).toEqual(['Train ★ Recommended 44.0 kg', 'Car 115.7 kg']);
+    expect(rows()).toEqual(['Train Lowest CO₂ ★ Recommended 44.0 kg', 'Car 115.7 kg']);
+  });
+
+  it('moves the accent to the best mode of each metric and keeps the badge on the recommendation', async () => {
+    fixture.componentRef.setInput(
+      'comparison',
+      withOptions([
+        option({
+          mode: 'TRAIN',
+          recommended: true,
+          score: 87,
+          durationMinutes: 373,
+          totalCost: 150.8,
+          co2Kg: 44,
+        }),
+        option({ mode: 'BUS', score: 70, durationMinutes: 540, totalCost: 45, co2Kg: 30 }),
+        option({ mode: 'PLANE', score: 60, durationMinutes: 150, totalCost: 210, co2Kg: 160 }),
+      ]),
+    );
+    await fixture.whenStable();
+    expect(accented()).toEqual(['Train']);
+
+    await chooseMetric('Time');
+    expect(accented()).toEqual(['Plane']);
+    expect(chart.querySelector('.bar--best .best-label')?.textContent?.trim()).toBe('Fastest');
+    expect(recommended()).toBe('Train');
+    // Slowest last, and it is not accented.
+    expect(rows()[2]).toBe('Bus 9 h');
+
+    await chooseMetric('Cost');
+    expect(accented()).toEqual(['Bus']);
+    expect(chart.querySelector('.bar--best .best-label')?.textContent?.trim()).toBe('Cheapest');
+
+    await chooseMetric('CO₂');
+    expect(accented()).toEqual(['Bus']);
+    expect(chart.querySelectorAll('.best-label')).toHaveLength(1);
+    expect(recommended()).toBe('Train');
+  });
+
+  it('accents every mode that ties for best and keeps their order', async () => {
+    fixture.componentRef.setInput(
+      'comparison',
+      withOptions([
+        option({ mode: 'TRAIN', recommended: true, totalCost: 80 }),
+        option({ mode: 'BUS', totalCost: 45 }),
+        option({ mode: 'CAR', totalCost: 45 }),
+      ]),
+    );
+    await fixture.whenStable();
+    await chooseMetric('Cost');
+
+    expect(accented()).toEqual(['Bus', 'Car']);
+    expect(chart.querySelectorAll('.best-label')).toHaveLength(2);
+  });
+
+  it('names the priority behind the recommendation and asks the host to edit it', () => {
+    let edits = 0;
+    fixture.componentRef.instance.priorityEdit.subscribe(() => edits++);
+    const note = chart.querySelector('.priority-note');
+
+    expect(note?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Recommended for your priority: Greenest. Change the priority to see a different recommendation.',
+    );
+    note?.querySelector<HTMLButtonElement>('button')?.click();
+    expect(edits).toBe(1);
   });
 
   it('lists one line per unavailable group with the API message instead of a bar', () => {
@@ -215,7 +293,7 @@ describe('ComparisonChart', () => {
 
     await press('ArrowRight');
     expect(selectedTab()).toBe('Time');
-    expect(rows()[0]).toBe('Train ★ Recommended 6 h 13 min');
+    expect(rows()[0]).toBe('Train Fastest ★ Recommended 6 h 13 min');
     expect(chart.querySelector('.hint')?.textContent).toBe('Shorter is better');
 
     await press('End');
@@ -226,5 +304,20 @@ describe('ComparisonChart', () => {
 
     await press('ArrowLeft');
     expect(selectedTab()).toBe('CO₂');
+  });
+});
+
+describe('ComparisonChart with a priority link', () => {
+  it('links the priority to where it is edited', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    const fixture = TestBed.createComponent(ComparisonChart);
+    fixture.componentRef.setInput('comparison', LEG_COMPARISON);
+    fixture.componentRef.setInput('priorityLink', '/trips/7/edit');
+    await fixture.whenStable();
+    const note = (fixture.nativeElement as HTMLElement).querySelector('.priority-note');
+
+    expect(note?.querySelector('a')?.getAttribute('href')).toBe('/trips/7/edit');
+    expect(note?.querySelector('a')?.textContent?.trim()).toBe('Greenest');
+    expect(note?.querySelector('button')).toBeNull();
   });
 });
