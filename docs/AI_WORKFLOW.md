@@ -786,3 +786,24 @@ mistakes before a human has to.
 
 **Why**
 - Everything the page needed was already in the trip, comparison and advice responses, so the redesign stayed frontend only; the advisor's sentences are shown as written instead of being parsed, which keeps the AI and rule-based texts interchangeable.
+
+## docs/readme-demo (README and demo plan; recording pending)
+
+**Delegated to AI**
+- Read the code, `docs/PLAN.md` and `docs/AI_WORKFLOW.md` and wrote the README for reviewers (features, screenshots, quick start, configuration, how it works, architecture, API overview, testing, data & assumptions, limitations, how Claude Code was used), and a scene-by-scene plan for a 5–6 minute recording that the human keeps outside the repository.
+- Checked every stated fact against the code: environment variables against `application.yml`, endpoints against the controllers, the demo trips against `DemoDataSeeder`, and the free-text example against `RuleBasedTripParser`.
+- Ran `./mvnw verify` (455 tests), `npm test` (712 tests) and `npm run lint`, all green, and used those counts in the README.
+
+**Human decisions**
+- The scope (the planned `docs/readme-demo` milestone, no external requirements list), keeping the demo script out of the repository, and starting from `main` after merging `fix/globe-rotation`, so the README covers `npm run e2e`.
+- The milestone stays unticked until the recording is made: that part is the human's.
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
+- The README and the plan said the demo has three sample trips; the seeder creates four. The documents now follow the code (`docs/DECISIONS.md` #180).
+- The first draft of the parser scene put the date after "back home"; the parser reads that as the return day and leaves the departure date empty, so the scene's text puts the date first and the script explains why.
+
+**Why**
+- A README is only useful if it is true. Each claim was checked against the code, which found the stale demo-trip count that two documents had repeated.
