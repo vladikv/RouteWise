@@ -47,6 +47,14 @@ public class RuleBasedTripParser {
             Map.entry("nyc", "New York"),
             Map.entry("rio", "Rio de Janeiro"));
 
+    /**
+     * Seeded city names that are also everyday words: written in lower case they count only after a route
+     * word ("to nice"), so "a nice weekend" is no stop. A capital letter always counts, also at the start
+     * of a sentence ("Nice weekend in Berlin" keeps Nice).
+     */
+    static final Set<String> COMMON_WORD_CITIES = Set.of("buffalo", "cork", "nice", "split");
+    private static final Pattern ROUTE_WORD_BEFORE = Pattern.compile("\\b(?:from|to|then|via|towards)\\s+$");
+
     private static final Map<String, Integer> MONTHS = Map.ofEntries(
             Map.entry("january", 1), Map.entry("jan", 1), Map.entry("february", 2), Map.entry("feb", 2),
             Map.entry("march", 3), Map.entry("mar", 3), Map.entry("april", 4), Map.entry("apr", 4),
@@ -168,6 +176,7 @@ public class RuleBasedTripParser {
      */
     private static List<String> findStops(String original, String normalized, List<String> cityNames) {
         List<CityMention> mentions = new ArrayList<>(findMentions(normalized, cityNames));
+        mentions.removeIf(mention -> isLowerCaseCommonWord(original, normalized, mention));
         mentions.addAll(findUnknownPlaces(original, normalized, cityNames, mentions));
         mentions.sort(Comparator.comparingInt(CityMention::start));
         List<String> stops = new ArrayList<>();
@@ -183,6 +192,16 @@ public class RuleBasedTripParser {
             stops.addFirst(origin);
         }
         return stops;
+    }
+
+    /** "a nice weekend" is not a trip to Nice; "to Nice" and "to nice" still are. */
+    private static boolean isLowerCaseCommonWord(String original, String normalized, CityMention mention) {
+        if (!COMMON_WORD_CITIES.contains(normalize(mention.city()))
+                || ROUTE_WORD_BEFORE.matcher(normalized.substring(0, mention.start())).find()) {
+            return false;
+        }
+        String keepCase = stripDiacritics(original);
+        return keepCase.length() == normalized.length() && Character.isLowerCase(keepCase.charAt(mention.start()));
     }
 
     private static List<CityMention> findUnknownPlaces(String original, String normalized, List<String> cityNames,
