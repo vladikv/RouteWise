@@ -92,7 +92,7 @@ describe('ModesPage', () => {
       { name: 'Plane', labels, values: ['800 km/h', '€0.20', '183 g', '20,000 km'] },
     ]);
     expect(text(page.querySelector('.head p'))).toBe(
-      'Typical European averages used for every comparison. Cost and CO₂ are per traveler, except car (per vehicle).',
+      'Typical European averages. Speed, CO₂ and range are used for every comparison; costs come from regional fuel prices and fares, with the cost per km here as the fallback. Cost and CO₂ are per traveler, except car (per vehicle).',
     );
     expect(page.querySelector('[role="status"]')).toBeNull();
   });

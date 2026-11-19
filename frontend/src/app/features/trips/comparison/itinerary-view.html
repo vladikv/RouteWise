@@ -4,7 +4,7 @@
   {{ data.legs.length }} legs · {{ data.distanceKm | number: '1.0-0' }} km straight-line ·
   {{ travelersLabel(data.travelers) }} · priority: {{ priorityLabels[data.priority] }} ·
   {{ data.departureDate | date: 'mediumDate' }}. Each leg gets its own best mode; cost and CO₂ are
-  totals for all travelers.
+  totals for all travelers, and costs are estimates.
 </p>
 
 <ol class="timeline" aria-label="Legs">
