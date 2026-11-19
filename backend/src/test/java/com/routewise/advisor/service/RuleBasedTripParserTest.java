@@ -40,6 +40,27 @@ class RuleBasedTripParserTest {
     }
 
     @Test
+    void parse_lowerCaseCommonWordCity_isNotAStop() {
+        assertThat(stops("A nice weekend from Berlin to Prague")).containsExactly("Berlin", "Prague");
+        assertThat(stops("we split the cost, Zagreb to Split")).containsExactly("Zagreb", "Split");
+        assertThat(stops("Berlin to Prague, buffalo wings and a cork hat")).containsExactly("Berlin", "Prague");
+    }
+
+    @Test
+    void parse_commonWordCityAfterARouteWordOrCapitalised_isAStop() {
+        assertThat(stops("berlin to nice")).containsExactly("Berlin", "Nice");
+        assertThat(stops("from cork to dublin")).containsExactly("Cork", "Dublin");
+        assertThat(stops("Buffalo to Prague")).containsExactly("Buffalo", "Prague");
+        // Known limitation: a capital at the start of a sentence counts as a city.
+        assertThat(stops("Nice weekend in Berlin")).containsExactly("Nice", "Berlin");
+    }
+
+    private List<String> stops(String text) {
+        List<String> cities = List.of("Berlin", "Prague", "Dublin", "Zagreb", "Buffalo", "Cork", "Nice", "Split");
+        return parser.parse(text, cities, TODAY).stops();
+    }
+
+    @Test
     void parse_destinationMentionedFirst_putsTheFromCityFirst() {
         TripExtraction result = parser.parse("I want to go to Vienna from Berlin", CITIES, TODAY);
 

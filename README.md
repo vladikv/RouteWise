@@ -23,7 +23,7 @@ Full walkthrough with voice-over: [docs/demo/routewise-demo.mp4](docs/demo/route
 - **Weather-aware**: Open-Meteo forecasts for today and the next 15 days; rain, snow, wind or ice lower the bike's (and in snow
   the car's and bus's) score, with a note.
 - **Realistic availability**: ground modes only between cities joined by land, within each mode's range; flights with separate
-  short- and long-haul CO₂ factors; 149 cities on every continent.
+  short- and long-haul CO₂ factors; 422 cities on every continent.
 - **AI travel advisor**: free text such as *"Berlin to Vienna next Friday, 2 people, cheap"* becomes a draft trip, and each trip's
   recommendation is explained leg by leg. Uses Claude when `ANTHROPIC_API_KEY` is set and built-in rules otherwise.
 - **Accounts and private trips**: email and password with a server-side session; one-click demo account with sample trips.
@@ -128,8 +128,8 @@ Everything else needs a login; another user's trip answers 404. Full details in 
 
 | What | Command | Notes |
 |---|---|---|
-| Backend build and all tests | `cd backend && ./mvnw verify` | Unit, web-slice, JPA (real Flyway schema), migration, integration and ArchUnit tests (455); external services are faked |
-| Frontend unit tests | `cd frontend && npm test` | Vitest + TestBed, 712 tests |
+| Backend build and all tests | `cd backend && ./mvnw verify` | Unit, web-slice, JPA (real Flyway schema), migration, integration and ArchUnit tests (460); external services are faked |
+| Frontend unit tests | `cd frontend && npm test` | Vitest + TestBed, 748 tests |
 | Frontend lint | `cd frontend && npm run lint` | ESLint with angular-eslint, including template accessibility rules |
 | End-to-end checks | `cd frontend && npm run e2e` | Playwright against the running app (starts `npm start` if port 4200 is free) |
 | Screenshots | `cd frontend && npm run screenshots` | Playwright captures every screen at 1920, 1280 and 375 px (needs the app running) |
@@ -147,9 +147,11 @@ docs/        PLAN.md (scope, API, milestones), DECISIONS.md, AI_WORKFLOW.md, dem
 
 RouteWise gives estimates for comparing options, not quotes or timetables.
 
-- **Cities:** 149 capitals and major transport hubs on every continent,
-  seeded by Flyway migrations (`V2`, `V7`; flight factors in `V8`; Moscow
-  removed again in `V10`). Coordinates are city centres.
+- **Cities:** 422 cities on every continent (capitals, major hubs, at least
+  two per US state), seeded by Flyway migrations (`V2`, `V7`, `V11`; flight
+  factors in `V8`; Moscow removed again in `V10`). Coordinates are city centres.
+  Names are unique worldwide, so a shared name means one city (Portland is
+  Oregon, Kingston is Jamaica).
 - **Distance:** great-circle (haversine) distance between the cities, times a
   detour factor per mode (train 1.2; bus, car and bike 1.3; plane 1.0).
 - **Prices:** one cost per kilometre per mode, used worldwide. These are rough
