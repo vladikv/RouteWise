@@ -33,7 +33,7 @@ checkboxes when a milestone is completed.
 - About 420 cities: at least two per US state plus Washington, more regional cities and the remaining capitals
   in Europe, and major cities in large countries worldwide
 - Regional cost estimates: car cost from country fuel prices and tolls, train/bus/plane from regional
-  base fares plus a per-km price, all in EUR and shown as an estimate *(planned: `feat/regional-pricing`)*
+  base fares plus a per-km price, all in EUR and shown as an estimate
 
 Out of scope for v1: social login, password reset, email verification,
 real-time timetables, booking.
@@ -55,13 +55,14 @@ SARDINIA, CRETE, TASMANIA and SOUTH_ISLAND)*
 
 **TransportMode**: seeded reference data
 `code (TRAIN|BUS|CAR|BIKE|PLANE), avgSpeedKmh, costPerKm, co2GramsPerKm, fixedOverheadMinutes, maxDistanceKm`
-*(planned in `feat/regional-pricing`: `costPerKm` becomes the fallback used where no regional price exists)*
+*(changed in `feat/regional-pricing`: `costPerKm` is the fallback used where no regional price exists, and always
+for BIKE)*
 
-**CountryPricing**: seeded reference data *(planned in `feat/regional-pricing`)*
+**CountryPricing**: seeded reference data *(new in `feat/regional-pricing`, V12/V13)*
 `country (ISO alpha-2, PK), region, fuelEurPerLitre, tollEurPerKm` — one row per country in the city table;
 a dated snapshot of public fuel prices (EU Weekly Oil Bulletin, US EIA, GlobalPetrolPrices), converted to EUR.
 
-**RegionalFare**: seeded reference data *(planned in `feat/regional-pricing`)*
+**RegionalFare**: seeded reference data *(new in `feat/regional-pricing`, V12/V13; 12 regions, Japan separate)*
 `region, modeCode (TRAIN|BUS|PLANE), baseFareEur, costPerKm` — average published fares per region.
 
 **Trip**: user-owned, full CRUD, visible only to its owner; aggregate root of its stops
@@ -85,10 +86,11 @@ Distance = haversine between cities × road/rail factor. All legs use the trip's
 `landmass` and the leg is within the mode's `maxDistanceKm`; otherwise the option is unavailable with
 `unavailableCode` `DIFFERENT_LANDMASS` or `TOO_FAR` (plus the readable `unavailableReason`). PLANE uses a
 short-haul CO₂ factor up to the DEFRA long-haul threshold and a long-haul factor above it.
-*(planned in `feat/regional-pricing`)* Cost per leg: CAR = cars × routeKm × (6.5 l/100 km × fuel price + toll per km),
+*(changed in `feat/regional-pricing`)* Cost per leg: CAR = cars × routeKm × (6.5 l/100 km × fuel price + toll per km),
 with fuel and toll averaged over the leg's two countries; TRAIN/BUS/PLANE = travelers × (base fare + per-km price ×
 routeKm) of the leg's region (averaged when the two cities are in different regions); BIKE = 0. Without a regional
-row the mode's `costPerKm` is used as before. The figures are estimates, not real fares.
+row the mode's `costPerKm` is used as before. The figures are estimates, not real fares; the UI says so next to the
+comparison (the option `notes` do not carry the pricing basis, so the advisor text stays free of it).
 *(changed in `feat/backend-depth`)* Unavailable modes are also grouped by code: each leg has
 `unavailableGroups: [{code, modes[], message}]`, e.g. "Not reachable by land between Dublin and Madrid: train, bus,
 car, bike", and the comparison has the same list for the single-mode totals ("Not possible for the whole trip:
@@ -144,7 +146,8 @@ Changes in `feat/backend-depth`:
 - `GET /api/cities` no longer lists Moscow.
 
 `feat/more-cities` and `feat/regional-pricing` change no endpoint or DTO: `GET /api/cities` returns more rows
-*(done in `feat/more-cities`)*, and comparison costs change in value only (the pricing basis is explained in the existing `notes`; currency stays EUR).
+*(done in `feat/more-cities`)*, and comparison, trip list and stats costs change in value only (currency stays EUR)
+*(done in `feat/regional-pricing`)*.
 `GET /api/transport-modes` keeps `costPerKm`, now the fallback price.
 
 `feat/globe-map` adds fields only (cities as above; `unavailableCode` on comparison options and
@@ -197,15 +200,7 @@ Completed milestones are one line each; their details live in the commits, `docs
     `npm test` and `npm run lint` green; the recording is linked from the README
 - [x] `feat/trip-details-redesign`: a more readable and interactive trip details page (reference: `docs/trips_details.png`, local and git-ignored; frontend only, no API change)
 - [x] `feat/more-cities`: 422 seeded cities (at least two per US state, more of Europe, major cities worldwide); data only, no API change
-- [ ] `feat/regional-pricing`: realistic cost estimates per country and region from seeded data, no API keys
-  - `V12` creates and seeds `country_pricing` (fuel price and average toll per km, dated source snapshot in EUR) and
-    `regional_fare` (base fare and per-km price for TRAIN, BUS and PLANE per region)
-  - Pure `CostModel` in the comparison service (formula in the Comparison section); `ComparisonEngine` uses it; a
-    `PricingService` builds the leg's prices from its two cities, used by comparisons and by trip figures and stats
-  - Fallback to `transport_mode.cost_per_km` when a country or region has no row; no DTO or endpoint change
-  - The pricing basis is explained in the option's `notes`; the UI marks costs as estimates
-  - Done when: `CostModel` tests with hand-computed values (car in two countries, plane with a base fare, a cross-region
-    leg, the fallback); updated comparison/itinerary/stats tests; `./mvnw verify`, `npm test` and `npm run lint` green
+- [x] `feat/regional-pricing`: cost estimates from seeded country fuel prices, tolls and regional fares (no API keys, no API change)
 
 ## Decisions
 
