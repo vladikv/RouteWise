@@ -807,3 +807,29 @@ mistakes before a human has to.
 
 **Why**
 - A README is only useful if it is true. Each claim was checked against the code, which found the stale demo-trip count that two documents had repeated.
+
+## feat/more-cities (422 cities: US, Europe, worldwide)
+
+**Delegated to AI**
+- Planned the change (two milestones: more cities, then regional pricing) and added both to `docs/PLAN.md` and `docs/DECISIONS.md` with `add-milestone`.
+- Wrote the city list (95 US, 93 Europe and Turkey, 85 elsewhere), generated `V11__seed_more_cities.sql` with a script that checks duplicates, codes, ranks and coordinates against `V2`/`V7`, and updated the migration and repository tests.
+- Found and guarded a parser side effect: seeded names that are also everyday words (Nice, Split, Buffalo, Cork).
+- Ran a `backend-reviewer` pass, checked the new data on a running API on port 8088 (422 cities; Honolulu→Hilo and Palermo→Naples plane only; Belfast→Cork by land), and ran `./mvnw verify` (460 tests), `npm test` (748) and `npm run lint`, all green.
+
+**Human decisions**
+- Seeded data instead of live fare APIs for the later pricing milestone, about 400 cities, and two separate milestones.
+- Branch the milestone from the unmerged plan branch; delete the reference screenshot `docs/cities.jpg`.
+- Skip the visual check of the globe and pickers: the API on port 8087 was another running process, which was left alone. Screenshots with 422 cities were therefore **not** taken.
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
+- The first migration failed on a unique constraint: `Xi'an` was already in `V7`, and the generator compared the SQL-escaped name (`Xi''an`). The script now unescapes names, and the duplicate was dropped.
+- `CityMigrationTest` showed that city names were unique worldwide and that the advisor resolves cities by name, so the plan's "unique per country" rule became "unique across all countries" (#185, replacing #183).
+- `MoscowRemovalMigrationTest` counted cities after migrating to the latest version; it now stops at V10, so later seeds cannot break it.
+- The `backend-reviewer` found that the first parser guard also dropped "berlin to nice" in lower case (a regression); lower-case names now count after a route word. It also asked for tests for Cork and Buffalo, an honest name for the US test (there is no state column to check "two per state"), a looser `VIE` search assertion and header notes on shared names and capitals.
+- Left open (reported, not fixed): capitalised first names that are also cities (Charlotte, Austin, …) count as stops in the rule-based parser (#186).
+
+**Why**
+- The data stays reference data in a migration, with no schema or API change; keeping names unique protects the name-based parsing that the AI advisor and the rule-based fallback rely on.

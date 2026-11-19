@@ -18,7 +18,7 @@ checkboxes when a milestone is completed.
   (before/after screenshots in `docs/screenshots/`)
 - Light, dark and system theme (choice kept in the browser) *(dark only from `feat/ui-reference-style`)*; Home offers a Map and a Split layout;
   trips can be duplicated and moved to another priority from the Trips page
-- Interactive globe map and about 150 cities on every continent; ground modes only between
+- Interactive globe map and about 420 cities on every continent; ground modes only between
   cities joined by land, flights with separate short- and long-haul CO₂ factors
 - The backend owns the trip figures: server-side search, filters, sorting, pagination and facet counts
   for the trip list, a stats endpoint for the KPIs, grouped messages for unavailable modes
@@ -30,8 +30,8 @@ checkboxes when a milestone is completed.
   interactive list (inline details, pagination, keyboard); a Modes page; an account popover; delete
   through a confirm dialog with Undo
 - Trip details page: route at a glance, key figures first, an interactive globe linked to the legs
-- About 400 cities: two per US state plus Washington DC, more regional cities in Europe and major cities
-  in large countries worldwide *(planned: `feat/more-cities`)*
+- About 420 cities: at least two per US state plus Washington, more regional cities and the remaining capitals
+  in Europe, and major cities in large countries worldwide
 - Regional cost estimates: car cost from country fuel prices and tolls, train/bus/plane from regional
   base fares plus a per-km price, all in EUR and shown as an estimate *(planned: `feat/regional-pricing`)*
 
@@ -49,8 +49,9 @@ real-time timetables, booking.
 `landmass` (ground-connected region, e.g. EURASIA, AFRICA, NORTH_AMERICA, SOUTH_AMERICA, AUSTRALIA, JAPAN,
 IRELAND, ICELAND, NEW_ZEALAND), `capital` (boolean), `labelRank` (1 = shown first … 3 = only when zoomed in))*
 *(changed in `feat/backend-depth`: Moscow removed, 149 cities)*
-*(planned in `feat/more-cities`: about 250 more seeded cities, no new fields; `(name, country)` stays unique,
-so a second US city with a taken name is replaced by another city of that state; Hawaii is its own landmass `OAHU`)*
+*(changed in `feat/more-cities`: 273 more seeded cities, 422 in total, no new fields; names are unique across all
+countries, since the parser and the advisor resolve cities by name; new island landmasses such as HAWAII, SICILY,
+SARDINIA, CRETE, TASMANIA and SOUTH_ISLAND)*
 
 **TransportMode**: seeded reference data
 `code (TRAIN|BUS|CAR|BIKE|PLANE), avgSpeedKmh, costPerKm, co2GramsPerKm, fixedOverheadMinutes, maxDistanceKm`
@@ -142,8 +143,8 @@ Changes in `feat/backend-depth`:
 - `DELETE /api/trips/{id}` keeps 204, but the row is kept with `deletedAt`; a second DELETE answers 404.
 - `GET /api/cities` no longer lists Moscow.
 
-`feat/more-cities` and `feat/regional-pricing` change no endpoint or DTO: `GET /api/cities` returns more rows, and
-comparison costs change in value only (the pricing basis is explained in the existing `notes`; currency stays EUR).
+`feat/more-cities` and `feat/regional-pricing` change no endpoint or DTO: `GET /api/cities` returns more rows
+*(done in `feat/more-cities`)*, and comparison costs change in value only (the pricing basis is explained in the existing `notes`; currency stays EUR).
 `GET /api/transport-modes` keeps `costPerKm`, now the fallback price.
 
 `feat/globe-map` adds fields only (cities as above; `unavailableCode` on comparison options and
@@ -195,14 +196,7 @@ Completed milestones are one line each; their details live in the commits, `docs
   - Done when: the README matches the code (demo trips, variables, endpoints, test counts); `./mvnw verify`,
     `npm test` and `npm run lint` green; the recording is linked from the README
 - [x] `feat/trip-details-redesign`: a more readable and interactive trip details page (reference: `docs/trips_details.png`, local and git-ignored; frontend only, no API change)
-- [ ] `feat/more-cities`: about 400 seeded cities (US, Europe, worldwide); data only, no API change
-  - `V11` seeds about 100 US cities (two per state plus Washington DC, landmass `NORTH_AMERICA`, Hawaii `OAHU`),
-    about 80 European regional cities and about 70 major cities elsewhere (Canada, Mexico, Brazil, Argentina, India,
-    China, Japan, Australia, South Africa, Nigeria, Indonesia, …), in the format of `V7`; cities already seeded are skipped
-  - Correct continent, landmass (island rules from `V6`/`V7`), capital flag and `label_rank` (new cities mostly 3)
-  - The globe, city pickers, autocomplete and command palette stay fast and readable with about 400 cities
-  - Done when: a test checks the city count and that every city has a valid landmass for its continent; `./mvnw verify`,
-    `npm test` and `npm run lint` green; step-review screenshots of the globe and pickers look right
+- [x] `feat/more-cities`: 422 seeded cities (at least two per US state, more of Europe, major cities worldwide); data only, no API change
 - [ ] `feat/regional-pricing`: realistic cost estimates per country and region from seeded data, no API keys
   - `V12` creates and seeds `country_pricing` (fuel price and average toll per km, dated source snapshot in EUR) and
     `regional_fare` (base fare and per-km price for TRAIN, BUS and PLANE per region)
