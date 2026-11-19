@@ -30,6 +30,10 @@ checkboxes when a milestone is completed.
   interactive list (inline details, pagination, keyboard); a Modes page; an account popover; delete
   through a confirm dialog with Undo
 - Trip details page: route at a glance, key figures first, an interactive globe linked to the legs
+- About 400 cities: two per US state plus Washington DC, more regional cities in Europe and major cities
+  in large countries worldwide *(planned: `feat/more-cities`)*
+- Regional cost estimates: car cost from country fuel prices and tolls, train/bus/plane from regional
+  base fares plus a per-km price, all in EUR and shown as an estimate *(planned: `feat/regional-pricing`)*
 
 Out of scope for v1: social login, password reset, email verification,
 real-time timetables, booking.
@@ -45,9 +49,19 @@ real-time timetables, booking.
 `landmass` (ground-connected region, e.g. EURASIA, AFRICA, NORTH_AMERICA, SOUTH_AMERICA, AUSTRALIA, JAPAN,
 IRELAND, ICELAND, NEW_ZEALAND), `capital` (boolean), `labelRank` (1 = shown first … 3 = only when zoomed in))*
 *(changed in `feat/backend-depth`: Moscow removed, 149 cities)*
+*(planned in `feat/more-cities`: about 250 more seeded cities, no new fields; `(name, country)` stays unique,
+so a second US city with a taken name is replaced by another city of that state; Hawaii is its own landmass `OAHU`)*
 
 **TransportMode**: seeded reference data
 `code (TRAIN|BUS|CAR|BIKE|PLANE), avgSpeedKmh, costPerKm, co2GramsPerKm, fixedOverheadMinutes, maxDistanceKm`
+*(planned in `feat/regional-pricing`: `costPerKm` becomes the fallback used where no regional price exists)*
+
+**CountryPricing**: seeded reference data *(planned in `feat/regional-pricing`)*
+`country (ISO alpha-2, PK), region, fuelEurPerLitre, tollEurPerKm` — one row per country in the city table;
+a dated snapshot of public fuel prices (EU Weekly Oil Bulletin, US EIA, GlobalPetrolPrices), converted to EUR.
+
+**RegionalFare**: seeded reference data *(planned in `feat/regional-pricing`)*
+`region, modeCode (TRAIN|BUS|PLANE), baseFareEur, costPerKm` — average published fares per region.
 
 **Trip**: user-owned, full CRUD, visible only to its owner; aggregate root of its stops
 `id, ownerId, title, departureDate, travelers, priority (FASTEST|CHEAPEST|GREENEST|BALANCED), notes, createdAt, updatedAt, stops`
@@ -70,6 +84,10 @@ Distance = haversine between cities × road/rail factor. All legs use the trip's
 `landmass` and the leg is within the mode's `maxDistanceKm`; otherwise the option is unavailable with
 `unavailableCode` `DIFFERENT_LANDMASS` or `TOO_FAR` (plus the readable `unavailableReason`). PLANE uses a
 short-haul CO₂ factor up to the DEFRA long-haul threshold and a long-haul factor above it.
+*(planned in `feat/regional-pricing`)* Cost per leg: CAR = cars × routeKm × (6.5 l/100 km × fuel price + toll per km),
+with fuel and toll averaged over the leg's two countries; TRAIN/BUS/PLANE = travelers × (base fare + per-km price ×
+routeKm) of the leg's region (averaged when the two cities are in different regions); BIKE = 0. Without a regional
+row the mode's `costPerKm` is used as before. The figures are estimates, not real fares.
 *(changed in `feat/backend-depth`)* Unavailable modes are also grouped by code: each leg has
 `unavailableGroups: [{code, modes[], message}]`, e.g. "Not reachable by land between Dublin and Madrid: train, bus,
 car, bike", and the comparison has the same list for the single-mode totals ("Not possible for the whole trip:
@@ -124,6 +142,10 @@ Changes in `feat/backend-depth`:
 - `DELETE /api/trips/{id}` keeps 204, but the row is kept with `deletedAt`; a second DELETE answers 404.
 - `GET /api/cities` no longer lists Moscow.
 
+`feat/more-cities` and `feat/regional-pricing` change no endpoint or DTO: `GET /api/cities` returns more rows, and
+comparison costs change in value only (the pricing basis is explained in the existing `notes`; currency stays EUR).
+`GET /api/transport-modes` keeps `costPerKm`, now the fallback price.
+
 `feat/globe-map` adds fields only (cities as above; `unavailableCode` on comparison options and
 single-mode totals); no field is removed or renamed.
 
@@ -173,6 +195,23 @@ Completed milestones are one line each; their details live in the commits, `docs
   - Done when: the README matches the code (demo trips, variables, endpoints, test counts); `./mvnw verify`,
     `npm test` and `npm run lint` green; the recording is linked from the README
 - [x] `feat/trip-details-redesign`: a more readable and interactive trip details page (reference: `docs/trips_details.png`, local and git-ignored; frontend only, no API change)
+- [ ] `feat/more-cities`: about 400 seeded cities (US, Europe, worldwide); data only, no API change
+  - `V11` seeds about 100 US cities (two per state plus Washington DC, landmass `NORTH_AMERICA`, Hawaii `OAHU`),
+    about 80 European regional cities and about 70 major cities elsewhere (Canada, Mexico, Brazil, Argentina, India,
+    China, Japan, Australia, South Africa, Nigeria, Indonesia, …), in the format of `V7`; cities already seeded are skipped
+  - Correct continent, landmass (island rules from `V6`/`V7`), capital flag and `label_rank` (new cities mostly 3)
+  - The globe, city pickers, autocomplete and command palette stay fast and readable with about 400 cities
+  - Done when: a test checks the city count and that every city has a valid landmass for its continent; `./mvnw verify`,
+    `npm test` and `npm run lint` green; step-review screenshots of the globe and pickers look right
+- [ ] `feat/regional-pricing`: realistic cost estimates per country and region from seeded data, no API keys
+  - `V12` creates and seeds `country_pricing` (fuel price and average toll per km, dated source snapshot in EUR) and
+    `regional_fare` (base fare and per-km price for TRAIN, BUS and PLANE per region)
+  - Pure `CostModel` in the comparison service (formula in the Comparison section); `ComparisonEngine` uses it; a
+    `PricingService` builds the leg's prices from its two cities, used by comparisons and by trip figures and stats
+  - Fallback to `transport_mode.cost_per_km` when a country or region has no row; no DTO or endpoint change
+  - The pricing basis is explained in the option's `notes`; the UI marks costs as estimates
+  - Done when: `CostModel` tests with hand-computed values (car in two countries, plane with a base fare, a cross-region
+    leg, the fallback); updated comparison/itinerary/stats tests; `./mvnw verify`, `npm test` and `npm run lint` green
 
 ## Decisions
 
