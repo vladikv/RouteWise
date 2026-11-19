@@ -17,6 +17,8 @@ import java.util.function.Predicate;
 import com.routewise.common.exception.FieldValidationException;
 import com.routewise.comparison.domain.ModeParameters;
 import com.routewise.comparison.mapper.ComparisonMapper;
+import com.routewise.pricing.domain.PriceBook;
+import com.routewise.pricing.service.PricingService;
 import com.routewise.transportmode.domain.TransportModeCode;
 import com.routewise.transportmode.repository.TransportModeRepository;
 import com.routewise.trip.domain.Trip;
@@ -51,15 +53,17 @@ public class TripQueryService {
 
     private final TripRepository tripRepository;
     private final TransportModeRepository transportModeRepository;
+    private final PricingService pricingService;
     private final ComparisonMapper comparisonMapper;
     private final TripFiguresCalculator figuresCalculator;
     private final TripMapper tripMapper;
 
     public TripQueryService(TripRepository tripRepository, TransportModeRepository transportModeRepository,
-                            ComparisonMapper comparisonMapper, TripFiguresCalculator figuresCalculator,
-                            TripMapper tripMapper) {
+                            PricingService pricingService, ComparisonMapper comparisonMapper,
+                            TripFiguresCalculator figuresCalculator, TripMapper tripMapper) {
         this.tripRepository = tripRepository;
         this.transportModeRepository = transportModeRepository;
+        this.pricingService = pricingService;
         this.comparisonMapper = comparisonMapper;
         this.figuresCalculator = figuresCalculator;
         this.tripMapper = tripMapper;
@@ -108,7 +112,9 @@ public class TripQueryService {
         List<ModeParameters> modes = transportModeRepository.findAll().stream()
                 .map(comparisonMapper::toParameters)
                 .toList();
-        return trips.stream().map(trip -> new FiguredTrip(trip, figuresCalculator.figures(trip, modes))).toList();
+        PriceBook prices = pricingService.priceBook();
+        return trips.stream().map(trip -> new FiguredTrip(trip, figuresCalculator.figures(trip, modes, prices)))
+                .toList();
     }
 
     private static TripSearchCriteria criteria(TripSearchParams params) {

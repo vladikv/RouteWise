@@ -10,6 +10,7 @@ import com.routewise.comparison.domain.ModeParameters;
 import com.routewise.comparison.domain.ModeTotals;
 import com.routewise.comparison.domain.RoutePlan;
 import com.routewise.comparison.domain.RouteStop;
+import com.routewise.pricing.domain.PriceBook;
 import com.routewise.trip.domain.TripPriority;
 import com.routewise.weather.domain.LocationForecast;
 
@@ -35,11 +36,14 @@ public class RoutePlanner {
         this.unavailableGrouper = unavailableGrouper;
     }
 
+    /**
+     * @param prices regional prices; each leg uses those of its two countries ({@link PriceBook#forLeg})
+     */
     public RoutePlan plan(List<RouteStop> stops, int travelers, TripPriority priority, List<ModeParameters> modes,
-                          List<LocationForecast> forecasts) {
+                          PriceBook prices, List<LocationForecast> forecasts) {
         List<Leg> legs = new ArrayList<>();
         for (int i = 0; i + 1 < stops.size(); i++) {
-            legs.add(leg(stops.get(i), stops.get(i + 1), travelers, priority, modes, forecasts));
+            legs.add(leg(stops.get(i), stops.get(i + 1), travelers, priority, modes, prices, forecasts));
         }
         List<ModeTotals> totals = itineraryCalculator.singleModeTotals(legs);
         return new RoutePlan(
@@ -51,14 +55,15 @@ public class RoutePlanner {
     }
 
     private Leg leg(RouteStop from, RouteStop to, int travelers, TripPriority priority, List<ModeParameters> modes,
-                    List<LocationForecast> forecasts) {
+                    PriceBook prices, List<LocationForecast> forecasts) {
         double distanceKm = GeoDistance.haversineKm(from.latitude(), from.longitude(), to.latitude(), to.longitude());
         List<LocationForecast> legWeather = forecasts.stream()
                 .filter(f -> f.location().name().equals(from.city().name())
                         || f.location().name().equals(to.city().name()))
                 .toList();
         List<ModeOption> options = comparisonEngine.compare(new ComparisonInput(distanceKm,
-                from.landmass().equals(to.landmass()), travelers, priority, modes, legWeather));
+                from.landmass().equals(to.landmass()), travelers, priority, modes,
+                prices.forLeg(from.city().country(), to.city().country()), legWeather));
         return new Leg(from.city(), to.city(), distanceKm, options);
     }
 }

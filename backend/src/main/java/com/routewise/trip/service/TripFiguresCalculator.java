@@ -12,6 +12,7 @@ import com.routewise.comparison.domain.ModeTotals;
 import com.routewise.comparison.domain.RoutePlan;
 import com.routewise.comparison.domain.RouteStop;
 import com.routewise.comparison.service.RoutePlanner;
+import com.routewise.pricing.domain.PriceBook;
 import com.routewise.transportmode.domain.TransportModeCode;
 import com.routewise.trip.domain.Trip;
 import com.routewise.trip.domain.TripFigures;
@@ -33,12 +34,12 @@ public class TripFiguresCalculator {
     }
 
     /** Empty when some leg has no available mode. The trip's stops and cities must be loaded. */
-    public Optional<TripFigures> figures(Trip trip, List<ModeParameters> modes) {
+    public Optional<TripFigures> figures(Trip trip, List<ModeParameters> modes, PriceBook prices) {
         List<RouteStop> stops = trip.stopCities().stream()
                 .map(city -> new RouteStop(new CitySummary(city.getId(), city.getName(), city.getCountry()),
                         city.getLatitude(), city.getLongitude(), city.getLandmass()))
                 .toList();
-        RoutePlan plan = routePlanner.plan(stops, trip.getTravelers(), trip.getPriority(), modes, List.of());
+        RoutePlan plan = routePlanner.plan(stops, trip.getTravelers(), trip.getPriority(), modes, prices, List.of());
         return figures(plan);
     }
 

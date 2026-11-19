@@ -6,11 +6,14 @@ import static org.assertj.core.api.Assertions.tuple;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import com.routewise.comparison.domain.ComparisonInput;
 import com.routewise.comparison.domain.ModeOption;
 import com.routewise.comparison.domain.ModeParameters;
 import com.routewise.comparison.domain.UnavailableCode;
+import com.routewise.pricing.domain.Fare;
+import com.routewise.pricing.domain.LegPricing;
 import com.routewise.transportmode.domain.TransportModeCode;
 import com.routewise.trip.domain.TripPriority;
 import com.routewise.weather.domain.Location;
@@ -196,7 +199,8 @@ class ComparisonEngineTest {
         ModeParameters bus = new ModeParameters(TransportModeCode.BUS, 75, new BigDecimal("0.060"), 27, 20, 2500, null);
 
         List<ModeOption> options = engine.compare(
-                new ComparisonInput(100, true, 1, TripPriority.BALANCED, List.of(car, bus), List.of()));
+                new ComparisonInput(100, true, 1, TripPriority.BALANCED, List.of(car, bus),
+                        LegPricing.NONE, List.of()));
 
         assertThat(options).extracting(ModeOption::mode, ModeOption::score, ModeOption::recommended)
                 .containsExactly(
@@ -209,7 +213,7 @@ class ComparisonEngineTest {
         List<ModeParameters> bikeOnly = List.of(SEEDED_MODES.get(3));
 
         List<ModeOption> options = engine.compare(
-                new ComparisonInput(500, true, 1, TripPriority.BALANCED, bikeOnly, List.of()));
+                new ComparisonInput(500, true, 1, TripPriority.BALANCED, bikeOnly, LegPricing.NONE, List.of()));
 
         assertThat(options).singleElement().satisfies(option -> {
             assertThat(option.available()).isFalse();
@@ -221,7 +225,7 @@ class ComparisonEngineTest {
     void compare_singleAvailableMode_scores100AndIsRecommended() {
         List<ModeParameters> trainOnly = List.of(SEEDED_MODES.getFirst());
         List<ModeOption> options = engine.compare(
-                new ComparisonInput(100, true, 1, TripPriority.BALANCED, trainOnly, List.of()));
+                new ComparisonInput(100, true, 1, TripPriority.BALANCED, trainOnly, LegPricing.NONE, List.of()));
 
         assertThat(options).singleElement().satisfies(option -> {
             assertThat(option.score()).isEqualTo(100);
@@ -232,7 +236,8 @@ class ComparisonEngineTest {
     @Test
     void compare_crossLandmassLeg_groundModesUnavailableWithCodeAndPlaneRecommended() {
         // Paris-New York is about 5837 km great circle; use 6000 km, 1 traveler.
-        ComparisonInput input = new ComparisonInput(6000, false, 1, TripPriority.BALANCED, SEEDED_MODES, List.of());
+        ComparisonInput input = new ComparisonInput(6000, false, 1, TripPriority.BALANCED, SEEDED_MODES,
+                LegPricing.NONE, List.of());
 
         List<ModeOption> options = engine.compare(input);
 
@@ -254,7 +259,8 @@ class ComparisonEngineTest {
     @Test
     void compare_shortCrossLandmassLeg_onlyPlaneIsAvailable() {
         // Dublin to London is about 460 km: within every ground limit, but no land route.
-        ComparisonInput input = new ComparisonInput(460, false, 1, TripPriority.CHEAPEST, SEEDED_MODES, List.of());
+        ComparisonInput input = new ComparisonInput(460, false, 1, TripPriority.CHEAPEST, SEEDED_MODES,
+                LegPricing.NONE, List.of());
 
         List<ModeOption> options = engine.compare(input);
 
@@ -268,7 +274,8 @@ class ComparisonEngineTest {
 
     @Test
     void compare_longHaulFlight_usesTheLongHaulFactor() {
-        ComparisonInput input = new ComparisonInput(6000, false, 2, TripPriority.BALANCED, SEEDED_MODES, List.of());
+        ComparisonInput input = new ComparisonInput(6000, false, 2, TripPriority.BALANCED, SEEDED_MODES,
+                LegPricing.NONE, List.of());
 
         ModeOption plane = option(engine.compare(input), TransportModeCode.PLANE);
 
@@ -282,8 +289,9 @@ class ComparisonEngineTest {
     @Test
     void compare_flightAtExactlyTheThreshold_usesTheShortHaulFactor() {
         ComparisonInput atThreshold = new ComparisonInput(3700, false, 1, TripPriority.BALANCED, SEEDED_MODES,
-                List.of());
-        ComparisonInput above = new ComparisonInput(3701, false, 1, TripPriority.BALANCED, SEEDED_MODES, List.of());
+                LegPricing.NONE, List.of());
+        ComparisonInput above = new ComparisonInput(3701, false, 1, TripPriority.BALANCED, SEEDED_MODES,
+                LegPricing.NONE, List.of());
 
         // 183 * 3700 / 1000 = 677.1 kg short-haul; 200 * 3701 / 1000 = 740.2 kg long-haul
         assertThat(option(engine.compare(atThreshold), TransportModeCode.PLANE).co2Kg())
@@ -293,16 +301,34 @@ class ComparisonEngineTest {
 
     @Test
     void compare_sameLandmassLongLeg_groundModeBeyondLimitIsTooFar() {
-        ComparisonInput input = new ComparisonInput(500, true, 1, TripPriority.BALANCED, SEEDED_MODES, List.of());
+        ComparisonInput input = new ComparisonInput(500, true, 1, TripPriority.BALANCED, SEEDED_MODES,
+                LegPricing.NONE, List.of());
 
         ModeOption bike = option(engine.compare(input), TransportModeCode.BIKE);
 
         assertThat(bike.unavailableCode()).isEqualTo(UnavailableCode.TOO_FAR);
     }
 
+    @Test
+    void compare_withLegPricing_usesFuelForTheCarAndFaresForTickets() {
+        // Car: 100 km x 1.3 = 130 km; 0.065 l/km x 1.75 EUR/l = 0.11375 EUR/km; x 130 = 14.7875 -> 14.79.
+        // Train fare: 5 + 0.14 x (100 x 1.2 = 120 km) = 21.80. Bus has no fare: 0.06 x 130 = 7.80.
+        LegPricing pricing = new LegPricing(new BigDecimal("1.750"), new BigDecimal("0.000"),
+                Map.of(TransportModeCode.TRAIN, new Fare(new BigDecimal("5.00"), new BigDecimal("0.140"))));
+
+        List<ModeOption> options = engine.compare(new ComparisonInput(100, true, 1, TripPriority.BALANCED,
+                SEEDED_MODES, pricing, List.of()));
+
+        assertThat(options).filteredOn(ModeOption::available)
+                .extracting(ModeOption::mode, option -> option.totalCost().toPlainString())
+                .contains(tuple(TransportModeCode.CAR, "14.79"), tuple(TransportModeCode.TRAIN, "21.80"),
+                        tuple(TransportModeCode.BUS, "7.80"));
+        assertThat(options).allSatisfy(option -> assertThat(option.notes()).isEmpty());
+    }
+
     private static ComparisonInput input(double km, int travelers, TripPriority priority,
                                          List<LocationForecast> forecasts) {
-        return new ComparisonInput(km, true, travelers, priority, SEEDED_MODES, forecasts);
+        return new ComparisonInput(km, true, travelers, priority, SEEDED_MODES, LegPricing.NONE, forecasts);
     }
 
     private static LocationForecast forecast(String city, int weatherCode, double minTemperature) {

@@ -16,6 +16,7 @@ import com.routewise.comparison.domain.RouteStop;
 import com.routewise.comparison.dto.ComparisonRequest;
 import com.routewise.comparison.dto.ComparisonResponse;
 import com.routewise.comparison.mapper.ComparisonMapper;
+import com.routewise.pricing.service.PricingService;
 import com.routewise.transportmode.repository.TransportModeRepository;
 import com.routewise.trip.domain.Trip;
 import com.routewise.trip.domain.TripPriority;
@@ -41,17 +42,20 @@ public class ComparisonService {
     private final TripRepository tripRepository;
     private final StopResolver stopResolver;
     private final TransportModeRepository transportModeRepository;
+    private final PricingService pricingService;
     private final WeatherService weatherService;
     private final RoutePlanner routePlanner;
     private final ComparisonMapper comparisonMapper;
     private final Clock clock;
 
     public ComparisonService(TripRepository tripRepository, StopResolver stopResolver,
-                             TransportModeRepository transportModeRepository, WeatherService weatherService,
-                             RoutePlanner routePlanner, ComparisonMapper comparisonMapper, Clock clock) {
+                             TransportModeRepository transportModeRepository, PricingService pricingService,
+                             WeatherService weatherService, RoutePlanner routePlanner,
+                             ComparisonMapper comparisonMapper, Clock clock) {
         this.tripRepository = tripRepository;
         this.stopResolver = stopResolver;
         this.transportModeRepository = transportModeRepository;
+        this.pricingService = pricingService;
         this.weatherService = weatherService;
         this.routePlanner = routePlanner;
         this.comparisonMapper = comparisonMapper;
@@ -89,7 +93,7 @@ public class ComparisonService {
         List<RouteStop> route = stops.stream()
                 .map(city -> new RouteStop(summary(city), city.getLatitude(), city.getLongitude(), city.getLandmass()))
                 .toList();
-        RoutePlan plan = routePlanner.plan(route, travelers, priority, modes, forecasts);
+        RoutePlan plan = routePlanner.plan(route, travelers, priority, modes, pricingService.priceBook(), forecasts);
         return comparisonMapper.toResponse(tripId, departureDate, travelers, priority, weather, plan);
     }
 

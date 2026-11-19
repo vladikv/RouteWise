@@ -22,6 +22,7 @@ import com.routewise.comparison.service.ComparisonEngine;
 import com.routewise.comparison.service.ItineraryCalculator;
 import com.routewise.comparison.service.RoutePlanner;
 import com.routewise.comparison.service.UnavailableGrouper;
+import com.routewise.pricing.service.PricingService;
 import com.routewise.transportmode.domain.TransportModeCode;
 import com.routewise.trip.domain.Trip;
 import com.routewise.trip.domain.TripPriority;
@@ -54,9 +55,9 @@ import org.springframework.context.annotation.Import;
  * the reverse of that for the first and last trip, which is what the sort tests rely on.
  */
 @DataJpaTest
-@Import({TripQueryService.class, TripFiguresCalculator.class, RoutePlanner.class, ComparisonEngine.class,
-        ItineraryCalculator.class, UnavailableGrouper.class, ComparisonMapper.class, TripMapper.class,
-        JpaAuditingConfig.class, ClockConfig.class})
+@Import({TripQueryService.class, PricingService.class, TripFiguresCalculator.class, RoutePlanner.class,
+        ComparisonEngine.class, ItineraryCalculator.class, UnavailableGrouper.class, ComparisonMapper.class,
+        TripMapper.class, JpaAuditingConfig.class, ClockConfig.class})
 class TripQueryServiceTest {
 
     private static final LocalDate DEC_1 = LocalDate.of(2026, 12, 1);
@@ -400,6 +401,19 @@ class TripQueryServiceTest {
     @Test
     void search_sortByDateDescending_reversesTheOrder() {
         assertThat(titles(sorted("date", "desc"))).containsExactly(SHORT_HOP, CAPITALS, VIENNA_RETURN, LONG_HAUL);
+    }
+
+    @Test
+    void search_shortHop_figuresUseTheSeededRegionalPrices() {
+        TripListItemResponse shortHop = service.search(params().sort("cost").build(), alice.getId()).items()
+                .getFirst();
+
+        // Berlin (DE, EUROPE_WEST train 5.00 + 0.14/km) to Prague (CZ, EUROPE_EAST 2.00 + 0.06/km): average
+        // 3.50 + 0.10/km over 281.133 km x 1.2 = 337.36 km; x 2 travelers = 74.47. With FASTEST the train
+        // wins (score 0.72 against 0.60 for the plane at 2 x (37.50 + 0.07 x 281.13) = 114.36).
+        assertThat(shortHop.title()).isEqualTo(SHORT_HOP);
+        assertThat(shortHop.figures().modes()).containsExactly(TransportModeCode.TRAIN);
+        assertThat(shortHop.figures().totalCost()).isEqualByComparingTo("74.47");
     }
 
     @Test

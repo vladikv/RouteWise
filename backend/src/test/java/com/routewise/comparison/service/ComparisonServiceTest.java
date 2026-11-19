@@ -1,11 +1,15 @@
 package com.routewise.comparison.service;
 
+import static com.routewise.pricing.TestPricing.country;
+import static com.routewise.pricing.TestPricing.fare;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyIterable;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -33,6 +37,9 @@ import com.routewise.comparison.dto.LegResponse;
 import com.routewise.comparison.dto.ModeOptionResponse;
 import com.routewise.comparison.dto.ModeTotalsResponse;
 import com.routewise.comparison.mapper.ComparisonMapper;
+import com.routewise.pricing.repository.CountryPricingRepository;
+import com.routewise.pricing.repository.RegionalFareRepository;
+import com.routewise.pricing.service.PricingService;
 import com.routewise.transportmode.domain.TransportMode;
 import com.routewise.transportmode.domain.TransportModeCode;
 import com.routewise.transportmode.repository.TransportModeRepository;
@@ -87,8 +94,11 @@ class ComparisonServiceTest {
 
     @BeforeEach
     void setUp() {
+        // Empty price tables (Mockito returns empty lists): every mode uses its per-km cost.
+        PricingService noPrices = new PricingService(mock(CountryPricingRepository.class),
+                mock(RegionalFareRepository.class));
         comparisonService = new ComparisonService(tripRepository, new StopResolver(cityRepository),
-                transportModeRepository, weatherService,
+                transportModeRepository, noPrices, weatherService,
                 new RoutePlanner(new ComparisonEngine(), new ItineraryCalculator(), new UnavailableGrouper()),
                 new ComparisonMapper(), CLOCK);
     }
@@ -204,6 +214,34 @@ class ComparisonServiceTest {
         assertThat(response.legs()).singleElement().satisfies(leg -> assertThat(leg.options()).hasSize(5));
         assertThat(response.recommendedItinerary().modes()).hasSize(1);
         verifyNoInteractions(tripRepository);
+    }
+
+    @Test
+    void preview_withRegionalPrices_pricesTheLegWithBothCountries() {
+        CountryPricingRepository countries = mock(CountryPricingRepository.class);
+        RegionalFareRepository fares = mock(RegionalFareRepository.class);
+        when(countries.findAll()).thenReturn(List.of(country("DE", "EUROPE_WEST", "1.750", "0.000"),
+                country("CZ", "EUROPE_EAST", "1.450", "0.010")));
+        when(fares.findAll()).thenReturn(List.of(fare("EUROPE_WEST", TransportModeCode.TRAIN, "5.00", "0.140"),
+                fare("EUROPE_EAST", TransportModeCode.TRAIN, "2.00", "0.060")));
+        ComparisonService priced = new ComparisonService(tripRepository, new StopResolver(cityRepository),
+                transportModeRepository, new PricingService(countries, fares), weatherService,
+                new RoutePlanner(new ComparisonEngine(), new ItineraryCalculator(), new UnavailableGrouper()),
+                new ComparisonMapper(), CLOCK);
+        knownCities(berlin, prague);
+        when(transportModeRepository.findAll()).thenReturn(seededModes());
+        when(weatherService.report(anyList(), eq(DEPARTURE))).thenReturn(weather());
+
+        ComparisonResponse response = priced.preview(request(DEPARTURE, 1L, 3L));
+
+        // Berlin-Prague 281.133 km. Train: average fare 3.50 + 0.10/km over 281.133 x 1.2 = 337.36 km,
+        // x 3 travelers = 111.71. Car (one car): 281.133 x 1.3 = 365.47 km x (0.065 x 1.60 + 0.005) = 39.84.
+        assertThat(response.legs().getFirst().options())
+                .filteredOn(option -> option.mode() == TransportModeCode.TRAIN
+                        || option.mode() == TransportModeCode.CAR)
+                .extracting(ModeOptionResponse::mode, option -> option.totalCost().toPlainString())
+                .containsExactlyInAnyOrder(tuple(TransportModeCode.TRAIN, "111.71"),
+                        tuple(TransportModeCode.CAR, "39.84"));
     }
 
     @Test
