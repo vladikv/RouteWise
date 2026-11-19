@@ -18,7 +18,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Pure comparison rules for one leg: availability ({@link ModeAvailability}), route distance,
- * duration, cost, CO2 ({@link FlightEmissions}) and score per mode. Holds no state and does no I/O.
+ * duration, cost ({@link CostModel}), CO2 ({@link FlightEmissions}) and score per mode.
+ * Holds no state and does no I/O.
  */
 @Component
 public class ComparisonEngine {
@@ -73,10 +74,9 @@ public class ComparisonEngine {
             }
         }
         int duration = (int) Math.round(mode.fixedOverheadMinutes() + routeKm / mode.avgSpeedKmh() * MINUTES_PER_HOUR);
-        BigDecimal unitKm = BigDecimal.valueOf(routeKm * units);
-        BigDecimal cost = mode.costPerKm().multiply(unitKm).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal cost = CostModel.cost(mode, routeKm, units, input.pricing());
         int co2GramsPerKm = FlightEmissions.co2GramsPerKm(mode, input.greatCircleKm());
-        BigDecimal co2Kg = BigDecimal.valueOf(co2GramsPerKm).multiply(unitKm)
+        BigDecimal co2Kg = BigDecimal.valueOf(co2GramsPerKm).multiply(BigDecimal.valueOf(routeKm * units))
                 .divide(GRAMS_PER_KG, 1, RoundingMode.HALF_UP);
         WeatherImpact.Impact impact = WeatherImpact.assess(mode.code(), input.forecasts());
         notes.addAll(impact.notes());

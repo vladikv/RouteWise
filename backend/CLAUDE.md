@@ -109,9 +109,12 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
 - **LLM output is untrusted input:** validate it like a request (see
   `TripDraftResolver`) and never let it override computed results
   (the comparison engine picks the recommended mode).
-- **Pure business rules** (e.g. `ComparisonEngine`, `GeoDistance`,
-  `ItineraryCalculator`, `UnavailableGrouper`, `RoutePlanner`) take plain records as
-  input (`ComparisonInput`, `ModeParameters`, `Leg`, `RouteStop`), not entities, and do no I/O.
+- **Pure business rules** (e.g. `ComparisonEngine`, `CostModel`, `GeoDistance`,
+  `ItineraryCalculator`, `UnavailableGrouper`, `RoutePlanner`, `PriceBook.forLeg`) take plain records as
+  input (`ComparisonInput`, `ModeParameters`, `LegPricing`, `Leg`, `RouteStop`), not entities, and do no I/O.
+  Costs come from the `pricing` feature: `PricingService.priceBook()` loads the seeded `country_pricing` and
+  `regional_fare` rows once per request (comparisons, trip list, stats) and `RoutePlanner` passes each leg its
+  `LegPricing`; tests that do not care about prices pass `PriceBook.EMPTY` / `LegPricing.NONE` (per-km fallback).
   The backend owns every figure the UI shows: `RoutePlanner` builds a `RoutePlan` (legs,
   mixed itinerary, single-mode totals, grouped unavailable messages) for comparisons
   (with weather) and for the trip list and stats (`TripFiguresCalculator`, without weather,

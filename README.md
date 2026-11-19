@@ -85,8 +85,8 @@ Every setting has a default; environment variables override them.
 ## How it works
 
 For each leg, the API takes the great-circle distance between the cities times a detour factor per mode, checks whether the mode
-is available (same landmass for ground modes, within the mode's range), computes time, cost and CO₂ from the seeded mode
-parameters, normalises the three metrics among the available modes, weights them by the priority (0.6 for the main goal, 0.2 for
+is available (same landmass for ground modes, within the mode's range), computes time and CO₂ from the seeded mode
+parameters and cost from the seeded regional prices (fuel and tolls for the car, average fares for tickets), normalises the three metrics among the available modes, weights them by the priority (0.6 for the main goal, 0.2 for
 the others, a third each for balanced), adjusts for the weather and recommends the best score. The legs combine into the mixed
 itinerary. The AI advisor only words the explanation; the recommendation always comes from this engine, and Claude's output is
 validated like user input.
@@ -128,7 +128,7 @@ Everything else needs a login; another user's trip answers 404. Full details in 
 
 | What | Command | Notes |
 |---|---|---|
-| Backend build and all tests | `cd backend && ./mvnw verify` | Unit, web-slice, JPA (real Flyway schema), migration, integration and ArchUnit tests (460); external services are faked |
+| Backend build and all tests | `cd backend && ./mvnw verify` | Unit, web-slice, JPA (real Flyway schema), migration, integration and ArchUnit tests (480); external services are faked |
 | Frontend unit tests | `cd frontend && npm test` | Vitest + TestBed, 748 tests |
 | Frontend lint | `cd frontend && npm run lint` | ESLint with angular-eslint, including template accessibility rules |
 | End-to-end checks | `cd frontend && npm run e2e` | Playwright against the running app (starts `npm start` if port 4200 is free) |
@@ -154,8 +154,14 @@ RouteWise gives estimates for comparing options, not quotes or timetables.
   Oregon, Kingston is Jamaica).
 - **Distance:** great-circle (haversine) distance between the cities, times a
   detour factor per mode (train 1.2; bus, car and bike 1.3; plane 1.0).
-- **Prices:** one cost per kilometre per mode, used worldwide. These are rough
-  global estimates; real fares vary widely by country, season and operator.
+- **Prices:** estimates in EUR from seeded data (`V13`), no live prices. The car
+  costs 6.5 l/100 km at the country's petrol price plus an average toll per km
+  (per car, up to five travelers); train, bus and plane cost a regional base fare
+  plus a price per km per traveler (12 fare regions). A leg between two countries
+  averages their prices. Without a regional price a mode falls back to its cost
+  per km (`V2`); the bike is free. Fuel prices are rounded approximations of the EU
+  Weekly Oil Bulletin, US EIA and GlobalPetrolPrices averages; real fares vary
+  widely by season, operator and booking time.
 - **Ground modes and landmasses:** train, bus, car and bike are only offered
   when both cities are on the same *landmass*, a region joined by land, and the
   route is within the mode's maximum distance. Fixed links count: the Channel
