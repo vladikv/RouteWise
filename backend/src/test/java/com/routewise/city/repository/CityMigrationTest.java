@@ -16,8 +16,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * V6 to V8 add city geography, the worldwide seed and the plane CO2 factors. Runs Flyway directly on its own
- * in-memory database and checks the seeded rows with plain SQL.
+ * V6 to V8 add city geography, the worldwide seed and the plane CO2 factors; V11 seeds more cities.
+ * Runs Flyway directly on its own in-memory database and checks the seeded rows with plain SQL.
  */
 class CityMigrationTest {
 
@@ -36,10 +36,35 @@ class CityMigrationTest {
     }
 
     @Test
-    void migrate_seedsTheV2AndV7Cities() throws SQLException {
-        // 25 from V2 + 125 from V7 - Moscow (removed in V10, see MoscowRemovalMigrationTest)
-        assertThat(count("SELECT COUNT(*) FROM city")).isEqualTo(149);
-        assertThat(count("SELECT COUNT(DISTINCT name) FROM city")).isEqualTo(149);
+    void migrate_seedsTheV2V7AndV11Cities() throws SQLException {
+        // 25 from V2 + 125 from V7 - Moscow (removed in V10, see MoscowRemovalMigrationTest) + 273 from V11
+        assertThat(count("SELECT COUNT(*) FROM city")).isEqualTo(422);
+    }
+
+    @Test
+    void migrate_cityNamesAreUniqueAcrossCountries() throws SQLException {
+        // The trip parser and the advisor resolve a city by its name alone.
+        assertThat(count("SELECT COUNT(DISTINCT LOWER(name)) FROM city"))
+                .isEqualTo(count("SELECT COUNT(*) FROM city"));
+    }
+
+    @Test
+    void migrate_v11SeedsTheUsCitiesAndKeepsHawaiiOffTheMainland() throws SQLException {
+        // 12 from V7 (incl. Washington for DC, and Honolulu) + 95 from V11. There is no state column, so the
+        // "at least two per state" rule is checked when the seed is written, not here.
+        assertThat(count("SELECT COUNT(*) FROM city WHERE country = 'US'")).isEqualTo(107);
+        assertThat(column("SELECT landmass FROM city WHERE name IN ('Honolulu', 'Hilo') ORDER BY name"))
+                .containsExactly("HAWAII", "OAHU");
+        assertThat(column("SELECT landmass FROM city WHERE name IN ('Anchorage', 'Portland', 'Dallas')"))
+                .containsOnly("NORTH_AMERICA").hasSize(3);
+    }
+
+    @Test
+    void migrate_v11IslandCitiesAreOnTheirOwnLandmass() throws SQLException {
+        assertThat(column("SELECT name || ':' || landmass FROM city "
+                + "WHERE name IN ('Belfast', 'Palermo', 'Cagliari', 'Palma', 'Hobart', 'Christchurch', 'Sapporo') "
+                + "ORDER BY name")).containsExactly("Belfast:IRELAND", "Cagliari:SARDINIA", "Christchurch:SOUTH_ISLAND",
+                "Hobart:TASMANIA", "Palermo:SICILY", "Palma:MALLORCA", "Sapporo:JAPAN");
     }
 
     @Test

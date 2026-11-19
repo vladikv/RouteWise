@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * V10 removes Moscow. Migrates to V9, stores trips that do and do not visit Moscow,
- * then migrates to the latest version on its own in-memory database.
+ * then migrates to V10 on its own in-memory database (later seeds add cities and would change the counts).
  */
 class MoscowRemovalMigrationTest {
 
@@ -40,7 +40,7 @@ class MoscowRemovalMigrationTest {
             insertTrip(statement, 12, "Berlin", "Vienna");
         }
 
-        flyway(null).migrate();
+        flyway("10").migrate();
 
         try (Connection connection = DriverManager.getConnection(url, "sa", "");
              Statement statement = connection.createStatement()) {
