@@ -4,7 +4,9 @@
   {{ data.legs.length }} legs · {{ data.distanceKm | number: '1.0-0' }} km straight-line ·
   {{ travelersLabel(data.travelers) }} · priority: {{ priorityLabels[data.priority] }} ·
   {{ data.departureDate | date: 'mediumDate' }}. Each leg gets its own best mode; cost and CO₂ are
-  totals for all travelers, and costs are estimates.
+  totals for all travelers, and costs are estimates{{
+    liveCost() ? ', except flights marked as live prices (Google Flights)' : ''
+  }}.
 </p>
 
 <ol class="timeline" aria-label="Legs">
@@ -26,7 +28,11 @@
           </p>
           <p class="leg__numbers">
             {{ durationLabel(best.durationMinutes ?? 0) }} ·
-            {{ best.totalCost | currency: data.currency : 'symbol' : '1.2-2' }} ·
+            {{ best.totalCost | currency: data.currency : 'symbol' : '1.2-2' }}
+            @if (best.costSource === 'LIVE') {
+              <span class="leg__live">(live price)</span>
+            }
+            ·
             {{ best.co2Kg | number: '1.1-1' }} kg CO₂
           </p>
           @for (note of best.notes; track note) {

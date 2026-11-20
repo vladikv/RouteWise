@@ -1,6 +1,6 @@
 import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { LegComparison } from './leg-comparison';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { LegComparison, hasLiveCost } from './leg-comparison';
 import {
   HAZARD_LABELS,
   MODE_LABELS,
@@ -27,4 +27,5 @@ export class ComparisonPanel {
   protected readonly priorityLabels = PRIORITY_LABELS;
   protected readonly durationLabel = durationLabel;
   protected readonly travelersLabel = travelersLabel;
+  protected readonly liveCost = computed(() => hasLiveCost(this.comparison().options));
 }

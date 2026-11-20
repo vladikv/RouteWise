@@ -89,6 +89,39 @@ describe('ItineraryView', () => {
     );
   });
 
+  it('marks a leg priced from a live flight and says so in the summary', async () => {
+    const [first, second] = MULTI_COMPARISON.legs;
+    const view = await render({
+      ...MULTI_COMPARISON,
+      legs: [
+        {
+          ...first,
+          options: first.options.map((option) =>
+            option.recommended
+              ? { ...option, costSource: 'LIVE' as const, costRetrievedAt: '2026-11-20T09:30:00Z' }
+              : option,
+          ),
+        },
+        second,
+      ],
+    });
+
+    expect(view.querySelectorAll('.leg__live')).toHaveLength(1);
+    expect(view.querySelector('.leg__live')?.textContent).toBe('(live price)');
+    expect(view.querySelector('.summary')?.textContent?.replace(/\s+/g, ' ')).toContain(
+      'costs are estimates, except flights marked as live prices (Google Flights).',
+    );
+  });
+
+  it('says plainly that costs are estimates when no price is live', async () => {
+    const view = await render(MULTI_COMPARISON);
+
+    expect(view.querySelector('.leg__live')).toBeNull();
+    expect(view.querySelector('.summary')?.textContent?.replace(/\s+/g, ' ')).toContain(
+      'costs are estimates.',
+    );
+  });
+
   describe('modes that cannot be used on every leg', () => {
     const NOTES = ':scope > p.muted:has([aria-hidden])';
     const text = (element: Element | null | undefined) =>

@@ -179,6 +179,9 @@ export interface UnavailableGroup {
 /** How complete the weather behind a comparison is. */
 export type WeatherStatus = 'AVAILABLE' | 'PARTIAL' | 'UNAVAILABLE' | 'OUT_OF_RANGE';
 
+/** Where a cost comes from: seeded regional prices, or the cheapest live flight (plane only). */
+export type CostSource = 'ESTIMATE' | 'LIVE';
+
 /** One mode in a comparison. Metrics are null when the mode is unavailable. */
 export interface ModeOption {
   mode: TransportModeCode;
@@ -194,6 +197,10 @@ export interface ModeOption {
   score: number;
   recommended: boolean;
   notes: string[];
+  /** Null when unavailable. */
+  costSource: CostSource | null;
+  /** ISO instant the live fare was fetched; null for an estimate. */
+  costRetrievedAt: string | null;
 }
 
 /** One leg of a route: stop `index` to stop `index + 1`. */

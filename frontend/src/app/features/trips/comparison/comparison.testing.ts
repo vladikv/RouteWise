@@ -19,6 +19,8 @@ const TRAIN: ModeOption = {
   score: 87,
   recommended: true,
   notes: [],
+  costSource: 'ESTIMATE',
+  costRetrievedAt: null,
 };
 
 const CAR: ModeOption = {
@@ -33,6 +35,8 @@ const CAR: ModeOption = {
   score: 52,
   recommended: false,
   notes: ['Rain expected in Vienna, CAR score reduced'],
+  costSource: 'ESTIMATE',
+  costRetrievedAt: null,
 };
 
 const BIKE: ModeOption = {
@@ -47,6 +51,8 @@ const BIKE: ModeOption = {
   score: 0,
   recommended: false,
   notes: [],
+  costSource: null,
+  costRetrievedAt: null,
 };
 
 /** Berlin to Vienna: one leg, train recommended, car available, bike too far, rain in Vienna. */
@@ -253,5 +259,7 @@ function option(
     score: recommended ? 80 : 60,
     recommended,
     notes: [],
+    costSource: 'ESTIMATE',
+    costRetrievedAt: null,
   };
 }

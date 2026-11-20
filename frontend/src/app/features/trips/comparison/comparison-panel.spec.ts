@@ -38,6 +38,49 @@ describe('ComparisonPanel', () => {
     expect(cells(rows[1])).toEqual(['8 h 4 min', '€136.14', '115.7 kg', '52 out of 100']);
   });
 
+  describe('cost source', () => {
+    const plane = (costSource: 'ESTIMATE' | 'LIVE') => ({
+      ...LEG_COMPARISON.options[0],
+      mode: 'PLANE' as const,
+      recommended: false,
+      totalCost: 237,
+      costSource,
+      costRetrievedAt: costSource === 'LIVE' ? '2026-11-20T09:30:00Z' : null,
+    });
+    const text = (element: Element | null | undefined) =>
+      element?.textContent?.replace(/\s+/g, ' ').trim();
+
+    it('labels a live plane price and says the other costs are estimates', () => {
+      const panel = render({
+        ...LEG_COMPARISON,
+        options: [...LEG_COMPARISON.options, plane('LIVE')],
+      });
+      const planeRow = panel.querySelectorAll('tbody tr')[3];
+
+      expect(text(planeRow.querySelector('.cost-source--live'))).toMatch(/^Live price ,? ?\S/);
+      expect(text(panel.querySelector('.summary'))).toContain(
+        "The plane's cost is the cheapest live flight on Google Flights; the other costs are estimates",
+      );
+    });
+
+    it('labels an estimated plane price and keeps the estimates sentence', () => {
+      const panel = render({
+        ...LEG_COMPARISON,
+        options: [...LEG_COMPARISON.options, plane('ESTIMATE')],
+      });
+      const planeRow = panel.querySelectorAll('tbody tr')[3];
+
+      expect(text(planeRow.querySelector('.cost-source'))).toBe('Estimate');
+      expect(text(panel.querySelector('.summary'))).toContain(
+        'Costs are estimates from regional fuel prices, tolls and average fares.',
+      );
+    });
+
+    it('labels no other mode', () => {
+      expect(render(LEG_COMPARISON).querySelector('.cost-source')).toBeNull();
+    });
+  });
+
   it('says only "Not available" for an unavailable mode, without metrics', () => {
     const row = render(LEG_COMPARISON).querySelectorAll('tbody tr')[2];
 
