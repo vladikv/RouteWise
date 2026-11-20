@@ -1,6 +1,10 @@
 spring:
   application:
     name: routewise-api
+  config:
+    # Optional local secrets: KEY=VALUE lines in a git-ignored .env at the repository root
+    # (../.env when started from backend/, .env when started from the root). Real env vars win.
+    import: "optional:file:../.env[.properties],optional:file:.env[.properties]"
   datasource:
     url: jdbc:h2:mem:routewise;DB_CLOSE_DELAY=-1
     username: sa

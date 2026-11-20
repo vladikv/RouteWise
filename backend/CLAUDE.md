@@ -71,6 +71,9 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
 - **Configuration:** `application.yml` with env-var overrides
   (`${ENV_VAR:default}`), bound to `@ConfigurationProperties` records under the
   `routewise.*` prefix. The app must start with zero configuration.
+  Local secrets may sit in a git-ignored `.env` at the repository root (`NAME=value`), imported with
+  `spring.config.import: optional:file:../.env[.properties],optional:file:.env[.properties]`; the same
+  `${ENV_VAR:default}` placeholders read it, and a real environment variable wins. No dotenv library.
 - **Persistence:** schema only via Flyway (see the `add-flyway-migration` skill);
   `ddl-auto=validate`, `open-in-view=false`. Never edit an existing migration.
   Services map entities to DTOs inside their transaction; repositories use
