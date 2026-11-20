@@ -37,6 +37,7 @@
           @for (reason of item.reasons; track reason) {
             <p class="leg__note">{{ reason }}</p>
           }
+          <p class="leg__note">{{ addStopHint }}</p>
         }
       </div>
       <app-leg-map-toggle [leg]="item.leg.index" />

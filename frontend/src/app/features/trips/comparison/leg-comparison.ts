@@ -50,3 +50,7 @@ export function legComparison(comparison: Comparison, index: number): LegCompari
 export function priorityEditLink(comparison: Comparison): string | null {
   return comparison.tripId === null ? null : `/trips/${comparison.tripId}/edit`;
 }
+
+/** Shown when no mode can make a leg: a stop in between (e.g. a city with an airport) splits it. */
+export const ADD_STOP_HINT =
+  'Try the route with a stop in between, for example a city with an airport.';

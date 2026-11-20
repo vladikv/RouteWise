@@ -30,6 +30,8 @@ export interface City extends CitySummary {
   capital: boolean;
   /** 1 = labelled first on the map … 3 = only when zoomed in. */
   labelRank: number;
+  /** IATA code of the airport that serves the city; null when it has no working airport (no flights). */
+  airportCode: string | null;
 }
 
 /** Cost and CO₂ are per traveler, except CAR (per vehicle). */
@@ -159,8 +161,11 @@ export interface WeatherSummary {
   hazards: WeatherHazard[];
 }
 
-/** Why a mode is unavailable: the cities are on different landmasses, or the leg is beyond the mode's range. */
-export type UnavailableCode = 'DIFFERENT_LANDMASS' | 'TOO_FAR';
+/**
+ * Why a mode is unavailable: the cities are on different landmasses, the leg is beyond the mode's range, or (plane
+ * only) a city of the leg has no working airport.
+ */
+export type UnavailableCode = 'DIFFERENT_LANDMASS' | 'TOO_FAR' | 'NO_AIRPORT';
 
 /** Modes ruled out for the same reason, with one readable sentence for all of them. */
 export interface UnavailableGroup {

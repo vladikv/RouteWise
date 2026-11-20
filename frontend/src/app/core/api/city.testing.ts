@@ -10,6 +10,7 @@ export function makeCity(overrides: Partial<City> & Pick<City, 'id' | 'name'>): 
     landmass: 'EURASIA',
     capital: false,
     labelRank: 1,
+    airportCode: 'XXX',
     ...overrides,
   };
 }

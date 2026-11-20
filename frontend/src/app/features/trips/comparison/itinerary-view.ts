@@ -11,7 +11,7 @@ import {
 } from '../../../shared/util/labels';
 import { ComparisonChart } from './comparison-chart';
 import { ComparisonPanel } from './comparison-panel';
-import { LegComparison, legComparison, priorityEditLink } from './leg-comparison';
+import { ADD_STOP_HINT, LegComparison, legComparison, priorityEditLink } from './leg-comparison';
 import { LegHover, LegMapToggle } from './leg-focus';
 
 /**
@@ -43,6 +43,7 @@ export class ItineraryView {
   protected readonly priorityLabels = PRIORITY_LABELS;
   protected readonly durationLabel = durationLabel;
   protected readonly travelersLabel = travelersLabel;
+  protected readonly addStopHint = ADD_STOP_HINT;
   protected readonly editLink = computed(() => priorityEditLink(this.comparison()));
 
   /** Each leg with its recommended option, if any. */
