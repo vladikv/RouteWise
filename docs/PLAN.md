@@ -36,9 +36,9 @@ checkboxes when a milestone is completed.
   base fares plus a per-km price, all in EUR and shown as an estimate
 - Flights only where both cities have a working airport (e.g. none from Ukrainian cities while the airspace is
   closed); otherwise the plane is unavailable with a clear reason and the UI suggests a stop in between
-- Optional live flight prices: with an API key configured, the comparison shows the cheapest real flight offer
-  for the date instead of the estimate; without a key everything works as before *(planned:
-  `feat/live-flight-prices`)*
+- Optional live flight prices: with a SerpApi key (Google Flights) the comparison shows the cheapest real
+  one-way flight for the date instead of the plane estimate, labelled "Live price"; without a key everything works
+  as before
 
 Out of scope for v1: social login, password reset, email verification,
 real-time timetables, booking.
@@ -103,10 +103,11 @@ comparison (the option `notes` do not carry the pricing basis, so the advisor te
 `airportCode`; otherwise it is unavailable with `unavailableCode` `NO_AIRPORT` ("No working airport in Kharkiv"),
 checked before `TOO_FAR` and grouped like the other codes ("No working airport in Kharkiv: plane"). The user can add
 a stop with an airport by hand (London → Krakow → Kharkiv); the trip list and stats follow the same rule.
-*(planned in `feat/live-flight-prices`)* With a flight price API key, the PLANE cost of a leg in a comparison is
-the cheapest live offer for the leg's airports and date × travelers; without a key, without offers or on any
-provider error it stays the regional estimate. Each option says where its cost comes from (`costSource`). The
-trip list and stats always use estimates, so they never call an external service.
+*(changed in `feat/live-flight-prices`)* With a flight price API key, the PLANE cost of a leg in a comparison is
+the cheapest live one-way economy fare for one adult between the leg's airports on the departure date × travelers;
+without a key, without a flight that day, between cities sharing an airport or on any provider error it stays the
+regional estimate. Duration and CO₂ stay the model's. Each option says where its cost comes from (`costSource`,
+`costRetrievedAt`). The trip list and stats always use estimates, so they never call an external service.
 *(changed in `feat/backend-depth`)* Unavailable modes are also grouped by code: each leg has
 `unavailableGroups: [{code, modes[], message}]`, e.g. "Not reachable by land between Dublin and Madrid: train, bus,
 car, bike", and the comparison has the same list for the single-mode totals ("Not possible for the whole trip:
@@ -169,10 +170,10 @@ Changes in `feat/backend-depth`:
 `feat/airport-availability` is additive *(done)*: `GET /api/cities` gets `airportCode`; `unavailableCode` and
 `unavailableGroups[].code` get the new value `NO_AIRPORT`.
 
-Planned, additive only (no field removed or renamed):
-- `feat/live-flight-prices`: comparison options (`GET /api/trips/{id}/comparison`, `POST /api/comparisons`) get
-  `costSource` (`ESTIMATE` | `LIVE`) and `costRetrievedAt` (time of the live offer, `null` for estimates); the
-  advice endpoint uses the same figures. Trip list and stats responses do not change.
+`feat/live-flight-prices` is additive *(done)*: comparison options (`GET /api/trips/{id}/comparison`,
+`POST /api/comparisons`) get `costSource` (`ESTIMATE` | `LIVE`, `null` when unavailable) and `costRetrievedAt`
+(ISO instant of the live fare, `null` for estimates); the advice endpoint uses the same figures. Trip list and stats
+responses do not change.
 
 `feat/globe-map` adds fields only (cities as above; `unavailableCode` on comparison options and
 single-mode totals); no field is removed or renamed.
@@ -188,9 +189,9 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
 - **LLM provider**: optional Claude (Anthropic) via `ANTHROPIC_API_KEY`; behind an
   `AdvisorClient` interface, with rule-based parsing/advice as fallback
 - **Natural Earth** (public domain): world land and borders at 1:110m for the globe (`feat/globe-map`)
-- **Flight price API** *(planned: `feat/live-flight-prices`)*: optional, via `ROUTEWISE_FLIGHT_PRICES_API_KEY`;
-  behind a `FlightPriceClient` interface, with the regional estimate as fallback. The provider is chosen at the
-  start of the milestone (Skyscanner's API is for partners only)
+- **SerpApi, Google Flights engine** (`feat/live-flight-prices`): optional live flight prices via
+  `ROUTEWISE_FLIGHT_PRICES_API_KEY` (free plan: 250 searches a month); behind a `FlightPriceClient` interface,
+  cached 6 h per airports and date (`ROUTEWISE_FLIGHT_PRICES_CACHE_TTL`), with the regional estimate as fallback
 
 ## Milestones
 
@@ -229,25 +230,7 @@ Completed milestones are one line each; their details live in the commits, `docs
 - [x] `feat/more-cities`: 422 seeded cities (at least two per US state, more of Europe, major cities worldwide); data only, no API change
 - [x] `feat/regional-pricing`: cost estimates from seeded country fuel prices, tolls and regional fares (no API keys, no API change)
 - [x] `feat/airport-availability`: the plane is offered only between cities with a working airport (`airportCode`, `NO_AIRPORT`); the UI suggests a stop when no mode can make a leg
-- [ ] `feat/live-flight-prices`: real flight prices in comparisons when an API key is configured
-  - Why: estimated plane costs can be far from what flight search sites show for a date
-  - Step 0: compare flight price APIs (e.g. Duffel, SerpApi Google Flights, Amadeus): sign-up open to new users,
-    free tier, caching and display terms, search by IATA codes and date; the human picks one; record it in
-    `docs/DECISIONS.md`; no new dependency unless approved (prefer `RestClient`)
-  - Backend: a `flightprice` feature with `FlightPriceClient` (interface + implementation),
-    `FlightPriceProperties` (`routewise.flight-prices.*`: key from `ROUTEWISE_FLIGHT_PRICES_API_KEY`, timeouts,
-    cache TTL); the client bean exists only with a key; Caffeine cache (key: from/to airport, date, travelers;
-    successes only) and one retry, as for the weather client; `FlightPriceService` returns empty on any failure
-  - Engine: the live price is passed in as input (no I/O in `ComparisonEngine`); PLANE cost = cheapest offer ×
-    travelers when present, otherwise `CostModel`; only `POST /api/comparisons`, the trip comparison and the advice
-    use it, the trip list and stats keep estimates
-  - Depends on `feat/airport-availability` (the IATA codes)
-  - UI: a "live price" or "estimate" label next to the plane cost; the "costs are estimates" note only where an
-    estimate is shown
-  - Done when: with a key, London → Krakow shows a live plane price and `costSource` `LIVE`; without a key, or when
-    the provider fails or times out, the same estimate as today; client tests with `MockRestServiceServer`
-    (success, no offers, server error, timeout), a timeout test against a local `HttpServer`, service fallback,
-    engine and controller tests; `./mvnw verify`, `npm test` and `npm run lint` green
+- [x] `feat/live-flight-prices`: real flight prices in comparisons when a SerpApi (Google Flights) key is configured; labelled "Live price", estimates otherwise
 
 ## Decisions
 

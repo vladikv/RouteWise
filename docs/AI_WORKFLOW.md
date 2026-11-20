@@ -894,3 +894,41 @@ mistakes before a human has to.
 
 **Why**
 - Closed airspace is data (`airport_code` NULL), not code. A city that gets or loses its airport changes in one migration, and the same codes feed the live flight prices later.
+
+## feat/live-flight-prices (real flight prices when a key is configured)
+
+**Delegated to AI**
+- Compared flight price APIs with web searches and brought the human a choice:
+  - Amadeus Self-Service closed in July 2026;
+  - Kiwi Tequila has been invitation-only since 2024;
+  - Skyscanner is for partners only;
+  - the options left were SerpApi Google Flights, Travelpayouts and Duffel.
+- Built the `flightprice` feature:
+  - SerpApi client, properties, a client bean that exists only with a key, and the service with cache and pause (#193, #194);
+  - in the engine: the live fare in `LegPricing`, `CostModel.quote`, `PlaneFares`, and `costSource`/`costRetrievedAt` on the options;
+  - in the UI: the "Live price" / "Estimate" labels and summary wording.
+- Wrote the tests: client (`MockRestServiceServer`), config (local `HttpServer`: no bean without a key, timeout, one retry, no retry on 4xx), service, properties, cost model, comparison service and controller; UI specs.
+- Ran a `backend-reviewer` pass and checked a comparison on the running API without a key: every cost was `ESTIMATE`.
+- Ran the checks, all green: `./mvnw verify` (530 tests), `npm test` (754) and `npm run lint`.
+
+**Human decisions**
+- SerpApi Google Flights as the provider. Flights only (from the plan).
+
+**Found by the human**
+- Plane costs differed from Skyscanner (the report that started this and the previous milestone).
+
+**AI self-corrections**
+- Before the review, the AI noticed that a `RestClient` error message can contain the request URL, and with it the API key. Failures now log only the exception type, and `FlightPriceProperties.toString` hides the key.
+- The `backend-reviewer` found five problems, all fixed:
+  - fares were asked one leg after another, so a slow provider could block a 9-leg comparison for minutes. They are now asked in parallel, each route once;
+  - with an exhausted quota or a bad key, every leg failed slowly. Lookups now pause for a minute after a failure;
+  - concurrent requests could pay twice for the same fare. The cache is now single-flight;
+  - past dates and dates beyond what Google Flights sells were still asked;
+  - the "no results" check matched one exact English sentence. It now matches a part of it.
+  It also asked for tests that the key never reaches logs or `toString`, for the kept fetch time on a cache hit, and for docs (`backend/CLAUDE.md`, README, DECISIONS).
+- Left open:
+  - Not checked with a real SerpApi key, because none was available in the session. The response parsing follows SerpApi's documented format and is covered by tests only.
+  - `POST /api/comparisons` is public and has no rate limit, so anyone can spend the quota (#194).
+
+**Why**
+- Live prices stay optional and best effort. The app still runs with zero configuration, the engine stays pure, and the trip list and stats never call an external service.
