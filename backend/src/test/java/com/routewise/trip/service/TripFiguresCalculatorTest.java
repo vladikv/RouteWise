@@ -5,12 +5,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.math.BigDecimal;
 import java.util.List;
 
+import com.routewise.city.TestCities;
+import com.routewise.city.domain.City;
 import com.routewise.comparison.domain.ItineraryTotals;
+import com.routewise.comparison.domain.ModeParameters;
 import com.routewise.comparison.domain.ModeTotals;
 import com.routewise.comparison.domain.RoutePlan;
 import com.routewise.comparison.domain.UnavailableCode;
+import com.routewise.comparison.service.ComparisonEngine;
+import com.routewise.comparison.service.ItineraryCalculator;
+import com.routewise.comparison.service.RoutePlanner;
+import com.routewise.comparison.service.UnavailableGrouper;
+import com.routewise.pricing.domain.PriceBook;
 import com.routewise.transportmode.domain.TransportModeCode;
+import com.routewise.trip.domain.Trip;
 import com.routewise.trip.domain.TripFigures;
+import com.routewise.trip.domain.TripPriority;
 
 import org.junit.jupiter.api.Test;
 
@@ -20,6 +30,34 @@ class TripFiguresCalculatorTest {
     private static final TransportModeCode BUS = TransportModeCode.BUS;
     private static final TransportModeCode CAR = TransportModeCode.CAR;
     private static final TransportModeCode PLANE = TransportModeCode.PLANE;
+
+    /** The seeded train and plane (speed, cost, CO2, overhead, range, long-haul CO2). */
+    private static final List<ModeParameters> TRAIN_AND_PLANE = List.of(
+            new ModeParameters(TRAIN, 110, new BigDecimal("0.120"), 35, 30, 2000, null),
+            new ModeParameters(PLANE, 750, new BigDecimal("0.150"), 183, 150, 20100, 200));
+
+    private final TripFiguresCalculator calculator = new TripFiguresCalculator(
+            new RoutePlanner(new ComparisonEngine(), new ItineraryCalculator(), new UnavailableGrouper()));
+
+    @Test
+    void figures_tripBetweenCitiesWithAirports_canFly() {
+        // Krakow-London is about 1410 km: plane 150 + 1410 / 750 * 60 = 263 min, train 30 + 1692 / 110 * 60 = 953 min.
+        Trip trip = trip(TestCities.krakow(), TestCities.london());
+
+        TripFigures figures = calculator.figures(trip, TRAIN_AND_PLANE, PriceBook.EMPTY).orElseThrow();
+
+        assertThat(figures.legModes()).containsExactly(PLANE);
+    }
+
+    @Test
+    void figures_tripToACityWithoutAirport_takesTheTrainInstead() {
+        // Krakow-Kharkiv is about 920 km; the plane would be far faster, but Kharkiv has no working airport.
+        Trip trip = trip(TestCities.krakow(), TestCities.kharkiv());
+
+        TripFigures figures = calculator.figures(trip, TRAIN_AND_PLANE, PriceBook.EMPTY).orElseThrow();
+
+        assertThat(figures.legModes()).containsExactly(TRAIN);
+    }
 
     @Test
     void figures_planFarBelowCar_reportsNegativePercentAndShare() {
@@ -147,5 +185,13 @@ class TripFiguresCalculatorTest {
 
     private static ItineraryTotals itinerary(List<TransportModeCode> modes, String cost, String co2Kg) {
         return new ItineraryTotals(modes, 100, new BigDecimal(cost), new BigDecimal(co2Kg));
+    }
+
+    private static Trip trip(City... stops) {
+        Trip trip = new Trip();
+        trip.setTravelers(1);
+        trip.setPriority(TripPriority.FASTEST);
+        trip.replaceStops(List.of(stops));
+        return trip;
     }
 }

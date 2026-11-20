@@ -42,7 +42,7 @@ class CityControllerTest {
     @Test
     void findAll_returnsCities() throws Exception {
         when(cityService.findAll(null)).thenReturn(List.of(new CityResponse(1L, "Berlin", "DE", 52.52, 13.405,
-                Continent.EUROPE, "EURASIA", true, 1)));
+                Continent.EUROPE, "EURASIA", true, 1, "BER")));
 
         mockMvc.perform(get("/api/cities"))
                 .andExpect(status().isOk())
@@ -54,7 +54,8 @@ class CityControllerTest {
                 .andExpect(jsonPath("$[0].continent").value("EUROPE"))
                 .andExpect(jsonPath("$[0].landmass").value("EURASIA"))
                 .andExpect(jsonPath("$[0].capital").value(true))
-                .andExpect(jsonPath("$[0].labelRank").value(1));
+                .andExpect(jsonPath("$[0].labelRank").value(1))
+                .andExpect(jsonPath("$[0].airportCode").value("BER"));
     }
 
     @Test

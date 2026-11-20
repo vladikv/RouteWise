@@ -36,6 +36,7 @@ import com.routewise.comparison.dto.ComparisonResponse;
 import com.routewise.comparison.dto.LegResponse;
 import com.routewise.comparison.dto.ModeOptionResponse;
 import com.routewise.comparison.dto.ModeTotalsResponse;
+import com.routewise.comparison.dto.UnavailableGroupResponse;
 import com.routewise.comparison.mapper.ComparisonMapper;
 import com.routewise.pricing.repository.CountryPricingRepository;
 import com.routewise.pricing.repository.RegionalFareRepository;
@@ -290,6 +291,44 @@ class ComparisonServiceTest {
         assertThat(response.legs().getFirst().options()).filteredOn(ModeOptionResponse::available)
                 .extracting(ModeOptionResponse::mode).containsExactly(TransportModeCode.PLANE);
         assertThat(response.recommendedItinerary().modes()).containsExactly(TransportModeCode.PLANE);
+    }
+
+    @Test
+    void preview_londonToKharkiv_planeHasNoAirportAndNoPlanIsPossible() {
+        knownCities(TestCities.london(), TestCities.kharkiv());
+        when(transportModeRepository.findAll()).thenReturn(seededModes());
+        when(weatherService.report(anyList(), eq(DEPARTURE))).thenReturn(weather());
+
+        ComparisonResponse response = comparisonService.preview(request(DEPARTURE, 4L, 8L));
+
+        LegResponse leg = response.legs().getFirst();
+        assertThat(leg.recommendedMode()).isNull();
+        assertThat(leg.options()).noneMatch(ModeOptionResponse::available);
+        assertThat(leg.unavailableGroups()).extracting(UnavailableGroupResponse::code, UnavailableGroupResponse::message)
+                .contains(tuple(UnavailableCode.NO_AIRPORT, "No working airport in Kharkiv: plane"));
+        assertThat(response.recommendedItinerary()).isNull();
+    }
+
+    @Test
+    void preview_londonViaKrakowToKharkiv_fliesTheFirstLegAndGivesAPlan() {
+        knownCities(TestCities.london(), TestCities.krakow(), TestCities.kharkiv());
+        when(transportModeRepository.findAll()).thenReturn(seededModes());
+        when(weatherService.report(anyList(), eq(DEPARTURE))).thenReturn(weather());
+
+        ComparisonResponse response = comparisonService.preview(request(DEPARTURE, 4L, 9L, 8L));
+
+        // London-Krakow: both cities have an airport. Krakow-Kharkiv (about 920 km): only Kharkiv lacks one.
+        assertThat(planeOf(response.legs().getFirst()).available()).isTrue();
+        assertThat(planeOf(response.legs().get(1)).unavailableCode()).isEqualTo(UnavailableCode.NO_AIRPORT);
+        assertThat(planeOf(response.legs().get(1)).unavailableReason()).isEqualTo("No working airport in Kharkiv");
+        assertThat(response.legs().get(1).recommendedMode()).isNotNull().isNotEqualTo(TransportModeCode.PLANE);
+        assertThat(response.recommendedItinerary()).isNotNull();
+        assertThat(response.unavailableGroups()).extracting(UnavailableGroupResponse::message)
+                .contains("Not possible for the whole trip: plane (no working airport in Kharkiv)");
+    }
+
+    private static ModeOptionResponse planeOf(LegResponse leg) {
+        return leg.options().stream().filter(o -> o.mode() == TransportModeCode.PLANE).findFirst().orElseThrow();
     }
 
     private static ModeTotalsResponse totalsFor(ComparisonResponse response, TransportModeCode mode) {

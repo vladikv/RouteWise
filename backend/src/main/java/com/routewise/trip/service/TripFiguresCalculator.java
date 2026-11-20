@@ -37,7 +37,7 @@ public class TripFiguresCalculator {
     public Optional<TripFigures> figures(Trip trip, List<ModeParameters> modes, PriceBook prices) {
         List<RouteStop> stops = trip.stopCities().stream()
                 .map(city -> new RouteStop(new CitySummary(city.getId(), city.getName(), city.getCountry()),
-                        city.getLatitude(), city.getLongitude(), city.getLandmass()))
+                        city.getLatitude(), city.getLongitude(), city.getLandmass(), city.getAirportCode()))
                 .toList();
         RoutePlan plan = routePlanner.plan(stops, trip.getTravelers(), trip.getPriority(), modes, prices, List.of());
         return figures(plan);

@@ -45,8 +45,8 @@ class ComparisonMapperTest {
     void toResponse_mapsLegsWeatherTotalsAndRoundsDistances() {
         LocationForecast vienna = new LocationForecast(new Location("Vienna", 48.2, 16.37),
                 new WeatherForecast(DEPARTURE, 61, 2.0, 8.0, 80, 15.0));
-        Leg there = new Leg(BERLIN, VIENNA, 523.549, List.of(TRAIN));
-        Leg back = new Leg(VIENNA, BERLIN, 523.549, List.of(TRAIN));
+        Leg there = new Leg(BERLIN, VIENNA, 523.549, List.of(), List.of(TRAIN));
+        Leg back = new Leg(VIENNA, BERLIN, 523.549, List.of(), List.of(TRAIN));
         ItineraryTotals plan = new ItineraryTotals(List.of(TransportModeCode.TRAIN, TransportModeCode.TRAIN), 746,
                 new BigDecimal("301.56"), new BigDecimal("88.0"));
 
@@ -106,7 +106,7 @@ class ComparisonMapperTest {
 
         UnavailableGroup tooFar = new UnavailableGroup(UnavailableCode.TOO_FAR, List.of(TransportModeCode.BIKE),
                 "Too far between Berlin and Vienna for: bike");
-        RoutePlan routePlan = new RoutePlan(List.of(new Leg(BERLIN, VIENNA, 523.5, List.of(bike))), null, List.of(),
+        RoutePlan routePlan = new RoutePlan(List.of(new Leg(BERLIN, VIENNA, 523.5, List.of(), List.of(bike))), null, List.of(),
                 List.of(List.of(tooFar)), List.of());
 
         ComparisonResponse response = mapper.toResponse(null, DEPARTURE, 1, TripPriority.BALANCED,

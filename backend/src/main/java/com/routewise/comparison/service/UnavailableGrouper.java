@@ -77,6 +77,7 @@ public class UnavailableGrouper {
         return switch (code) {
             case DIFFERENT_LANDMASS -> "Not reachable by land " + between;
             case TOO_FAR -> "Too far " + between + " for";
+            case NO_AIRPORT -> ModeAvailability.noAirportReason(leg.citiesWithoutAirport());
         };
     }
 
@@ -85,7 +86,13 @@ public class UnavailableGrouper {
         return switch (code) {
             case DIFFERENT_LANDMASS -> "no land route " + between;
             case TOO_FAR -> "too far " + between;
+            case NO_AIRPORT -> lowerFirst(ModeAvailability.noAirportReason(leg.citiesWithoutAirport()));
         };
+    }
+
+    /** "No working airport in Kharkiv" becomes "no working airport in Kharkiv"; the city keeps its capital. */
+    private static String lowerFirst(String sentence) {
+        return sentence.substring(0, 1).toLowerCase(Locale.ROOT) + sentence.substring(1);
     }
 
     private static String modeList(List<TransportModeCode> modes) {

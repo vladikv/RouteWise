@@ -25,13 +25,13 @@ class ItineraryCalculatorTest {
     private final ItineraryCalculator calculator = new ItineraryCalculator();
 
     /** Leg 1: train recommended (60 min, 20.00, 5.0 kg); bus available; bike too far. */
-    private static final Leg BERLIN_PRAGUE = new Leg(BERLIN, PRAGUE, 280, List.of(
+    private static final Leg BERLIN_PRAGUE = new Leg(BERLIN, PRAGUE, 280, List.of(), List.of(
             option(TransportModeCode.TRAIN, 60, "20.00", "5.0", true),
             option(TransportModeCode.BUS, 90, "10.00", "3.0", false),
             unavailable(TransportModeCode.BIKE, "Route of 364 km exceeds the BIKE limit of 150 km")));
 
     /** Leg 2: bus recommended (45 min, 8.00, 2.0 kg); train and bike available. */
-    private static final Leg PRAGUE_VIENNA = new Leg(PRAGUE, VIENNA, 120, List.of(
+    private static final Leg PRAGUE_VIENNA = new Leg(PRAGUE, VIENNA, 120, List.of(), List.of(
             option(TransportModeCode.BUS, 45, "8.00", "2.0", true),
             option(TransportModeCode.TRAIN, 30, "15.00", "4.0", false),
             option(TransportModeCode.BIKE, 200, "0.00", "0.0", false)));
@@ -49,7 +49,7 @@ class ItineraryCalculatorTest {
 
     @Test
     void recommendedItinerary_isEmptyWhenALegHasNoAvailableMode() {
-        Leg blocked = new Leg(VIENNA, BERLIN, 520, List.of(unavailable(TransportModeCode.BIKE, "too far")));
+        Leg blocked = new Leg(VIENNA, BERLIN, 520, List.of(), List.of(unavailable(TransportModeCode.BIKE, "too far")));
 
         assertThat(calculator.recommendedItinerary(List.of(BERLIN_PRAGUE, blocked))).isEmpty();
     }
@@ -83,7 +83,7 @@ class ItineraryCalculatorTest {
 
     @Test
     void recommendedItinerary_legWithOnlyPlane_usesPlaneThereAndGroundElsewhere() {
-        Leg transatlantic = new Leg(PRAGUE, VIENNA, 5500, List.of(
+        Leg transatlantic = new Leg(PRAGUE, VIENNA, 5500, List.of(), List.of(
                 option(TransportModeCode.PLANE, 600, "500.00", "250.0", true),
                 unavailable(TransportModeCode.TRAIN, UnavailableCode.DIFFERENT_LANDMASS,
                         "No land route between the cities for TRAIN")));
@@ -99,7 +99,7 @@ class ItineraryCalculatorTest {
 
     @Test
     void singleModeTotals_modeUnavailableOnSecondLeg_carriesCodeAndNamesLeg() {
-        Leg transatlantic = new Leg(PRAGUE, VIENNA, 5500, List.of(
+        Leg transatlantic = new Leg(PRAGUE, VIENNA, 5500, List.of(), List.of(
                 option(TransportModeCode.PLANE, 600, "500.00", "250.0", true),
                 unavailable(TransportModeCode.TRAIN, UnavailableCode.DIFFERENT_LANDMASS,
                         "No land route between the cities for TRAIN")));

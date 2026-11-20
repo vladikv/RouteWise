@@ -9,12 +9,14 @@ import com.routewise.weather.domain.LocationForecast;
 /**
  * Everything the comparison engine needs for one leg; {@code forecasts} may be empty.
  *
- * @param sameLandmass whether both cities share a landmass (ground modes need it)
- * @param pricing      the leg's regional prices; {@link LegPricing#NONE} uses each mode's per-km cost
+ * @param sameLandmass         whether both cities share a landmass (ground modes need it)
+ * @param citiesWithoutAirport names of the leg's cities without a working airport (the plane is unavailable if any)
+ * @param pricing              the leg's regional prices; {@link LegPricing#NONE} uses each mode's per-km cost
  */
 public record ComparisonInput(
         double greatCircleKm,
         boolean sameLandmass,
+        List<String> citiesWithoutAirport,
         int travelers,
         TripPriority priority,
         List<ModeParameters> modes,

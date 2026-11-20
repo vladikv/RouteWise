@@ -39,7 +39,7 @@ public class ComparisonEngine {
         List<ModeOption> unavailable = new ArrayList<>();
         for (ModeParameters mode : input.modes()) {
             double routeKm = input.greatCircleKm() * routeFactor(mode.code());
-            ModeAvailability.check(mode, routeKm, input.sameLandmass()).ifPresentOrElse(
+            ModeAvailability.check(mode, routeKm, input.sameLandmass(), input.citiesWithoutAirport()).ifPresentOrElse(
                     why -> unavailable.add(unavailableOption(mode.code(), routeKm, why)),
                     () -> candidates.add(candidate(mode, routeKm, input)));
         }

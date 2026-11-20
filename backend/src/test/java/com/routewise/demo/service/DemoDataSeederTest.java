@@ -95,7 +95,7 @@ class DemoDataSeederTest {
     }
 
     private static CityResponse city(long id, String name) {
-        return new CityResponse(id, name, "XX", 0, 0, Continent.EUROPE, "EURASIA", false, 3);
+        return new CityResponse(id, name, "XX", 0, 0, Continent.EUROPE, "EURASIA", false, 3, "XXX");
     }
 
     private static List<TripStopRequest> stops(Long... cityIds) {
