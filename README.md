@@ -84,6 +84,17 @@ Every setting has a default; environment variables override them.
 | `ROUTEWISE_CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | Origins allowed to call the API |
 | `SERVER_PORT` | `8087` | API port |
 
+**Local `.env` file.** Instead of setting variables in every terminal, put them in a `.env` file at the repository
+root (next to this README). It is git-ignored and read by the API at start-up, both from `backend/` and from the
+root; a real environment variable with the same name wins. Lines are `NAME=value`, for example:
+
+```
+ROUTEWISE_FLIGHT_PRICES_API_KEY=
+ANTHROPIC_API_KEY=
+```
+
+Restart the API after changing it. Never commit it.
+
 ## How it works
 
 For each leg, the API takes the great-circle distance between the cities times a detour factor per mode, checks whether the mode
