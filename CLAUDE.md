@@ -58,7 +58,8 @@ UI: http://localhost:4200
 - Validate all input at the API boundary (Bean Validation on request DTOs).
 - Errors are returned as RFC 7807 Problem Details via a global handler.
 - Every new endpoint or service method gets a test in the same change.
-- Never hardcode secrets. Read them from environment variables.
+- Never hardcode secrets. Read them from environment variables; locally they may sit in the
+  git-ignored `.env` at the repository root (imported by Spring Boot). Never read, write or commit `.env`.
 
 ## Git conventions
 
