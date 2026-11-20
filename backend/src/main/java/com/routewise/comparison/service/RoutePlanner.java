@@ -2,6 +2,7 @@ package com.routewise.comparison.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 import com.routewise.comparison.domain.ComparisonInput;
 import com.routewise.comparison.domain.Leg;
@@ -61,9 +62,18 @@ public class RoutePlanner {
                 .filter(f -> f.location().name().equals(from.city().name())
                         || f.location().name().equals(to.city().name()))
                 .toList();
+        List<String> withoutAirport = citiesWithoutAirport(from, to);
         List<ModeOption> options = comparisonEngine.compare(new ComparisonInput(distanceKm,
-                from.landmass().equals(to.landmass()), travelers, priority, modes,
+                from.landmass().equals(to.landmass()), withoutAirport, travelers, priority, modes,
                 prices.forLeg(from.city().country(), to.city().country()), legWeather));
-        return new Leg(from.city(), to.city(), distanceKm, options);
+        return new Leg(from.city(), to.city(), distanceKm, withoutAirport, options);
+    }
+
+    private static List<String> citiesWithoutAirport(RouteStop from, RouteStop to) {
+        return Stream.of(from, to)
+                .filter(stop -> !stop.hasAirport())
+                .map(stop -> stop.city().name())
+                .distinct()
+                .toList();
     }
 }

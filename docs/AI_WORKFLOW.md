@@ -857,3 +857,40 @@ mistakes before a human has to.
 
 **Why**
 - Costs stay a pure function of seeded data, so the app keeps running with zero configuration and every figure (comparison, trip list, stats) comes from the same rules.
+
+## feat/airport-availability (the plane only between cities with an airport)
+
+**Delegated to AI**
+- Explained how flight time and cost are computed. Planned this milestone and `feat/live-flight-prices`, wrote both into the plan (#190, #191) and did the milestone.
+- Chose an IATA code for each of the 422 cities, applying one rule (#192). A script checked that every seeded city got exactly one entry and generated `V15`. `V14` adds the column and a check constraint.
+- Built the rule:
+  - `NO_AIRPORT` in `ModeAvailability`, with the city names carried through `ComparisonInput`, `RouteStop` and `Leg`;
+  - grouped messages in `UnavailableGrouper`;
+  - `airportCode` in `GET /api/cities`;
+  - in the UI, the new code and a "try a stop in between" hint when no mode can make a leg. The single-leg chart no longer shows empty bars there.
+- Wrote the tests:
+  - backend: migration, availability, engine, grouper, comparison service (London → Kharkiv, London → Krakow → Kharkiv), trip figures and controller;
+  - frontend: chart and itinerary view.
+- Ran a `backend-reviewer` pass and checked both routes on the running API.
+- Ran the checks, all green: `./mvnw verify` (500 tests), `npm test` (749) and `npm run lint`.
+
+**Human decisions**
+- Plane unavailable instead of an automatic flight to the nearest airport plus a ground leg.
+- Live prices for flights only, from a provider chosen at the start of that milestone.
+- Cherry-pick the plan commit into this branch. It had missed the merged regional-pricing PR.
+
+**Found by the human**
+- The comparison suggested a direct London → Kharkiv flight and its time looked wrong. Plane costs differ from flight search sites.
+  - The human remembered 4.5 h. The API returned 5 h 53 min (150 min of airport overhead plus 2537 km at 750 km/h). The real flaw was that Kharkiv has no flights at all.
+
+**AI self-corrections**
+- The `backend-reviewer` found three gaps:
+  - no test for the "London → Krakow → Kharkiv gives a plan" case of the definition of done;
+  - no test for the trip-figures path;
+  - the "No working airport" wording repeated in three places.
+  All three were fixed. It also flagged a wrong javadoc ("the plane needs none").
+- While centralising that wording, the AI noticed that lowercasing the whole reason for the totals sentence would also lowercase the city name ("kharkiv"). Only the first letter is lowercased now.
+- Left open: a few codes are estimates that the human should verify (listed in #192). The live provider is chosen in the next milestone.
+
+**Why**
+- Closed airspace is data (`airport_code` NULL), not code. A city that gets or loses its airport changes in one migration, and the same codes feed the live flight prices later.

@@ -84,6 +84,9 @@ describe('ItineraryView', () => {
     expect(view.querySelector('.leg--blocked')?.textContent).toContain(
       'Too far between Prague and Vienna for: bus, train',
     );
+    expect(view.querySelector('.leg--blocked')?.textContent).toContain(
+      'Try the route with a stop in between, for example a city with an airport.',
+    );
   });
 
   describe('modes that cannot be used on every leg', () => {

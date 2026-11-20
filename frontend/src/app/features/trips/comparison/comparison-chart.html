@@ -4,74 +4,80 @@
   <p class="insight">{{ takeaway }}</p>
 }
 
-<div class="toolbar">
-  <app-tabs
-    #tabs
-    ariaLabel="Compare by"
-    [idPrefix]="tabsId"
-    [options]="metrics"
-    [(value)]="metric"
-  />
-  <span class="muted hint">{{ definition().hint }}</span>
-</div>
+@if (rows().length === 0) {
+  <p class="no-mode">
+    <strong>No transport mode is available on this route.</strong> {{ addStopHint }}
+  </p>
+} @else {
+  <div class="toolbar">
+    <app-tabs
+      #tabs
+      ariaLabel="Compare by"
+      [idPrefix]="tabsId"
+      [options]="metrics"
+      [(value)]="metric"
+    />
+    <span class="muted hint">{{ definition().hint }}</span>
+  </div>
 
-<div
-  role="tabpanel"
-  tabindex="0"
-  [id]="tabs.panelId(metric())"
-  [attr.aria-labelledby]="tabs.tabId(metric())"
->
-  <ol class="bars">
-    @for (row of rows(); track row.option.mode) {
-      <li class="bar" [class.bar--best]="row.best" [attr.title]="row.tooltip">
-        <span class="bar__label">
-          <app-mode-icon [mode]="row.option.mode" />
-          {{ modeLabels[row.option.mode] }}
-          @if (row.best) {
-            <span class="best-label">{{ definition().bestLabel }}</span>
-          }
-          @if (row.option.recommended) {
-            <!-- A space so this badge and the label before it do not run together in the text. -->
-            {{ ' ' }}<span class="badge badge--recommended">★ Recommended</span>
-          }
-        </span>
-        <span class="bar__track" aria-hidden="true">
-          <span class="bar__fill" [style.width.%]="row.percent"></span>
-        </span>
-        <span class="bar__value">
-          @switch (metric()) {
-            @case ('time') {
-              {{ durationLabel(row.option.durationMinutes ?? 0) }}
+  <div
+    role="tabpanel"
+    tabindex="0"
+    [id]="tabs.panelId(metric())"
+    [attr.aria-labelledby]="tabs.tabId(metric())"
+  >
+    <ol class="bars">
+      @for (row of rows(); track row.option.mode) {
+        <li class="bar" [class.bar--best]="row.best" [attr.title]="row.tooltip">
+          <span class="bar__label">
+            <app-mode-icon [mode]="row.option.mode" />
+            {{ modeLabels[row.option.mode] }}
+            @if (row.best) {
+              <span class="best-label">{{ definition().bestLabel }}</span>
             }
-            @case ('cost') {
-              {{ row.option.totalCost | currency: data.currency : 'symbol' : '1.2-2' }}
+            @if (row.option.recommended) {
+              <!-- A space so this badge and the label before it do not run together in the text. -->
+              {{ ' ' }}<span class="badge badge--recommended">★ Recommended</span>
             }
-            @case ('co2') {
-              {{ row.option.co2Kg | number: '1.1-1' }} kg
+          </span>
+          <span class="bar__track" aria-hidden="true">
+            <span class="bar__fill" [style.width.%]="row.percent"></span>
+          </span>
+          <span class="bar__value">
+            @switch (metric()) {
+              @case ('time') {
+                {{ durationLabel(row.option.durationMinutes ?? 0) }}
+              }
+              @case ('cost') {
+                {{ row.option.totalCost | currency: data.currency : 'symbol' : '1.2-2' }}
+              }
+              @case ('co2') {
+                {{ row.option.co2Kg | number: '1.1-1' }} kg
+              }
+              @default {
+                {{ row.option.score }}
+                <span class="visually-hidden">out of 100</span>
+              }
             }
-            @default {
-              {{ row.option.score }}
-              <span class="visually-hidden">out of 100</span>
-            }
-          }
-        </span>
-      </li>
+          </span>
+        </li>
+      }
+    </ol>
+  </div>
+
+  <p class="priority-note muted">
+    Recommended for your priority:
+    @if (priorityLink(); as link) {
+      <a class="priority-note__link" [routerLink]="link">{{ priorityLabels[data.priority] }}</a
+      >.
+    } @else {
+      <button type="button" class="priority-note__link" (click)="priorityEdit.emit()">
+        {{ priorityLabels[data.priority] }}</button
+      >.
     }
-  </ol>
-</div>
-
-<p class="priority-note muted">
-  Recommended for your priority:
-  @if (priorityLink(); as link) {
-    <a class="priority-note__link" [routerLink]="link">{{ priorityLabels[data.priority] }}</a
-    >.
-  } @else {
-    <button type="button" class="priority-note__link" (click)="priorityEdit.emit()">
-      {{ priorityLabels[data.priority] }}</button
-    >.
-  }
-  Change the priority to see a different recommendation.
-</p>
+    Change the priority to see a different recommendation.
+  </p>
+}
 
 @for (group of unavailable(); track group.code) {
   <p class="unavailable muted">

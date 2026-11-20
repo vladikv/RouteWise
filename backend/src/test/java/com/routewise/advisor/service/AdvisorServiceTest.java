@@ -203,8 +203,8 @@ class AdvisorServiceTest {
 
     private void lenientCities() {
         lenient().when(cityService.findAll(null)).thenReturn(List.of(
-                new CityResponse(1L, "Berlin", "DE", 52.52, 13.405, Continent.EUROPE, "EURASIA", true, 1),
-                new CityResponse(2L, "Vienna", "AT", 48.2082, 16.3738, Continent.EUROPE, "EURASIA", true, 1)));
+                new CityResponse(1L, "Berlin", "DE", 52.52, 13.405, Continent.EUROPE, "EURASIA", true, 1, "BER"),
+                new CityResponse(2L, "Vienna", "AT", 48.2082, 16.3738, Continent.EUROPE, "EURASIA", true, 1, "VIE")));
     }
 
     private void stubTrip() {

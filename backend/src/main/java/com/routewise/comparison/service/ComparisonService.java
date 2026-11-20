@@ -91,7 +91,8 @@ public class ComparisonService {
         WeatherReport weather = weatherService.report(distinctLocations(stops), departureDate);
         List<LocationForecast> forecasts = weather.forecasts();
         List<RouteStop> route = stops.stream()
-                .map(city -> new RouteStop(summary(city), city.getLatitude(), city.getLongitude(), city.getLandmass()))
+                .map(city -> new RouteStop(summary(city), city.getLatitude(), city.getLongitude(), city.getLandmass(),
+                        city.getAirportCode()))
                 .toList();
         RoutePlan plan = routePlanner.plan(route, travelers, priority, modes, pricingService.priceBook(), forecasts);
         return comparisonMapper.toResponse(tripId, departureDate, travelers, priority, weather, plan);

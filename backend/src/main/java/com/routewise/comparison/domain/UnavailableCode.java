@@ -7,5 +7,7 @@ public enum UnavailableCode {
     /** A ground mode between cities that no land route (or fixed link) joins. */
     DIFFERENT_LANDMASS,
     /** The route is longer than the mode's maximum distance. */
-    TOO_FAR
+    TOO_FAR,
+    /** The plane, when a city of the leg has no working airport. */
+    NO_AIRPORT
 }

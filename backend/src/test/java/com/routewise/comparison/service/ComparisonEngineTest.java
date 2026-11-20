@@ -199,7 +199,7 @@ class ComparisonEngineTest {
         ModeParameters bus = new ModeParameters(TransportModeCode.BUS, 75, new BigDecimal("0.060"), 27, 20, 2500, null);
 
         List<ModeOption> options = engine.compare(
-                new ComparisonInput(100, true, 1, TripPriority.BALANCED, List.of(car, bus),
+                new ComparisonInput(100, true, List.of(), 1, TripPriority.BALANCED, List.of(car, bus),
                         LegPricing.NONE, List.of()));
 
         assertThat(options).extracting(ModeOption::mode, ModeOption::score, ModeOption::recommended)
@@ -213,7 +213,7 @@ class ComparisonEngineTest {
         List<ModeParameters> bikeOnly = List.of(SEEDED_MODES.get(3));
 
         List<ModeOption> options = engine.compare(
-                new ComparisonInput(500, true, 1, TripPriority.BALANCED, bikeOnly, LegPricing.NONE, List.of()));
+                new ComparisonInput(500, true, List.of(), 1, TripPriority.BALANCED, bikeOnly, LegPricing.NONE, List.of()));
 
         assertThat(options).singleElement().satisfies(option -> {
             assertThat(option.available()).isFalse();
@@ -225,7 +225,7 @@ class ComparisonEngineTest {
     void compare_singleAvailableMode_scores100AndIsRecommended() {
         List<ModeParameters> trainOnly = List.of(SEEDED_MODES.getFirst());
         List<ModeOption> options = engine.compare(
-                new ComparisonInput(100, true, 1, TripPriority.BALANCED, trainOnly, LegPricing.NONE, List.of()));
+                new ComparisonInput(100, true, List.of(), 1, TripPriority.BALANCED, trainOnly, LegPricing.NONE, List.of()));
 
         assertThat(options).singleElement().satisfies(option -> {
             assertThat(option.score()).isEqualTo(100);
@@ -236,7 +236,7 @@ class ComparisonEngineTest {
     @Test
     void compare_crossLandmassLeg_groundModesUnavailableWithCodeAndPlaneRecommended() {
         // Paris-New York is about 5837 km great circle; use 6000 km, 1 traveler.
-        ComparisonInput input = new ComparisonInput(6000, false, 1, TripPriority.BALANCED, SEEDED_MODES,
+        ComparisonInput input = new ComparisonInput(6000, false, List.of(), 1, TripPriority.BALANCED, SEEDED_MODES,
                 LegPricing.NONE, List.of());
 
         List<ModeOption> options = engine.compare(input);
@@ -259,7 +259,7 @@ class ComparisonEngineTest {
     @Test
     void compare_shortCrossLandmassLeg_onlyPlaneIsAvailable() {
         // Dublin to London is about 460 km: within every ground limit, but no land route.
-        ComparisonInput input = new ComparisonInput(460, false, 1, TripPriority.CHEAPEST, SEEDED_MODES,
+        ComparisonInput input = new ComparisonInput(460, false, List.of(), 1, TripPriority.CHEAPEST, SEEDED_MODES,
                 LegPricing.NONE, List.of());
 
         List<ModeOption> options = engine.compare(input);
@@ -274,7 +274,7 @@ class ComparisonEngineTest {
 
     @Test
     void compare_longHaulFlight_usesTheLongHaulFactor() {
-        ComparisonInput input = new ComparisonInput(6000, false, 2, TripPriority.BALANCED, SEEDED_MODES,
+        ComparisonInput input = new ComparisonInput(6000, false, List.of(), 2, TripPriority.BALANCED, SEEDED_MODES,
                 LegPricing.NONE, List.of());
 
         ModeOption plane = option(engine.compare(input), TransportModeCode.PLANE);
@@ -288,9 +288,9 @@ class ComparisonEngineTest {
 
     @Test
     void compare_flightAtExactlyTheThreshold_usesTheShortHaulFactor() {
-        ComparisonInput atThreshold = new ComparisonInput(3700, false, 1, TripPriority.BALANCED, SEEDED_MODES,
+        ComparisonInput atThreshold = new ComparisonInput(3700, false, List.of(), 1, TripPriority.BALANCED, SEEDED_MODES,
                 LegPricing.NONE, List.of());
-        ComparisonInput above = new ComparisonInput(3701, false, 1, TripPriority.BALANCED, SEEDED_MODES,
+        ComparisonInput above = new ComparisonInput(3701, false, List.of(), 1, TripPriority.BALANCED, SEEDED_MODES,
                 LegPricing.NONE, List.of());
 
         // 183 * 3700 / 1000 = 677.1 kg short-haul; 200 * 3701 / 1000 = 740.2 kg long-haul
@@ -300,8 +300,36 @@ class ComparisonEngineTest {
     }
 
     @Test
+    void compare_londonToKharkiv_planeHasNoAirportAndNothingIsRecommended() {
+        // About 2537 km great circle. Ground routes: train 3044 km > 2000, bus/car 3298 km > 2500/3000, bike > 150.
+        ComparisonInput input = new ComparisonInput(2537, true, List.of("Kharkiv"), 1, TripPriority.FASTEST,
+                SEEDED_MODES, LegPricing.NONE, List.of());
+
+        List<ModeOption> options = engine.compare(input);
+
+        assertThat(options).noneMatch(ModeOption::available).noneMatch(ModeOption::recommended);
+        ModeOption plane = option(options, TransportModeCode.PLANE);
+        assertThat(plane.unavailableCode()).isEqualTo(UnavailableCode.NO_AIRPORT);
+        assertThat(plane.unavailableReason()).isEqualTo("No working airport in Kharkiv");
+        assertThat(plane.durationMinutes()).isNull();
+        assertThat(plane.totalCost()).isNull();
+    }
+
+    @Test
+    void compare_shortLegWithoutAirport_groundModesStayAvailable() {
+        ComparisonInput input = new ComparisonInput(400, true, List.of("Kyiv", "Kharkiv"), 1, TripPriority.FASTEST,
+                SEEDED_MODES, LegPricing.NONE, List.of());
+
+        List<ModeOption> options = engine.compare(input);
+
+        assertThat(options).filteredOn(ModeOption::available).extracting(ModeOption::mode)
+                .containsExactlyInAnyOrder(TransportModeCode.TRAIN, TransportModeCode.BUS, TransportModeCode.CAR);
+        assertThat(option(options, TransportModeCode.PLANE).unavailableCode()).isEqualTo(UnavailableCode.NO_AIRPORT);
+    }
+
+    @Test
     void compare_sameLandmassLongLeg_groundModeBeyondLimitIsTooFar() {
-        ComparisonInput input = new ComparisonInput(500, true, 1, TripPriority.BALANCED, SEEDED_MODES,
+        ComparisonInput input = new ComparisonInput(500, true, List.of(), 1, TripPriority.BALANCED, SEEDED_MODES,
                 LegPricing.NONE, List.of());
 
         ModeOption bike = option(engine.compare(input), TransportModeCode.BIKE);
@@ -316,7 +344,7 @@ class ComparisonEngineTest {
         LegPricing pricing = new LegPricing(new BigDecimal("1.750"), new BigDecimal("0.000"),
                 Map.of(TransportModeCode.TRAIN, new Fare(new BigDecimal("5.00"), new BigDecimal("0.140"))));
 
-        List<ModeOption> options = engine.compare(new ComparisonInput(100, true, 1, TripPriority.BALANCED,
+        List<ModeOption> options = engine.compare(new ComparisonInput(100, true, List.of(), 1, TripPriority.BALANCED,
                 SEEDED_MODES, pricing, List.of()));
 
         assertThat(options).filteredOn(ModeOption::available)
@@ -328,7 +356,7 @@ class ComparisonEngineTest {
 
     private static ComparisonInput input(double km, int travelers, TripPriority priority,
                                          List<LocationForecast> forecasts) {
-        return new ComparisonInput(km, true, travelers, priority, SEEDED_MODES, LegPricing.NONE, forecasts);
+        return new ComparisonInput(km, true, List.of(), travelers, priority, SEEDED_MODES, LegPricing.NONE, forecasts);
     }
 
     private static LocationForecast forecast(String city, int weatherCode, double minTemperature) {

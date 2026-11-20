@@ -99,6 +99,35 @@ describe('ComparisonChart', () => {
       ?.querySelector('.bar__label')
       ?.textContent?.replace(/★ Recommended|Best score|Fastest|Cheapest|Lowest CO₂/g, '')
       .trim();
+  it('says that nothing is available and suggests a stop when no mode can make the leg', async () => {
+    // London-Kharkiv: every ground mode too far, the plane without an airport in Kharkiv.
+    fixture.componentRef.setInput('comparison', {
+      ...LEG_COMPARISON,
+      options: [
+        option({ mode: 'TRAIN', available: false, unavailableCode: 'TOO_FAR', score: 0 }),
+        option({
+          mode: 'PLANE',
+          available: false,
+          unavailableCode: 'NO_AIRPORT',
+          unavailableReason: 'No working airport in Kharkiv',
+          score: 0,
+        }),
+      ],
+      unavailableGroups: [
+        { code: 'NO_AIRPORT', modes: ['PLANE'], message: 'No working airport in Kharkiv: plane' },
+      ],
+    });
+    await fixture.whenStable();
+
+    expect(chart.querySelector('.no-mode')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'No transport mode is available on this route. ' +
+        'Try the route with a stop in between, for example a city with an airport.',
+    );
+    expect(chart.querySelector('[role="tabpanel"]')).toBeNull();
+    expect(chart.querySelector('.priority-note')).toBeNull();
+    expect(chart.textContent).toContain('No working airport in Kharkiv: plane');
+  });
+
   const widths = (): string[] =>
     Array.from(chart.querySelectorAll<HTMLElement>('.bar__fill')).map((fill) => fill.style.width);
 

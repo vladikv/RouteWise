@@ -14,7 +14,7 @@ import {
   metricValue,
   sortByMetric,
 } from './comparison-metric';
-import { LegComparison } from './leg-comparison';
+import { ADD_STOP_HINT, LegComparison } from './leg-comparison';
 
 interface Row {
   option: ModeOption;
@@ -60,6 +60,7 @@ export class ComparisonChart {
   protected readonly modeLabels = MODE_LABELS;
   protected readonly priorityLabels = PRIORITY_LABELS;
   protected readonly durationLabel = durationLabel;
+  protected readonly addStopHint = ADD_STOP_HINT;
 
   protected readonly insight = computed(() => comparisonInsight(this.comparison()));
 

@@ -14,7 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * Seeded reference data (see the V2, V6 and V7 migrations); read-only for the application.
+ * Seeded reference data (see the V2, V6, V7, V11, V14 and V15 migrations); read-only for the application.
  */
 @Entity
 @Table(name = "city")
@@ -52,4 +52,8 @@ public class City {
     /** Map label priority: 1 is labelled first, 3 only when zoomed in. */
     @Column(name = "label_rank", nullable = false)
     private int labelRank;
+
+    /** IATA code of the airport that serves the city; {@code null} when it has no working airport (V14/V15). */
+    @Column(name = "airport_code", length = 3)
+    private String airportCode;
 }

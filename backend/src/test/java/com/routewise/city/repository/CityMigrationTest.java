@@ -1,6 +1,7 @@
 package com.routewise.city.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -130,6 +131,40 @@ class CityMigrationTest {
         assertThat(count("SELECT COUNT(*) FROM transport_mode WHERE code <> 'PLANE' "
                 + "AND long_haul_co2_grams_per_km IS NOT NULL")).isZero();
         assertThat(count("SELECT COUNT(*) FROM transport_mode")).isEqualTo(5);
+    }
+
+    @Test
+    void migrate_v15GivesEveryCityAnAirportExceptTheListedOnes() throws SQLException {
+        // Ukraine: airspace closed; Khartoum: airport out of service; the rest: no airport within about 60 km.
+        assertThat(column("SELECT name FROM city WHERE airport_code IS NULL ORDER BY name")).containsExactly(
+                "Dover", "Kharkiv", "Khartoum", "Kyiv", "Lviv", "Novi Sad", "Odesa", "Topeka", "Valparaíso");
+    }
+
+    @Test
+    void migrate_everyAirportCodeIsThreeCapitalLetters() throws SQLException {
+        assertThat(count("SELECT COUNT(*) FROM city WHERE airport_code IS NOT NULL "
+                + "AND NOT REGEXP_LIKE(airport_code, '^[A-Z]{3}$')")).isZero();
+    }
+
+    @Test
+    void migrate_v15UsesTheMainAirportOrTheNearbyOneForCitiesWithoutTheirOwn() throws SQLException {
+        assertThat(column("SELECT name || ':' || airport_code FROM city "
+                + "WHERE name IN ('London', 'Krakow', 'New York', 'Utrecht', 'Kyoto') ORDER BY name"))
+                .containsExactly("Krakow:KRK", "Kyoto:ITM", "London:LHR", "New York:JFK", "Utrecht:AMS");
+    }
+
+    @Test
+    void migrate_v14RejectsAnAirportCodeThatIsNotThreeCapitalLetters() {
+        assertThatThrownBy(() -> execute("UPDATE city SET airport_code = 'lh' WHERE name = 'London'"))
+                .isInstanceOf(SQLException.class)
+                .hasMessageContaining("CK_CITY_AIRPORT_CODE");
+    }
+
+    private void execute(String sql) throws SQLException {
+        try (Connection connection = DriverManager.getConnection(url, "sa", "");
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate(sql);
+        }
     }
 
     private int count(String sql) throws SQLException {

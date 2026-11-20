@@ -12,7 +12,7 @@ public class CityMapper {
     public CityResponse toResponse(City city) {
         return new CityResponse(city.getId(), city.getName(), city.getCountry(),
                 city.getLatitude(), city.getLongitude(), city.getContinent(), city.getLandmass(),
-                city.isCapital(), city.getLabelRank());
+                city.isCapital(), city.getLabelRank(), city.getAirportCode());
     }
 
     public CitySummary toSummary(City city) {
