@@ -9,6 +9,7 @@ import com.routewise.city.dto.CitySummary;
 import com.routewise.comparison.domain.ItineraryTotals;
 import com.routewise.comparison.domain.ModeParameters;
 import com.routewise.comparison.domain.ModeTotals;
+import com.routewise.comparison.domain.PlaneFares;
 import com.routewise.comparison.domain.RoutePlan;
 import com.routewise.comparison.domain.RouteStop;
 import com.routewise.comparison.service.RoutePlanner;
@@ -39,7 +40,8 @@ public class TripFiguresCalculator {
                 .map(city -> new RouteStop(new CitySummary(city.getId(), city.getName(), city.getCountry()),
                         city.getLatitude(), city.getLongitude(), city.getLandmass(), city.getAirportCode()))
                 .toList();
-        RoutePlan plan = routePlanner.plan(stops, trip.getTravelers(), trip.getPriority(), modes, prices, List.of());
+        RoutePlan plan = routePlanner.plan(stops, trip.getTravelers(), trip.getPriority(), modes, prices,
+                PlaneFares.NONE, List.of());
         return figures(plan);
     }
 

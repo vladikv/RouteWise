@@ -21,6 +21,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import com.routewise.city.TestCities;
@@ -29,6 +30,7 @@ import com.routewise.city.repository.CityRepository;
 import com.routewise.common.exception.FieldValidationException;
 import com.routewise.common.exception.ResourceNotFoundException;
 import com.routewise.common.exception.ValidationError;
+import com.routewise.comparison.domain.CostSource;
 import com.routewise.comparison.domain.ModeParameters;
 import com.routewise.comparison.domain.UnavailableCode;
 import com.routewise.comparison.dto.ComparisonRequest;
@@ -38,6 +40,9 @@ import com.routewise.comparison.dto.ModeOptionResponse;
 import com.routewise.comparison.dto.ModeTotalsResponse;
 import com.routewise.comparison.dto.UnavailableGroupResponse;
 import com.routewise.comparison.mapper.ComparisonMapper;
+import com.routewise.flightprice.domain.AirportPair;
+import com.routewise.flightprice.domain.LiveFare;
+import com.routewise.flightprice.service.FlightPriceService;
 import com.routewise.pricing.repository.CountryPricingRepository;
 import com.routewise.pricing.repository.RegionalFareRepository;
 import com.routewise.pricing.service.PricingService;
@@ -87,6 +92,10 @@ class ComparisonServiceTest {
     @Mock
     private WeatherService weatherService;
 
+    /** Mockito answers a {@code Map} method with an empty map: no live fares unless a test stubs one. */
+    @Mock
+    private FlightPriceService flightPriceService;
+
     private ComparisonService comparisonService;
 
     private final City berlin = TestCities.berlin();
@@ -99,7 +108,7 @@ class ComparisonServiceTest {
         PricingService noPrices = new PricingService(mock(CountryPricingRepository.class),
                 mock(RegionalFareRepository.class));
         comparisonService = new ComparisonService(tripRepository, new StopResolver(cityRepository),
-                transportModeRepository, noPrices, weatherService,
+                transportModeRepository, noPrices, flightPriceService, weatherService,
                 new RoutePlanner(new ComparisonEngine(), new ItineraryCalculator(), new UnavailableGrouper()),
                 new ComparisonMapper(), CLOCK);
     }
@@ -226,7 +235,7 @@ class ComparisonServiceTest {
         when(fares.findAll()).thenReturn(List.of(fare("EUROPE_WEST", TransportModeCode.TRAIN, "5.00", "0.140"),
                 fare("EUROPE_EAST", TransportModeCode.TRAIN, "2.00", "0.060")));
         ComparisonService priced = new ComparisonService(tripRepository, new StopResolver(cityRepository),
-                transportModeRepository, new PricingService(countries, fares), weatherService,
+                transportModeRepository, new PricingService(countries, fares), flightPriceService, weatherService,
                 new RoutePlanner(new ComparisonEngine(), new ItineraryCalculator(), new UnavailableGrouper()),
                 new ComparisonMapper(), CLOCK);
         knownCities(berlin, prague);
@@ -304,7 +313,8 @@ class ComparisonServiceTest {
         LegResponse leg = response.legs().getFirst();
         assertThat(leg.recommendedMode()).isNull();
         assertThat(leg.options()).noneMatch(ModeOptionResponse::available);
-        assertThat(leg.unavailableGroups()).extracting(UnavailableGroupResponse::code, UnavailableGroupResponse::message)
+        assertThat(leg.unavailableGroups())
+                .extracting(UnavailableGroupResponse::code, UnavailableGroupResponse::message)
                 .contains(tuple(UnavailableCode.NO_AIRPORT, "No working airport in Kharkiv: plane"));
         assertThat(response.recommendedItinerary()).isNull();
     }
@@ -325,6 +335,55 @@ class ComparisonServiceTest {
         assertThat(response.recommendedItinerary()).isNotNull();
         assertThat(response.unavailableGroups()).extracting(UnavailableGroupResponse::message)
                 .contains("Not possible for the whole trip: plane (no working airport in Kharkiv)");
+    }
+
+    @Test
+    void preview_withALiveFare_pricesThePlaneFromItAndMarksItLive() {
+        knownCities(berlin, vienna);
+        when(transportModeRepository.findAll()).thenReturn(seededModes());
+        when(weatherService.report(anyList(), eq(DEPARTURE))).thenReturn(weather());
+        Instant fetched = Instant.parse("2026-11-11T09:30:00Z");
+        when(flightPriceService.cheapestFares(List.of(new AirportPair("BER", "VIE")), DEPARTURE))
+                .thenReturn(Map.of(new AirportPair("BER", "VIE"), new LiveFare(new BigDecimal("79"), fetched)));
+
+        ComparisonResponse response = comparisonService.preview(request(DEPARTURE, 1L, 2L));
+
+        // 3 travelers (see request): 79 EUR x 3 = 237.00; every other mode keeps its estimate.
+        LegResponse leg = response.legs().getFirst();
+        assertThat(planeOf(leg)).satisfies(plane -> {
+            assertThat(plane.totalCost()).isEqualByComparingTo("237.00");
+            assertThat(plane.costSource()).isEqualTo(CostSource.LIVE);
+            assertThat(plane.costRetrievedAt()).isEqualTo(fetched);
+        });
+        assertThat(leg.options()).filteredOn(o -> o.available() && o.mode() != TransportModeCode.PLANE)
+                .isNotEmpty()
+                .allSatisfy(option -> {
+                    assertThat(option.costSource()).isEqualTo(CostSource.ESTIMATE);
+                    assertThat(option.costRetrievedAt()).isNull();
+                });
+    }
+
+    @Test
+    void preview_withoutALiveFare_keepsThePlaneEstimate() {
+        knownCities(berlin, vienna);
+        when(transportModeRepository.findAll()).thenReturn(seededModes());
+        when(weatherService.report(anyList(), eq(DEPARTURE))).thenReturn(weather());
+
+        ComparisonResponse response = comparisonService.preview(request(DEPARTURE, 1L, 2L));
+
+        assertThat(planeOf(response.legs().getFirst()).costSource()).isEqualTo(CostSource.ESTIMATE);
+    }
+
+    @Test
+    void preview_asksForLiveFaresOnlyForLegsBetweenTwoAirports() {
+        knownCities(TestCities.london(), TestCities.krakow(), TestCities.kharkiv());
+        when(transportModeRepository.findAll()).thenReturn(seededModes());
+        when(weatherService.report(anyList(), eq(DEPARTURE))).thenReturn(weather());
+
+        comparisonService.preview(request(DEPARTURE, 4L, 9L, 8L));
+
+        // Kharkiv has no airport code, so only the first leg is a flight route.
+        verify(flightPriceService).cheapestFares(List.of(new AirportPair("LHR", "KRK")), DEPARTURE);
     }
 
     private static ModeOptionResponse planeOf(LegResponse leg) {

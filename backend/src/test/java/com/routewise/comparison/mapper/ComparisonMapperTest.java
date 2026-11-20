@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import com.routewise.city.dto.CitySummary;
+import com.routewise.comparison.domain.CostSource;
 import com.routewise.comparison.domain.ItineraryTotals;
 import com.routewise.comparison.domain.Leg;
 import com.routewise.comparison.domain.ModeOption;
@@ -39,7 +40,7 @@ class ComparisonMapperTest {
     private final ComparisonMapper mapper = new ComparisonMapper();
 
     private static final ModeOption TRAIN = new ModeOption(TransportModeCode.TRAIN, true, null, null, 628.25, 373,
-            new BigDecimal("150.78"), new BigDecimal("44.0"), 87, true, List.of("note"));
+            new BigDecimal("150.78"), new BigDecimal("44.0"), 87, true, List.of("note"), CostSource.ESTIMATE, null);
 
     @Test
     void toResponse_mapsLegsWeatherTotalsAndRoundsDistances() {
@@ -102,7 +103,7 @@ class ComparisonMapperTest {
     @Test
     void toResponse_withoutAPlan_hasNullItineraryAndLegWithoutRecommendation() {
         ModeOption bike = new ModeOption(TransportModeCode.BIKE, false, UnavailableCode.TOO_FAR, "too far", 680, null, null, null, 0, false,
-                List.of());
+                List.of(), null, null);
 
         UnavailableGroup tooFar = new UnavailableGroup(UnavailableCode.TOO_FAR, List.of(TransportModeCode.BIKE),
                 "Too far between Berlin and Vienna for: bike");

@@ -37,6 +37,14 @@ routewise:
     read-timeout: 3s
     # Forecasts are reused per city and date for this long (Caffeine cache).
     cache-ttl: ${ROUTEWISE_WEATHER_CACHE_TTL:1h}
+  flight-prices:
+    # Optional. With a SerpApi key (https://serpapi.com, Google Flights engine) comparisons show the
+    # cheapest live flight price; without one, plane costs stay the regional estimate.
+    api-key: ${ROUTEWISE_FLIGHT_PRICES_API_KEY:}
+    connect-timeout: 2s
+    read-timeout: 10s
+    # A fare (or "no flight that day") is reused per airports and date for this long; saves the quota.
+    cache-ttl: ${ROUTEWISE_FLIGHT_PRICES_CACHE_TTL:6h}
   advisor:
     # Optional. Without a key the advisor uses its built-in rules.
     api-key: ${ANTHROPIC_API_KEY:}

@@ -105,6 +105,13 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
   retry interceptor would not see the annotation on the implementation.
   `WeatherService.report` returns the forecasts plus a `WeatherStatus`
   (`AVAILABLE`, `PARTIAL`, `UNAVAILABLE`, `OUT_OF_RANGE`) that comparisons pass on.
+  Live flight prices (`flightprice` feature, optional): `SerpApiFlightPriceClient` (Google Flights engine)
+  exists only with `routewise.flight-prices.api-key` (`FlightPriceApiKeyCondition`, env
+  `ROUTEWISE_FLIGHT_PRICES_API_KEY`) and is retried once like the weather client. `FlightPriceService.cheapestFares`
+  asks a request's routes in parallel, keeps answers (also "no flight") in its own Caffeine cache, not Spring
+  Cache (the app's one `CacheManager` belongs to the weather), pauses every lookup for a minute after a failure,
+  and logs only the exception type, because a `RestClient` message can contain the URL with the key.
+  `ComparisonService` looks the fares up before planning (`PlaneFares`); trip list and stats pass `PlaneFares.NONE`.
   Don't hold a database transaction open across external calls.
 - **LLM output is untrusted input:** validate it like a request (see
   `TripDraftResolver`) and never let it override computed results
@@ -114,7 +121,8 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
   input (`ComparisonInput`, `ModeParameters`, `LegPricing`, `Leg`, `RouteStop`), not entities, and do no I/O.
   Costs come from the `pricing` feature: `PricingService.priceBook()` loads the seeded `country_pricing` and
   `regional_fare` rows once per request (comparisons, trip list, stats) and `RoutePlanner` passes each leg its
-  `LegPricing`; tests that do not care about prices pass `PriceBook.EMPTY` / `LegPricing.NONE` (per-km fallback).
+  `LegPricing` (with the leg's live plane fare, if any, for `CostModel.quote`); tests that do not care about prices
+  pass `PriceBook.EMPTY` / `LegPricing.NONE` (per-km fallback) and `PlaneFares.NONE`.
   The backend owns every figure the UI shows: `RoutePlanner` builds a `RoutePlan` (legs,
   mixed itinerary, single-mode totals, grouped unavailable messages) for comparisons
   (with weather) and for the trip list and stats (`TripFiguresCalculator`, without weather,

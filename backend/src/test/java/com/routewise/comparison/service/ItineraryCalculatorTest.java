@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import com.routewise.city.dto.CitySummary;
+import com.routewise.comparison.domain.CostSource;
 import com.routewise.comparison.domain.ItineraryTotals;
 import com.routewise.comparison.domain.Leg;
 import com.routewise.comparison.domain.ModeOption;
@@ -129,7 +130,7 @@ class ItineraryCalculatorTest {
     private static ModeOption option(TransportModeCode mode, int minutes, String cost, String co2,
                                      boolean recommended) {
         return new ModeOption(mode, true, null, null, 100, minutes, new BigDecimal(cost), new BigDecimal(co2), 50,
-                recommended, List.of());
+                recommended, List.of(), CostSource.ESTIMATE, null);
     }
 
     private static ModeOption unavailable(TransportModeCode mode, String reason) {
@@ -137,6 +138,6 @@ class ItineraryCalculatorTest {
     }
 
     private static ModeOption unavailable(TransportModeCode mode, UnavailableCode code, String reason) {
-        return new ModeOption(mode, false, code, reason, 400, null, null, null, 0, false, List.of());
+        return new ModeOption(mode, false, code, reason, 400, null, null, null, 0, false, List.of(), null, null);
     }
 }

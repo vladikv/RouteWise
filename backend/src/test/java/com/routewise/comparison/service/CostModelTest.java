@@ -3,9 +3,14 @@ package com.routewise.comparison.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 
+import com.routewise.comparison.domain.CostQuote;
+import com.routewise.comparison.domain.CostSource;
 import com.routewise.comparison.domain.ModeParameters;
+import com.routewise.flightprice.domain.LiveFare;
 import com.routewise.pricing.domain.Fare;
 import com.routewise.pricing.domain.LegPricing;
 import com.routewise.transportmode.domain.TransportModeCode;
@@ -24,6 +29,38 @@ class CostModelTest {
     private static final ModeParameters PLANE = mode(TransportModeCode.PLANE);
 
     private static final Fare WEST_PLANE = new Fare(new BigDecimal("40.00"), new BigDecimal("0.070"));
+
+    private static final Instant FETCHED = Instant.parse("2026-11-20T09:30:00Z");
+    private static final LiveFare LIVE_89 = new LiveFare(new BigDecimal("89"), FETCHED);
+
+    @Test
+    void quote_planeWithLiveFare_isTheLiveFarePerTraveler() {
+        // 89 EUR x 3 travelers = 267.00; the regional fare (40 + 0.07 x 1400 = 138 per traveler) is not used.
+        LegPricing pricing = new LegPricing(null, null, Map.of(TransportModeCode.PLANE, WEST_PLANE))
+                .withLivePlaneFare(Optional.of(LIVE_89));
+
+        assertThat(CostModel.quote(PLANE, 1400, 3, pricing))
+                .isEqualTo(new CostQuote(new BigDecimal("267.00"), CostSource.LIVE, FETCHED));
+    }
+
+    @Test
+    void quote_planeWithoutLiveFare_isTheEstimate() {
+        // 40 + 0.07 x 1000 = 110.00
+        LegPricing pricing = new LegPricing(null, null, Map.of(TransportModeCode.PLANE, WEST_PLANE))
+                .withLivePlaneFare(Optional.empty());
+
+        assertThat(CostModel.quote(PLANE, 1000, 1, pricing))
+                .isEqualTo(new CostQuote(new BigDecimal("110.00"), CostSource.ESTIMATE, null));
+    }
+
+    @Test
+    void quote_otherModes_ignoreTheLiveFlightFare() {
+        // Train without a regional fare: per-km 0.12 x 500 = 60.00, whatever the flight costs.
+        LegPricing pricing = LegPricing.NONE.withLivePlaneFare(Optional.of(LIVE_89));
+
+        assertThat(CostModel.quote(TRAIN, 500, 1, pricing))
+                .isEqualTo(new CostQuote(new BigDecimal("60.00"), CostSource.ESTIMATE, null));
+    }
 
     @Test
     void cost_carInGermany_usesFuelOnly() {

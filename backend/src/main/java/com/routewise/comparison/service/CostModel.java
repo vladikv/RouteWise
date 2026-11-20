@@ -4,7 +4,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Optional;
 
+import com.routewise.comparison.domain.CostQuote;
+import com.routewise.comparison.domain.CostSource;
 import com.routewise.comparison.domain.ModeParameters;
+import com.routewise.flightprice.domain.LiveFare;
 import com.routewise.pricing.domain.Fare;
 import com.routewise.pricing.domain.LegPricing;
 import com.routewise.transportmode.domain.TransportModeCode;
@@ -18,6 +21,7 @@ import com.routewise.transportmode.domain.TransportModeCode;
  *   <li>without a regional price (and always for BIKE): {@code units × routeKm × the mode's costPerKm},
  *       the same arithmetic as before regional prices existed</li>
  * </ul>
+ * {@link #quote} replaces the PLANE estimate with {@code travelers × the live fare} when the leg has one.
  */
 final class CostModel {
 
@@ -27,7 +31,19 @@ final class CostModel {
     private CostModel() {
     }
 
+    /** The live plane fare when the leg has one, otherwise the estimate of {@link #cost}. */
+    static CostQuote quote(ModeParameters mode, double routeKm, int units, LegPricing pricing) {
+        LiveFare live = pricing.livePlaneFare();
+        if (mode.code() == TransportModeCode.PLANE && live != null) {
+            return new CostQuote(cents(live.perTravelerEur().multiply(BigDecimal.valueOf(units))), CostSource.LIVE,
+                    live.retrievedAt());
+        }
+        return CostQuote.estimate(cost(mode, routeKm, units, pricing));
+    }
+
     /**
+     * The estimate from seeded prices.
+     *
      * @param units cars for CAR, travelers for every other mode
      */
     static BigDecimal cost(ModeParameters mode, double routeKm, int units, LegPricing pricing) {
