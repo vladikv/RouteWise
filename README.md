@@ -74,6 +74,8 @@ Every setting has a default; environment variables override them.
 | Variable | Default | Purpose |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | none | Enables the Claude advisor; without it, rule-based parsing and advice are used |
+| `ROUTEWISE_FLIGHT_PRICES_API_KEY` | none | A [SerpApi](https://serpapi.com) key: comparisons show the cheapest live Google Flights price for the plane; without it, plane costs are estimates |
+| `ROUTEWISE_FLIGHT_PRICES_CACHE_TTL` | `6h` | How long a flight price is reused per airports and date (saves the search quota) |
 | `ROUTEWISE_ADVISOR_MODEL` | `claude-opus-5-5` | Claude model for the advisor |
 | `ROUTEWISE_DEMO_ENABLED` | `true` | Set to `false` to skip the demo account (do this for any real deployment) |
 | `ROUTEWISE_SESSION_TIMEOUT` | `2h` | How long a login lasts without activity |
@@ -177,6 +179,10 @@ RouteWise gives estimates for comparing options, not quotes or timetables.
   The values are still to be checked against the official DESNZ spreadsheet.
 - **Other CO₂ and speeds:** typical European averages per mode (car per
   vehicle, shared by up to five travellers; others per traveller).
+- **Flight prices:** with `ROUTEWISE_FLIGHT_PRICES_API_KEY`, the plane's cost is the cheapest one-way economy
+  fare on Google Flights (via SerpApi) for one adult × travelers, labelled "Live price"; the time and CO₂ stay
+  estimates. Without a key, without a flight that day or when SerpApi fails, the regional estimate is used. The
+  free SerpApi plan has 250 searches a month; answers are cached for 6 hours.
 - **Weather:** Open-Meteo forecasts for today and the next 15 days, cached per
   city and date for an hour (`ROUTEWISE_WEATHER_CACHE_TTL`). A failed call is
   retried once; if the forecast is still missing the comparison works without

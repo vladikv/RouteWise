@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import com.routewise.city.dto.CitySummary;
+import com.routewise.comparison.domain.CostSource;
 import com.routewise.comparison.domain.ItineraryTotals;
 import com.routewise.comparison.domain.Leg;
 import com.routewise.comparison.domain.ModeOption;
@@ -127,11 +128,12 @@ class UnavailableGrouperTest {
     }
 
     private static ModeOption available(TransportModeCode mode) {
-        return new ModeOption(mode, true, null, null, 500, 300, BigDecimal.TEN, BigDecimal.ONE, 50, false, List.of());
+        return new ModeOption(mode, true, null, null, 500, 300, BigDecimal.TEN, BigDecimal.ONE, 50, false, List.of(),
+                CostSource.ESTIMATE, null);
     }
 
     private static ModeOption unavailable(TransportModeCode mode, UnavailableCode code) {
-        return new ModeOption(mode, false, code, "reason", 500, null, null, null, 0, false, List.of());
+        return new ModeOption(mode, false, code, "reason", 500, null, null, null, 0, false, List.of(), null, null);
     }
 
     private static ModeTotals blocked(TransportModeCode mode) {

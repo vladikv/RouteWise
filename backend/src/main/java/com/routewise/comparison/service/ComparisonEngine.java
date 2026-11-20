@@ -10,6 +10,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import com.routewise.comparison.domain.ComparisonInput;
+import com.routewise.comparison.domain.CostQuote;
 import com.routewise.comparison.domain.ModeOption;
 import com.routewise.comparison.domain.ModeParameters;
 import com.routewise.transportmode.domain.TransportModeCode;
@@ -74,7 +75,7 @@ public class ComparisonEngine {
             }
         }
         int duration = (int) Math.round(mode.fixedOverheadMinutes() + routeKm / mode.avgSpeedKmh() * MINUTES_PER_HOUR);
-        BigDecimal cost = CostModel.cost(mode, routeKm, units, input.pricing());
+        CostQuote cost = CostModel.quote(mode, routeKm, units, input.pricing());
         int co2GramsPerKm = FlightEmissions.co2GramsPerKm(mode, input.greatCircleKm());
         BigDecimal co2Kg = BigDecimal.valueOf(co2GramsPerKm).multiply(BigDecimal.valueOf(routeKm * units))
                 .divide(GRAMS_PER_KG, 1, RoundingMode.HALF_UP);
@@ -86,13 +87,13 @@ public class ComparisonEngine {
     private List<ModeOption> rank(List<Candidate> candidates, ComparisonInput input) {
         ScoreWeights weights = ScoreWeights.forPriority(input.priority());
         Normalizer time = new Normalizer(candidates, Candidate::durationMinutes);
-        Normalizer cost = new Normalizer(candidates, candidate -> candidate.cost().doubleValue());
+        Normalizer cost = new Normalizer(candidates, candidate -> candidate.cost().amount().doubleValue());
         Normalizer co2 = new Normalizer(candidates, candidate -> candidate.co2Kg().doubleValue());
 
         List<Scored> scored = candidates.stream()
                 .map(candidate -> {
                     double base = weights.time() * time.score(candidate.durationMinutes())
-                            + weights.cost() * cost.score(candidate.cost().doubleValue())
+                            + weights.cost() * cost.score(candidate.cost().amount().doubleValue())
                             + weights.co2() * co2.score(candidate.co2Kg().doubleValue());
                     return new Scored(candidate, 100 * base * candidate.weatherMultiplier());
                 })
@@ -108,17 +109,17 @@ public class ComparisonEngine {
     private static ModeOption toOption(Scored entry, boolean recommended) {
         Candidate candidate = entry.candidate();
         return new ModeOption(candidate.mode(), true, null, null, candidate.routeKm(), candidate.durationMinutes(),
-                candidate.cost(), candidate.co2Kg(), (int) Math.round(entry.rawScore()), recommended,
-                List.copyOf(candidate.notes()));
+                candidate.cost().amount(), candidate.co2Kg(), (int) Math.round(entry.rawScore()), recommended,
+                List.copyOf(candidate.notes()), candidate.cost().source(), candidate.cost().retrievedAt());
     }
 
     private static ModeOption unavailableOption(TransportModeCode mode, double routeKm,
                                                 ModeAvailability.Unavailable why) {
         return new ModeOption(mode, false, why.code(), why.reason(), routeKm, null, null, null, 0, false,
-                List.of());
+                List.of(), null, null);
     }
 
-    private record Candidate(TransportModeCode mode, double routeKm, int durationMinutes, BigDecimal cost,
+    private record Candidate(TransportModeCode mode, double routeKm, int durationMinutes, CostQuote cost,
                              BigDecimal co2Kg, double weatherMultiplier, List<String> notes) {
     }
 

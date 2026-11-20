@@ -15,6 +15,7 @@ import java.util.Set;
 
 import com.routewise.advisor.domain.AdviceContext;
 import com.routewise.advisor.domain.AdviceText;
+import com.routewise.comparison.domain.CostSource;
 import com.routewise.comparison.dto.ModeOptionResponse;
 import com.routewise.comparison.dto.WeatherSummary;
 import com.routewise.transportmode.domain.TransportModeCode;
@@ -74,7 +75,7 @@ class RuleBasedAdviceWriterTest {
     void write_recommendedModeHasEngineNotes_includesThemAfterTheAlternative() {
         ModeOptionResponse trainWithNote = new ModeOptionResponse(TransportModeCode.TRAIN, true, null, null,
                 new BigDecimal("628.3"), 373, new BigDecimal("150.80"), new BigDecimal("44.0"), 87, true,
-                List.of("Snow expected: allow extra time."));
+                List.of("Snow expected: allow extra time."), CostSource.ESTIMATE, null);
 
         AdviceText advice = writer.write(new AdviceContext(BERLIN_VIENNA,
                 comparison(List.of(), trainWithNote, bus())));
@@ -106,7 +107,8 @@ class RuleBasedAdviceWriterTest {
     @Test
     void compare_fasterAndPricierAlternative_describesTradeOff() {
         ModeOptionResponse plane = new ModeOptionResponse(TransportModeCode.PLANE, true, null, null,
-                new BigDecimal("523.6"), 193, new BigDecimal("230.80"), new BigDecimal("44.0"), 60, false, List.of());
+                new BigDecimal("523.6"), 193, new BigDecimal("230.80"), new BigDecimal("44.0"), 60, false, List.of(),
+                CostSource.ESTIMATE, null);
 
         // 193 - 373 = -180 min = 3 h faster; 230.80 - 150.80 = 80.00 EUR more; equal CO2.
         assertThat(RuleBasedAdviceWriter.compare(plane, train(true), "EUR"))

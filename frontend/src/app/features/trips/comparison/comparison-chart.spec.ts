@@ -18,6 +18,8 @@ function option(overrides: Partial<ModeOption> & Pick<ModeOption, 'mode'>): Mode
     score: 50,
     recommended: false,
     notes: [],
+    costSource: 'ESTIMATE',
+    costRetrievedAt: null,
     ...overrides,
   };
 }

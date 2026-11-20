@@ -18,6 +18,7 @@ import com.routewise.city.dto.CitySummary;
 import com.routewise.common.config.SecurityConfig;
 import com.routewise.common.exception.FieldValidationException;
 import com.routewise.common.exception.ResourceNotFoundException;
+import com.routewise.comparison.domain.CostSource;
 import com.routewise.comparison.domain.UnavailableCode;
 import com.routewise.comparison.dto.ComparisonRequest;
 import com.routewise.comparison.dto.ComparisonResponse;
@@ -82,6 +83,9 @@ class ComparisonControllerTest {
                 .andExpect(jsonPath("$.legs[0].recommendedMode").value("TRAIN"))
                 .andExpect(jsonPath("$.legs[0].options[0].mode").value("TRAIN"))
                 .andExpect(jsonPath("$.legs[0].options[0].totalCost").value(150.80))
+                .andExpect(jsonPath("$.legs[0].options[0].costSource").value("ESTIMATE"))
+                .andExpect(jsonPath("$.legs[0].options[0].costRetrievedAt").doesNotExist())
+                .andExpect(jsonPath("$.legs[0].options[1].costSource").doesNotExist())
                 .andExpect(jsonPath("$.legs[0].options[1].available").value(false))
                 .andExpect(jsonPath("$.legs[0].options[1].durationMinutes").doesNotExist())
                 .andExpect(jsonPath("$.legs[0].options[1].unavailableCode").value("TOO_FAR"))
@@ -170,10 +174,11 @@ class ComparisonControllerTest {
     /** One leg Berlin to Vienna: train recommended, bike unavailable. */
     private static ComparisonResponse response(Long tripId, List<WeatherSummary> weather) {
         ModeOptionResponse train = new ModeOptionResponse(TransportModeCode.TRAIN, true, null, null,
-                new BigDecimal("628.3"), 373, new BigDecimal("150.80"), new BigDecimal("44.0"), 87, true, List.of());
-        ModeOptionResponse bike = new ModeOptionResponse(TransportModeCode.BIKE, false,
-                UnavailableCode.TOO_FAR, "Route of 681 km exceeds the BIKE limit of 150 km", new BigDecimal("680.7"), null, null, null, 0,
-                false, List.of());
+                new BigDecimal("628.3"), 373, new BigDecimal("150.80"), new BigDecimal("44.0"), 87, true, List.of(),
+                CostSource.ESTIMATE, null);
+        ModeOptionResponse bike = new ModeOptionResponse(TransportModeCode.BIKE, false, UnavailableCode.TOO_FAR,
+                "Route of 681 km exceeds the BIKE limit of 150 km", new BigDecimal("680.7"), null, null, null, 0,
+                false, List.of(), null, null);
         LegResponse leg = new LegResponse(0, new CitySummary(1L, "Berlin", "DE"), new CitySummary(2L, "Vienna", "AT"),
                 new BigDecimal("523.6"), List.of(train, bike), TransportModeCode.TRAIN, List.of());
         return new ComparisonResponse(tripId, DEPARTURE, 2, TripPriority.GREENEST, new BigDecimal("523.6"), "EUR",

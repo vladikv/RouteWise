@@ -121,7 +121,9 @@ public class ComparisonMapper {
                 option.co2Kg(),
                 option.score(),
                 option.recommended(),
-                option.notes());
+                option.notes(),
+                option.costSource(),
+                option.costRetrievedAt());
     }
 
     private static BigDecimal oneDecimal(double value) {

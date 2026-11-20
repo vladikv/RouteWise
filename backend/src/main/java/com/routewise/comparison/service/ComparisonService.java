@@ -2,6 +2,7 @@ package com.routewise.comparison.service;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,11 +12,14 @@ import com.routewise.city.dto.CitySummary;
 import com.routewise.common.exception.FieldValidationException;
 import com.routewise.common.exception.ResourceNotFoundException;
 import com.routewise.comparison.domain.ModeParameters;
+import com.routewise.comparison.domain.PlaneFares;
 import com.routewise.comparison.domain.RoutePlan;
 import com.routewise.comparison.domain.RouteStop;
 import com.routewise.comparison.dto.ComparisonRequest;
 import com.routewise.comparison.dto.ComparisonResponse;
 import com.routewise.comparison.mapper.ComparisonMapper;
+import com.routewise.flightprice.domain.AirportPair;
+import com.routewise.flightprice.service.FlightPriceService;
 import com.routewise.pricing.service.PricingService;
 import com.routewise.transportmode.repository.TransportModeRepository;
 import com.routewise.trip.domain.Trip;
@@ -31,10 +35,10 @@ import org.springframework.stereotype.Service;
 
 /**
  * Compares transport modes leg by leg for a stored trip or for an ad-hoc route:
- * fetches weather once for all stop cities and lets the {@link RoutePlanner} compare
- * every leg (with that leg's weather) and combine the legs.
+ * fetches weather once for all stop cities and live flight fares per leg (when configured),
+ * and lets the {@link RoutePlanner} compare every leg (with that leg's weather) and combine the legs.
  * Deliberately not transactional: no database transaction stays open during
- * the weather HTTP calls. The repository loads the trip with its stops and cities.
+ * the weather and flight price HTTP calls. The repository loads the trip with its stops and cities.
  */
 @Service
 public class ComparisonService {
@@ -43,6 +47,7 @@ public class ComparisonService {
     private final StopResolver stopResolver;
     private final TransportModeRepository transportModeRepository;
     private final PricingService pricingService;
+    private final FlightPriceService flightPriceService;
     private final WeatherService weatherService;
     private final RoutePlanner routePlanner;
     private final ComparisonMapper comparisonMapper;
@@ -50,12 +55,14 @@ public class ComparisonService {
 
     public ComparisonService(TripRepository tripRepository, StopResolver stopResolver,
                              TransportModeRepository transportModeRepository, PricingService pricingService,
-                             WeatherService weatherService, RoutePlanner routePlanner,
+                             FlightPriceService flightPriceService, WeatherService weatherService,
+                             RoutePlanner routePlanner,
                              ComparisonMapper comparisonMapper, Clock clock) {
         this.tripRepository = tripRepository;
         this.stopResolver = stopResolver;
         this.transportModeRepository = transportModeRepository;
         this.pricingService = pricingService;
+        this.flightPriceService = flightPriceService;
         this.weatherService = weatherService;
         this.routePlanner = routePlanner;
         this.comparisonMapper = comparisonMapper;
@@ -94,8 +101,22 @@ public class ComparisonService {
                 .map(city -> new RouteStop(summary(city), city.getLatitude(), city.getLongitude(), city.getLandmass(),
                         city.getAirportCode()))
                 .toList();
-        RoutePlan plan = routePlanner.plan(route, travelers, priority, modes, pricingService.priceBook(), forecasts);
+        RoutePlan plan = routePlanner.plan(route, travelers, priority, modes, pricingService.priceBook(),
+                planeFares(stops, departureDate), forecasts);
         return comparisonMapper.toResponse(tripId, departureDate, travelers, priority, weather, plan);
+    }
+
+    /** The cheapest live flight of each leg between two airports; empty without an API key. */
+    private PlaneFares planeFares(List<City> stops, LocalDate departureDate) {
+        List<AirportPair> routes = new ArrayList<>();
+        for (int i = 0; i + 1 < stops.size(); i++) {
+            String from = stops.get(i).getAirportCode();
+            String to = stops.get(i + 1).getAirportCode();
+            if (from != null && to != null) {
+                routes.add(new AirportPair(from, to));
+            }
+        }
+        return new PlaneFares(flightPriceService.cheapestFares(routes, departureDate));
     }
 
     /** Each stop city once, in route order (a round trip visits its first city twice). */

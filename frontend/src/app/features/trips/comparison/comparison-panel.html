@@ -2,8 +2,13 @@
 
 <p class="muted summary">
   {{ data.distanceKm | number: '1.0-0' }} km straight-line · {{ travelersLabel(data.travelers) }} ·
-  priority: {{ priorityLabels[data.priority] }}. Cost and CO₂ are totals for all travelers. Costs
-  are estimates from regional fuel prices, tolls and average fares.
+  priority: {{ priorityLabels[data.priority] }}. Cost and CO₂ are totals for all travelers.
+  @if (liveCost()) {
+    The plane's cost is the cheapest live flight on Google Flights; the other costs are estimates
+    from regional fuel prices, tolls and average fares.
+  } @else {
+    Costs are estimates from regional fuel prices, tolls and average fares.
+  }
 </p>
 
 <div class="table-scroll" role="region" aria-label="Mode comparison" tabindex="0">
@@ -39,6 +44,18 @@
             </td>
             <td role="cell" class="numeric cost" data-label="Cost">
               {{ option.totalCost | currency: data.currency : 'symbol' : '1.2-2' }}
+              @if (option.mode === 'PLANE') {
+                @if (option.costSource === 'LIVE') {
+                  <span class="cost-source cost-source--live">
+                    Live price
+                    @if (option.costRetrievedAt; as fetched) {
+                      <span class="visually-hidden">,</span> {{ fetched | date: 'shortTime' }}
+                    }
+                  </span>
+                } @else {
+                  <span class="cost-source">Estimate</span>
+                }
+              }
             </td>
             <td role="cell" class="numeric co2" data-label="CO₂">
               {{ option.co2Kg | number: '1.1-1' }} kg
