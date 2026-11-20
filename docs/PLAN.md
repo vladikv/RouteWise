@@ -34,6 +34,11 @@ checkboxes when a milestone is completed.
   in Europe, and major cities in large countries worldwide
 - Regional cost estimates: car cost from country fuel prices and tolls, train/bus/plane from regional
   base fares plus a per-km price, all in EUR and shown as an estimate
+- Flights only where both cities have a working airport (e.g. none from Ukrainian cities while the airspace is
+  closed); otherwise the plane is unavailable with a clear reason *(planned: `feat/airport-availability`)*
+- Optional live flight prices: with an API key configured, the comparison shows the cheapest real flight offer
+  for the date instead of the estimate; without a key everything works as before *(planned:
+  `feat/live-flight-prices`)*
 
 Out of scope for v1: social login, password reset, email verification,
 real-time timetables, booking.
@@ -52,6 +57,9 @@ IRELAND, ICELAND, NEW_ZEALAND), `capital` (boolean), `labelRank` (1 = shown firs
 *(changed in `feat/more-cities`: 273 more seeded cities, 422 in total, no new fields; names are unique across all
 countries, since the parser and the advisor resolve cities by name; new island landmasses such as HAWAII, SICILY,
 SARDINIA, CRETE, TASMANIA and SOUTH_ISLAND)*
+*(planned in `feat/airport-availability`: `airportCode` (IATA code of the city's main working airport, 3 capital
+letters; `null` = no working airport, e.g. every Ukrainian city while the airspace is closed), seeded for all
+cities by a new migration)*
 
 **TransportMode**: seeded reference data
 `code (TRAIN|BUS|CAR|BIKE|PLANE), avgSpeedKmh, costPerKm, co2GramsPerKm, fixedOverheadMinutes, maxDistanceKm`
@@ -91,6 +99,13 @@ with fuel and toll averaged over the leg's two countries; TRAIN/BUS/PLANE = trav
 routeKm) of the leg's region (averaged when the two cities are in different regions); BIKE = 0. Without a regional
 row the mode's `costPerKm` is used as before. The figures are estimates, not real fares; the UI says so next to the
 comparison (the option `notes` do not carry the pricing basis, so the advisor text stays free of it).
+*(planned in `feat/airport-availability`)* PLANE is available only when both cities of the leg have an
+`airportCode`; otherwise it is unavailable with `unavailableCode` `NO_AIRPORT` ("No working airport in Kharkiv"),
+grouped like the other codes. The user can add a stop with an airport by hand (London → Krakow → Kharkiv).
+*(planned in `feat/live-flight-prices`)* With a flight price API key, the PLANE cost of a leg in a comparison is
+the cheapest live offer for the leg's airports and date × travelers; without a key, without offers or on any
+provider error it stays the regional estimate. Each option says where its cost comes from (`costSource`). The
+trip list and stats always use estimates, so they never call an external service.
 *(changed in `feat/backend-depth`)* Unavailable modes are also grouped by code: each leg has
 `unavailableGroups: [{code, modes[], message}]`, e.g. "Not reachable by land between Dublin and Madrid: train, bus,
 car, bike", and the comparison has the same list for the single-mode totals ("Not possible for the whole trip:
@@ -150,6 +165,13 @@ Changes in `feat/backend-depth`:
 *(done in `feat/regional-pricing`)*.
 `GET /api/transport-modes` keeps `costPerKm`, now the fallback price.
 
+Planned, additive only (no field removed or renamed):
+- `feat/airport-availability`: `GET /api/cities` gets `airportCode`; `unavailableCode` and
+  `unavailableGroups[].code` get the new value `NO_AIRPORT` (clients must accept an unknown code).
+- `feat/live-flight-prices`: comparison options (`GET /api/trips/{id}/comparison`, `POST /api/comparisons`) get
+  `costSource` (`ESTIMATE` | `LIVE`) and `costRetrievedAt` (time of the live offer, `null` for estimates); the
+  advice endpoint uses the same figures. Trip list and stats responses do not change.
+
 `feat/globe-map` adds fields only (cities as above; `unavailableCode` on comparison options and
 single-mode totals); no field is removed or renamed.
 
@@ -164,6 +186,9 @@ Breaking change in `feat/multi-stop-trips`: trip, comparison and draft payloads 
 - **LLM provider**: optional Claude (Anthropic) via `ANTHROPIC_API_KEY`; behind an
   `AdvisorClient` interface, with rule-based parsing/advice as fallback
 - **Natural Earth** (public domain): world land and borders at 1:110m for the globe (`feat/globe-map`)
+- **Flight price API** *(planned: `feat/live-flight-prices`)*: optional, via `ROUTEWISE_FLIGHT_PRICES_API_KEY`;
+  behind a `FlightPriceClient` interface, with the regional estimate as fallback. The provider is chosen at the
+  start of the milestone (Skyscanner's API is for partners only)
 
 ## Milestones
 
@@ -201,6 +226,40 @@ Completed milestones are one line each; their details live in the commits, `docs
 - [x] `feat/trip-details-redesign`: a more readable and interactive trip details page (reference: `docs/trips_details.png`, local and git-ignored; frontend only, no API change)
 - [x] `feat/more-cities`: 422 seeded cities (at least two per US state, more of Europe, major cities worldwide); data only, no API change
 - [x] `feat/regional-pricing`: cost estimates from seeded country fuel prices, tolls and regional fares (no API keys, no API change)
+- [ ] `feat/airport-availability`: the plane is offered only between cities with a working airport
+  - Why: London → Kharkiv showed a direct 5 h 53 min flight, but Kharkiv has no flights (Ukrainian airspace is
+    closed); the engine treated every city as having an airport
+  - Data: a new migration adds `city.airport_code VARCHAR(3) NULL` and seeds the IATA code of each city's main
+    working airport for all 422 cities; `NULL` for every UA city and any city without an airport of its own
+  - Engine: `ComparisonInput` carries whether both ends have an airport; `ModeAvailability.check` returns
+    `NO_AIRPORT` for PLANE otherwise; `UnavailableGrouper` writes the grouped message
+  - API: additive (`airportCode`, `NO_AIRPORT`), see the API section
+  - UI: a readable message for `NO_AIRPORT` wherever unavailable reasons are shown; when a leg has no available
+    mode, a hint to add a stop in between
+  - Advisor: never recommends a flight on such a leg (the engine already picks the mode; check the rule-based
+    texts and the Claude prompt facts)
+  - Done when: London → Kharkiv shows PLANE as `NO_AIRPORT` and London → Krakow → Kharkiv gives a plan; unit tests
+    for `ModeAvailability`/`ComparisonEngine`, a test that every seeded `airport_code` is `NULL` or three capital
+    letters, UI tests for the message; `./mvnw verify`, `npm test` and `npm run lint` green
+- [ ] `feat/live-flight-prices`: real flight prices in comparisons when an API key is configured
+  - Why: estimated plane costs can be far from what flight search sites show for a date
+  - Step 0: compare flight price APIs (e.g. Duffel, SerpApi Google Flights, Amadeus): sign-up open to new users,
+    free tier, caching and display terms, search by IATA codes and date; the human picks one; record it in
+    `docs/DECISIONS.md`; no new dependency unless approved (prefer `RestClient`)
+  - Backend: a `flightprice` feature with `FlightPriceClient` (interface + implementation),
+    `FlightPriceProperties` (`routewise.flight-prices.*`: key from `ROUTEWISE_FLIGHT_PRICES_API_KEY`, timeouts,
+    cache TTL); the client bean exists only with a key; Caffeine cache (key: from/to airport, date, travelers;
+    successes only) and one retry, as for the weather client; `FlightPriceService` returns empty on any failure
+  - Engine: the live price is passed in as input (no I/O in `ComparisonEngine`); PLANE cost = cheapest offer ×
+    travelers when present, otherwise `CostModel`; only `POST /api/comparisons`, the trip comparison and the advice
+    use it, the trip list and stats keep estimates
+  - Depends on `feat/airport-availability` (the IATA codes)
+  - UI: a "live price" or "estimate" label next to the plane cost; the "costs are estimates" note only where an
+    estimate is shown
+  - Done when: with a key, London → Krakow shows a live plane price and `costSource` `LIVE`; without a key, or when
+    the provider fails or times out, the same estimate as today; client tests with `MockRestServiceServer`
+    (success, no offers, server error, timeout), a timeout test against a local `HttpServer`, service fallback,
+    engine and controller tests; `./mvnw verify`, `npm test` and `npm run lint` green
 
 ## Decisions
 
