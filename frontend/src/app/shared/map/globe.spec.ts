@@ -19,7 +19,10 @@ import {
   idleTurn,
   interpolateView,
   isVisible,
+  hubIndex,
+  legSamples,
   maxLabelRank,
+  pointsThroughHubs,
   minDotGap,
   projectLifted,
   rotateBy,
@@ -29,6 +32,7 @@ import {
 const BERLIN = { latitude: 52.52, longitude: 13.405 };
 const VIENNA = { latitude: 48.2082, longitude: 16.3738 };
 const SYDNEY = { latitude: -33.8688, longitude: 151.2093 };
+const HONG_KONG = { latitude: 22.3193, longitude: 114.1694 };
 const MADRID = { latitude: 40.4168, longitude: -3.7038 };
 const FRAME: GlobeFrame = { width: 1000, height: 700, start: 0, end: 0 };
 
@@ -482,5 +486,46 @@ describe('haversineKm', () => {
   it('is zero for the same place and symmetric', () => {
     expect(haversineKm(BERLIN, BERLIN)).toBe(0);
     expect(haversineKm(VIENNA, BERLIN)).toBeCloseTo(haversineKm(BERLIN, VIENNA), 6);
+  });
+});
+
+describe('legSamples', () => {
+  it('is the single arc of the leg without a hub', () => {
+    expect(legSamples(BERLIN, SYDNEY, null)).toEqual(arcSamples(BERLIN, SYDNEY));
+  });
+
+  it('is two lifted arcs through the hub, on the surface at the hub and at both ends', () => {
+    const samples = legSamples(BERLIN, SYDNEY, HONG_KONG);
+    const toHub = arcSamples(BERLIN, HONG_KONG);
+    const hub = hubIndex(BERLIN, HONG_KONG);
+
+    expect(hub).toBe(toHub.length - 1);
+    expect(samples).toHaveLength(toHub.length + arcSamples(HONG_KONG, SYDNEY).length - 1);
+    expect(samples[0].latitude).toBeCloseTo(BERLIN.latitude, 6);
+    expect(samples[0].lift).toBe(0);
+    expect(samples[hub].latitude).toBeCloseTo(HONG_KONG.latitude, 6);
+    expect(samples[hub].longitude).toBeCloseTo(HONG_KONG.longitude, 6);
+    expect(samples[hub].lift).toBe(0);
+    expect(samples[samples.length - 1].lift).toBeCloseTo(0, 9);
+    expect(Math.max(...samples.slice(0, hub).map((s) => s.lift))).toBeGreaterThan(0.1);
+    expect(Math.max(...samples.slice(hub).map((s) => s.lift))).toBeGreaterThan(0.1);
+  });
+});
+
+describe('pointsThroughHubs', () => {
+  it('puts a leg hub between its two cities and leaves legs without one alone', () => {
+    expect(pointsThroughHubs([BERLIN, SYDNEY, MADRID], [HONG_KONG, null])).toEqual([
+      BERLIN,
+      HONG_KONG,
+      SYDNEY,
+      MADRID,
+    ]);
+    expect(pointsThroughHubs([BERLIN, SYDNEY], [])).toEqual([BERLIN, SYDNEY]);
+  });
+
+  it('keeps the hub in view when fitting the route', () => {
+    const view = fitRoute(pointsThroughHubs([BERLIN, SYDNEY], [HONG_KONG]), FRAME, 70);
+
+    expect(isVisible(HONG_KONG, view)).toBe(true);
   });
 });

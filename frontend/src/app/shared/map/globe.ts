@@ -374,6 +374,33 @@ export function arcSamples(from: GeoPoint, to: GeoPoint): ArcSample[] {
 }
 
 /**
+ * The samples of a leg flown through a hub: two lifted arcs, from to hub and hub to to, each with its own
+ * height and 0 lift at the hub. Without a hub it is the single arc of {@link arcSamples}.
+ */
+export function legSamples(from: GeoPoint, to: GeoPoint, hub: GeoPoint | null): ArcSample[] {
+  if (!hub) {
+    return arcSamples(from, to);
+  }
+  return [...arcSamples(from, hub), ...arcSamples(hub, to).slice(1)];
+}
+
+/** The index of the hub in the samples of {@link legSamples}: where the first arc ends and the second begins. */
+export function hubIndex(from: GeoPoint, hub: GeoPoint): number {
+  return arcSamples(from, hub).length - 1;
+}
+
+/** The cities of a route in order with each leg's hub (if any) between its two cities, for fitting the view. */
+export function pointsThroughHubs<T extends GeoPoint>(
+  cities: T[],
+  hubs: readonly (T | null | undefined)[],
+): T[] {
+  return cities.flatMap((city, i) => {
+    const hub = i > 0 ? hubs[i - 1] : null;
+    return hub ? [hub, city] : [city];
+  });
+}
+
+/**
  * The first part of an arc, `fraction` (0 to 1) of the way along it (drawing it from A to B): the
  * samples before that point and one more exactly at it, interpolated between its neighbours.
  */

@@ -2,11 +2,13 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { WritableSignal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
 import { apiErrorInterceptor } from '../../core/api/api-error';
 import { API_BASE_URL } from '../../core/api/api-config';
+import { RouteMap } from '../../shared/map/route-map';
 import { addDaysIso, todayIso } from '../../shared/util/date';
-import { COMPARISON } from '../trips/comparison/comparison.testing';
+import { COMPARISON, CONNECTING_COMPARISON } from '../trips/comparison/comparison.testing';
 import { CITIES } from '../trips/trip-form.testing';
 import { RouteExplorer } from './route-explorer';
 
@@ -110,6 +112,42 @@ describe('RouteExplorer', () => {
 
     expect(explorer.querySelectorAll('app-comparison-chart .bar')).toHaveLength(2);
     expect(explorer.querySelector('.placeholder')).toBeNull();
+  });
+
+  describe('connecting flight', () => {
+    const state = () =>
+      fixture.componentInstance as unknown as {
+        destinationId: WritableSignal<number | null>;
+        summary: () => string;
+      };
+
+    const mapHubs = () =>
+      fixture.debugElement.query(By.directive(RouteMap)).componentInstance.hubs();
+
+    async function answerWithConnection(): Promise<void> {
+      await pick('Berlin');
+      await pick('Vienna');
+      httpTesting.expectOne(COMPARISONS_URL).flush(CONNECTING_COMPARISON);
+      await fixture.whenStable();
+    }
+
+    it('draws the hub on the globe and names it in the summary', async () => {
+      await answerWithConnection();
+
+      expect(mapHubs()).toEqual([18]);
+      expect(state().summary()).toBe('Berlin to Vienna · Plane via Hong Kong recommended');
+    });
+
+    it('draws no hub while the comparison on screen belongs to another route', async () => {
+      await answerWithConnection();
+
+      state().destinationId.set(18);
+      await settle();
+
+      expect(mapHubs()).toEqual([]);
+      httpTesting.expectOne(COMPARISONS_URL).flush(COMPARISON);
+      await fixture.whenStable();
+    });
   });
 
   it("moves focus to the chosen priority from the chart's priority line", async () => {

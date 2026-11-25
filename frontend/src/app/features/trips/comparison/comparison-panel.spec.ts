@@ -38,6 +38,27 @@ describe('ComparisonPanel', () => {
     expect(cells(rows[1])).toEqual(['8 h 4 min', '€136.14', '115.7 kg', '52 out of 100']);
   });
 
+  describe('connecting flight', () => {
+    const via = { cityId: 41, cityName: 'Hong Kong', airportCode: 'HKG' };
+    const plane = { ...LEG_COMPARISON.options[0], mode: 'PLANE' as const, recommended: false, via };
+
+    it('names the hub next to the plane, readable by screen readers', () => {
+      const panel = render({ ...LEG_COMPARISON, options: [...LEG_COMPARISON.options, plane] });
+      const header = panel.querySelectorAll('tbody tr')[3].querySelector('th');
+
+      expect(header?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+        'Plane, one connection via Hong Kong (HKG)',
+      );
+      expect(header?.querySelector('.via .visually-hidden')?.textContent).toContain(
+        'one connection',
+      );
+    });
+
+    it('shows no connection for a direct option', () => {
+      expect(render(LEG_COMPARISON).querySelector('.via')).toBeNull();
+    });
+  });
+
   describe('cost source', () => {
     const plane = (costSource: 'ESTIMATE' | 'LIVE') => ({
       ...LEG_COMPARISON.options[0],

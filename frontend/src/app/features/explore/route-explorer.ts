@@ -37,7 +37,7 @@ import { LayoutBreakpoint } from '../../shared/util/layout-breakpoint';
 import { MODE_LABELS, PRIORITIES, travelersLabel } from '../../shared/util/labels';
 import { ComparisonChart } from '../trips/comparison/comparison-chart';
 import { ComparisonPanel } from '../trips/comparison/comparison-panel';
-import { LegComparison, legComparison } from '../trips/comparison/leg-comparison';
+import { LegComparison, legComparison, recommendedHubs } from '../trips/comparison/leg-comparison';
 import { HomeLayout } from './home-layout';
 import { MyTripsLayer } from './my-trips-layer';
 import { WeatherCard } from './weather-card';
@@ -222,13 +222,25 @@ export class RouteExplorer {
     return shown ? legComparison(shown, 0) : undefined;
   });
 
+  /** The recommended flight's hub for the map, only while the comparison on screen is for the chosen cities. */
+  protected readonly hubIds = computed(() => {
+    const shown = this.shown();
+    const leg = shown?.legs[0];
+    return shown && leg?.from.id === this.originId() && leg?.to.id === this.destinationId()
+      ? recommendedHubs(shown)
+      : [];
+  });
+
   /** One line for the collapsed bottom sheet: the route and the recommended mode, or what to do next. */
   protected readonly summary = computed(() => {
     const leg = this.shownLeg();
     if (leg) {
       const recommended = leg.options.find((option) => option.recommended);
       const route = `${leg.from.name} to ${leg.to.name}`;
-      return recommended ? `${route} · ${MODE_LABELS[recommended.mode]} recommended` : route;
+      const mode = recommended
+        ? `${MODE_LABELS[recommended.mode]}${recommended.via ? ` via ${recommended.via.cityName}` : ''}`
+        : null;
+      return mode ? `${route} · ${mode} recommended` : route;
     }
     const name = (id: number | null) => this.cities.value()?.find((city) => city.id === id)?.name;
     const origin = name(this.originId());

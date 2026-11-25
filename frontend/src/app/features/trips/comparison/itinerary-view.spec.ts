@@ -89,6 +89,28 @@ describe('ItineraryView', () => {
     );
   });
 
+  it('names the hub ("Plane via Hong Kong", with the connection spoken) for a connecting recommended flight', async () => {
+    const [first, second] = MULTI_COMPARISON.legs;
+    const via = { cityId: 41, cityName: 'Hong Kong', airportCode: 'HKG' };
+    const view = await render({
+      ...MULTI_COMPARISON,
+      legs: [
+        {
+          ...first,
+          recommendedMode: 'PLANE',
+          options: [{ ...first.options[0], mode: 'PLANE', via }],
+        },
+        second,
+      ],
+    });
+    const names = Array.from(view.querySelectorAll('.leg__mode'), (item) =>
+      item.textContent?.replace(/\s+/g, ' ').trim(),
+    );
+
+    expect(names[0]).toContain('Plane, one connection via Hong Kong');
+    expect(names[1]).not.toContain('via');
+  });
+
   it('marks a leg priced from a live flight and says so in the summary', async () => {
     const [first, second] = MULTI_COMPARISON.legs;
     const view = await render({

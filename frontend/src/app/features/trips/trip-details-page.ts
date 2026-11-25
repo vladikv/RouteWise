@@ -16,7 +16,12 @@ import { AdvicePanel } from './comparison/advice-panel';
 import { ComparisonChart } from './comparison/comparison-chart';
 import { ComparisonPanel } from './comparison/comparison-panel';
 import { ItineraryView } from './comparison/itinerary-view';
-import { LegComparison, legComparison, priorityEditLink } from './comparison/leg-comparison';
+import {
+  LegComparison,
+  legComparison,
+  priorityEditLink,
+  recommendedHubs,
+} from './comparison/leg-comparison';
 import { LegFocus } from './comparison/leg-focus';
 
 /** One trip: details, the advisor's recommendation, the mode comparison, and edit and delete. */
@@ -71,6 +76,12 @@ export class TripDetailsPage {
   protected readonly stopIds = computed(
     () => this.trip.value()?.stops.map((stop) => stop.cityId) ?? [],
   );
+
+  /** Each leg's connecting hub, for the map; empty until the comparison has loaded (its failure leaves the map plain). */
+  protected readonly hubIds = computed(() => {
+    const comparison = this.comparison.hasValue() ? this.comparison.value() : undefined;
+    return comparison ? recommendedHubs(comparison) : [];
+  });
 
   protected singleLeg(comparison: Comparison): LegComparison {
     return legComparison(comparison, 0);

@@ -59,3 +59,13 @@ export const ADD_STOP_HINT =
 export function hasLiveCost(options: ModeOption[]): boolean {
   return options.some((option) => option.costSource === 'LIVE');
 }
+
+/**
+ * The connecting hub (city id) of each leg's recommended plane option, by leg index; null where the leg is
+ * not flown through a hub. For the map, which draws such a leg as two arcs.
+ */
+export function recommendedHubs(comparison: Comparison): (number | null)[] {
+  return comparison.legs.map(
+    (leg) => leg.options.find((option) => option.recommended)?.via?.cityId ?? null,
+  );
+}
