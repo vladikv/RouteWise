@@ -167,7 +167,8 @@ RouteWise gives estimates for comparing options, not quotes or timetables.
   Oregon, Kingston is Jamaica).
 - **Distance:** great-circle (haversine) distance between the cities, times a
   detour factor per mode (train 1.2; bus, car and bike 1.3; plane 1.0).
-- **Prices:** estimates in EUR from seeded data (`V13`), no live prices. The car
+- **Prices:** estimates in EUR from seeded data (`V13`); only the plane can use a
+  live fare instead (see *Flight prices* below). The car
   costs 6.5 l/100 km at the country's petrol price plus an average toll per km
   (per car, up to five travelers); train, bus and plane cost a regional base fare
   plus a price per km per traveler (12 fare regions). A leg between two countries

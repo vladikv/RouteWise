@@ -927,8 +927,30 @@ mistakes before a human has to.
   - the "no results" check matched one exact English sentence. It now matches a part of it.
   It also asked for tests that the key never reaches logs or `toString`, for the kept fetch time on a cache hit, and for docs (`backend/CLAUDE.md`, README, DECISIONS).
 - Left open:
-  - Not checked with a real SerpApi key, because none was available in the session. The response parsing follows SerpApi's documented format and is covered by tests only.
+  - Not checked with a real SerpApi key, because none was available in the session. The response parsing follows SerpApi's documented format and is covered by tests only. (Checked later, in `chore/env-file`.)
   - `POST /api/comparisons` is public and has no rate limit, so anyone can spend the quota (#194).
 
 **Why**
 - Live prices stay optional and best effort. The app still runs with zero configuration, the engine stays pure, and the trip list and stats never call an external service.
+
+## chore/env-file (local secrets in an optional `.env`)
+
+**Delegated to AI**
+- Planned and added the import of a git-ignored `.env` at the repository root as a properties file (`spring.config.import`, #195). No new dependency, and a real environment variable still wins.
+- Updated the README (template), `backend/CLAUDE.md`, the root `CLAUDE.md` and DECISIONS.
+- Ran `./mvnw verify` (530 tests, green), which shows that the app still starts without a `.env`.
+- After the human created `.env` with a SerpApi key, restarted the API and ran London → Krakow on 2026-12-10. The plane came back with `costSource` `LIVE` and 142 EUR. This was the first check of the SerpApi integration with a real key, left open in `feat/live-flight-prices`. The API log contained neither the key nor the SerpApi URL.
+
+**Human decisions**
+- Keep the keys in a `.env` file instead of setting environment variables in every terminal.
+- Create `.env` themselves and go without an Anthropic key for now, so the advisor stays rule-based.
+
+**Found by the human**
+- Nothing. The idea of a `.env` file came from the human.
+
+**AI self-corrections**
+- The first test request got 403 because it had no CSRF token. The AI took the token from the `XSRF-TOKEN` cookie and sent the request again.
+- While updating the docs, the AI found a README line still saying "no live prices", left over from the previous milestone, and fixed it.
+
+**Why**
+- The keys never pass through the AI: Claude may not read `.env`, and a hook blocks writing it. The zero-config start stays, because the import is `optional:`.
