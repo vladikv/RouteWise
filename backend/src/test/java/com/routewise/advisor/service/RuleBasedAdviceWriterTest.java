@@ -2,10 +2,12 @@ package com.routewise.advisor.service;
 
 import static com.routewise.advisor.AdvisorTestData.DEPARTURE;
 import static com.routewise.advisor.AdvisorTestData.berlinPragueVienna;
+import static com.routewise.advisor.AdvisorTestData.berlinSydneyMelbourne;
 import static com.routewise.advisor.AdvisorTestData.berlinToVienna;
 import static com.routewise.advisor.AdvisorTestData.bikeUnavailable;
 import static com.routewise.advisor.AdvisorTestData.bus;
 import static com.routewise.advisor.AdvisorTestData.comparison;
+import static com.routewise.advisor.AdvisorTestData.planeViaHongKong;
 import static com.routewise.advisor.AdvisorTestData.train;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -65,10 +67,11 @@ class RuleBasedAdviceWriterTest {
 
     @Test
     void modesPhrase_describesMixedAndSingleModePlans() {
-        assertThat(RuleBasedAdviceWriter.modesPhrase(List.of(TransportModeCode.TRAIN, TransportModeCode.BUS,
-                TransportModeCode.TRAIN))).isEqualTo("train, then bus, then train");
-        assertThat(RuleBasedAdviceWriter.modesPhrase(List.of(TransportModeCode.BUS, TransportModeCode.BUS)))
-                .isEqualTo("bus all the way");
+        assertThat(RuleBasedAdviceWriter.modesPhrase(List.of("train", "bus", "train")))
+                .isEqualTo("train, then bus, then train");
+        assertThat(RuleBasedAdviceWriter.modesPhrase(List.of("bus", "bus"))).isEqualTo("bus all the way");
+        assertThat(RuleBasedAdviceWriter.modesPhrase(List.of("plane via Hong Kong", "plane")))
+                .isEqualTo("plane via Hong Kong, then plane");
     }
 
     @Test
@@ -102,6 +105,47 @@ class RuleBasedAdviceWriterTest {
                 comparison(List.of(), train(true), bikeUnavailable())));
 
         assertThat(advice.tips()).noneMatch(tip -> tip.startsWith("Alternative"));
+    }
+
+    @Test
+    void write_planeViaAHub_namesTheConnectionInTheSummaryAndTheLeg() {
+        AdviceText advice = writer.write(new AdviceContext(BERLIN_VIENNA,
+                comparison(List.of(), planeViaHongKong(true), bikeUnavailable())));
+
+        // 1,560 min = 26 h; the fixture's comparison is for 2 travelers with priority GREENEST.
+        assertThat(advice.summary()).isEqualTo("Take the plane via Hong Kong from Berlin to Vienna: 26 h, "
+                + "2418.75 EUR and 3225.0 kg CO₂ for 2 travelers. It is the best match for your priority: "
+                + "low emissions.");
+        assertThat(advice.legs()).containsExactly(
+                "Leg 1, Berlin to Vienna: plane via Hong Kong, 26 h, 2418.75 EUR and 3225.0 kg CO₂.");
+    }
+
+    @Test
+    void write_connectingPlaneAsAlternative_namesTheConnection() {
+        AdviceText advice = writer.write(new AdviceContext(BERLIN_VIENNA,
+                comparison(List.of(), train(true), planeViaHongKong(false))));
+
+        // 1,560 - 373 = 1,187 min = 19 h 47 min slower; 2,418.75 - 150.80 = 2,267.95 EUR more;
+        // 3,225.0 - 44.0 = 3,181.0 kg more CO2.
+        assertThat(advice.tips()).contains("Alternative: plane via Hong Kong, 19 h 47 min slower, "
+                + "2267.95 EUR more expensive and 3181.0 kg more CO₂.");
+    }
+
+    @Test
+    void write_twoLegsWithAConnectingPlane_namesTheConnectionInTheSummary() {
+        AdviceText advice = writer.write(new AdviceContext(List.of("Berlin", "Sydney", "Melbourne"),
+                berlinSydneyMelbourne()));
+
+        // 1,560 + 160 = 1,720 min = 28 h 40 min; 2,418.75 + 120.00 = 2,538.75 EUR; 3,225.0 + 40.0 = 3,265.0 kg.
+        assertThat(advice.summary()).isEqualTo("Recommended plan for Berlin → Sydney → Melbourne: plane via "
+                + "Hong Kong, then plane. In total 28 h 40 min, 2538.75 EUR and 3265.0 kg CO₂ for 1 traveler; "
+                + "each leg is the best match for your priority: speed.");
+    }
+
+    @Test
+    void modeLabel_directFlightOrOtherMode_isTheModeName() {
+        assertThat(RuleBasedAdviceWriter.modeLabel(train(true))).isEqualTo("train");
+        assertThat(RuleBasedAdviceWriter.modeLabel(planeViaHongKong(false))).isEqualTo("plane via Hong Kong");
     }
 
     @Test

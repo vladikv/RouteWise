@@ -1,9 +1,11 @@
 package com.routewise.advisor.client;
 
 import static com.routewise.advisor.AdvisorTestData.berlinPragueVienna;
+import static com.routewise.advisor.AdvisorTestData.berlinSydneyMelbourne;
 import static com.routewise.advisor.AdvisorTestData.berlinToVienna;
 import static com.routewise.advisor.AdvisorTestData.bikeUnavailable;
 import static com.routewise.advisor.AdvisorTestData.comparison;
+import static com.routewise.advisor.AdvisorTestData.planeViaHongKong;
 import static com.routewise.advisor.AdvisorTestData.train;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -37,6 +39,28 @@ class AdviceFactsTest {
                 limit of 150 km)
                 Weather:
                 - Vienna on 2026-11-20: Rain, 4.0 to 9.0 °C, precipitation 90%, wind up to 20.0 km/h, hazards: rain""");
+    }
+
+    @Test
+    void describe_planeViaAHub_namesTheConnection() {
+        String facts = AdviceFacts.describe(new AdviceContext(BERLIN_VIENNA,
+                comparison(List.of(), planeViaHongKong(true), train(false))));
+
+        assertThat(facts).contains(
+                "- PLANE via Hong Kong (HKG), one connection (recommended): 1560 min, 2418.75 EUR, 3225.0 kg CO2, "
+                        + "score 90\n",
+                "- TRAIN: 373 min");
+    }
+
+    @Test
+    void describe_twoLegsWithAConnectingPlane_namesTheConnectionInThePlanAndTheTotals() {
+        String facts = AdviceFacts.describe(new AdviceContext(List.of("Berlin", "Sydney", "Melbourne"),
+                berlinSydneyMelbourne()));
+
+        assertThat(facts).contains(
+                "Recommended plan (each leg's recommended mode): PLANE via Hong Kong (HKG), one connection, "
+                        + "then PLANE; total 1720 min, 2538.75 EUR, 3265.0 kg CO2.\n",
+                "- PLANE for every leg: 1720 min, 2538.75 EUR, 3265.0 kg CO2 (leg 1 via Hong Kong (HKG))\n");
     }
 
     @Test

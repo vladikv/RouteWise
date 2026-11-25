@@ -51,7 +51,7 @@ public class RuleBasedAdviceWriter {
                     .findFirst()
                     .ifPresent(alternative -> tips.add(compare(alternative, best, comparison.currency())));
             summary = "Take the %s from %s to %s: %s, %s %s and %s kg CO₂ for %s. It is the best match for %s."
-                    .formatted(modeName(best.mode()), context.stops().getFirst(), context.stops().getLast(),
+                    .formatted(modeLabel(best), context.stops().getFirst(), context.stops().getLast(),
                             duration(best.durationMinutes()), best.totalCost(), comparison.currency(), best.co2Kg(),
                             travelers(comparison.travelers()), priorityPhrase(comparison.priority()));
         } else {
@@ -59,7 +59,8 @@ public class RuleBasedAdviceWriter {
             bestSingleModeAlternative(comparison).ifPresent(alternative -> tips.add(compare(alternative, plan,
                     comparison.currency())));
             summary = ("Recommended plan for %s: %s. In total %s, %s %s and %s kg CO₂ for %s; "
-                    + "each leg is the best match for %s.").formatted(context.route(), modesPhrase(plan.modes()),
+                    + "each leg is the best match for %s.").formatted(context.route(),
+                    modesPhrase(comparison.legs().stream().map(leg -> modeLabel(recommended(leg))).toList()),
                     duration(plan.durationMinutes()), plan.totalCost(), comparison.currency(), plan.co2Kg(),
                     travelers(comparison.travelers()), priorityPhrase(comparison.priority()));
         }
@@ -87,8 +88,14 @@ public class RuleBasedAdviceWriter {
             return prefix + "no transport mode is available.";
         }
         ModeOptionResponse best = recommended(leg);
-        return prefix + "%s, %s, %s %s and %s kg CO₂.".formatted(modeName(best.mode()),
+        return prefix + "%s, %s, %s %s and %s kg CO₂.".formatted(modeLabel(best),
                 duration(best.durationMinutes()), best.totalCost(), currency, best.co2Kg());
+    }
+
+    /** The mode's name, with the hub of a connecting flight ("plane via Hong Kong"); a null {@code via} is direct. */
+    static String modeLabel(ModeOptionResponse option) {
+        String name = modeName(option.mode());
+        return option.via() == null ? name : name + " via " + option.via().cityName();
     }
 
     private static ModeOptionResponse recommended(LegResponse leg) {
@@ -114,7 +121,7 @@ public class RuleBasedAdviceWriter {
 
     /** E.g. "Alternative: bus, 1 h 20 min slower, 60.00 EUR cheaper and 10.0 kg more CO₂." */
     static String compare(ModeOptionResponse alternative, ModeOptionResponse best, String currency) {
-        return "Alternative: %s, %s.".formatted(modeName(alternative.mode()), differences(
+        return "Alternative: %s, %s.".formatted(modeLabel(alternative), differences(
                 alternative.durationMinutes() - best.durationMinutes(),
                 alternative.totalCost().subtract(best.totalCost()),
                 alternative.co2Kg().subtract(best.co2Kg()), currency));
@@ -138,12 +145,15 @@ public class RuleBasedAdviceWriter {
         return "%s, %s and %s".formatted(time, cost, co2);
     }
 
-    /** E.g. [TRAIN, BUS, TRAIN] → "train, then bus, then train"; [BUS, BUS] → "bus all the way". */
-    static String modesPhrase(List<TransportModeCode> modes) {
-        if (modes.stream().distinct().count() == 1) {
-            return modeName(modes.getFirst()) + " all the way";
+    /**
+     * Each leg's mode label ({@link #modeLabel}) in order: ["train", "bus", "train"] → "train, then bus, then
+     * train"; ["bus", "bus"] → "bus all the way"; ["plane via Hong Kong", "plane"] → "plane via Hong Kong, then plane".
+     */
+    static String modesPhrase(List<String> labels) {
+        if (labels.stream().distinct().count() == 1) {
+            return labels.getFirst() + " all the way";
         }
-        return modes.stream().map(RuleBasedAdviceWriter::modeName).collect(Collectors.joining(", then "));
+        return String.join(", then ", labels);
     }
 
     /** Practical notes (e.g. weather penalties, several cars) of each leg's recommended mode, each once. */

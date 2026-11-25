@@ -10,6 +10,7 @@ import com.routewise.city.dto.CitySummary;
 import com.routewise.comparison.domain.CostSource;
 import com.routewise.comparison.domain.UnavailableCode;
 import com.routewise.comparison.dto.ComparisonResponse;
+import com.routewise.comparison.dto.ConnectionResponse;
 import com.routewise.comparison.dto.ItineraryTotalsResponse;
 import com.routewise.comparison.dto.LegResponse;
 import com.routewise.comparison.dto.ModeOptionResponse;
@@ -88,6 +89,34 @@ public final class AdvisorTestData {
                                 new BigDecimal("19.0")),
                         new ModeTotalsResponse(TransportModeCode.BUS, true, null, null, 570, new BigDecimal("38.00"),
                                 new BigDecimal("15.0"))), List.of());
+    }
+
+    public static final CitySummary SYDNEY = new CitySummary(4L, "Sydney", "AU");
+    public static final CitySummary MELBOURNE = new CitySummary(5L, "Melbourne", "AU");
+
+    /**
+     * A plane with one connection in Hong Kong (hub city id 7): 1,560 min = 26 h, 2,418.75 EUR, 3,225.0 kg.
+     * The score follows {@code recommended} (90 or 50).
+     */
+    public static ModeOptionResponse planeViaHongKong(boolean recommended) {
+        return new ModeOptionResponse(TransportModeCode.PLANE, true, null, null, new BigDecimal("16125.0"), 1560,
+                new BigDecimal("2418.75"), new BigDecimal("3225.0"), recommended ? 90 : 50, recommended, List.of(),
+                CostSource.ESTIMATE, null, new ConnectionResponse(7L, "Hong Kong", "HKG"));
+    }
+
+    /**
+     * Two legs, FASTEST: Berlin to Sydney (plane via Hong Kong, 1,560 min, 2,418.75, 3,225.0 kg) and Sydney to
+     * Melbourne (direct plane, 160 min, 120.00, 40.0 kg). Plan and plane throughout: 1,720 min, 2,538.75,
+     * 3,265.0 kg.
+     */
+    public static ComparisonResponse berlinSydneyMelbourne() {
+        LegResponse first = leg(0, BERLIN, SYDNEY, "16094.0", planeViaHongKong(true));
+        LegResponse second = leg(1, SYDNEY, MELBOURNE, "714.0",
+                option(TransportModeCode.PLANE, 160, "120.00", "40.0", true));
+        return new ComparisonResponse(1L, DEPARTURE, 1, TripPriority.FASTEST, new BigDecimal("16808.0"), "EUR",
+                List.of(), WeatherStatus.OUT_OF_RANGE, List.of(first, second), itinerary(List.of(first, second)),
+                List.of(new ModeTotalsResponse(TransportModeCode.PLANE, true, null, null, 1720,
+                        new BigDecimal("2538.75"), new BigDecimal("3265.0"))), List.of());
     }
 
     public static ModeOptionResponse option(TransportModeCode mode, int minutes, String cost, String co2,
