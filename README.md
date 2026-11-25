@@ -22,8 +22,11 @@ Full walkthrough with voice-over: [docs/demo/routewise-demo.mp4](docs/demo/route
   compared with using one mode for the whole trip.
 - **Weather-aware**: Open-Meteo forecasts for today and the next 15 days; rain, snow, wind or ice lower the bike's (and in snow
   the car's and bus's) score, with a note.
-- **Realistic availability**: ground modes only between cities joined by land, within each mode's range; flights with separate
-  short- and long-haul CO₂ factors; 422 cities on every continent.
+- **Realistic availability**: ground modes only between cities joined by land, within each mode's range; the plane only between
+  cities with a working airport, with separate short- and long-haul CO₂ factors; when no mode can make a leg, the UI suggests a
+  stop in between; 422 cities on every continent.
+- **Regional prices**: costs from seeded country fuel prices, tolls and regional fares; with a SerpApi key, the plane shows the
+  cheapest live Google Flights fare, labelled "Live price".
 - **AI travel advisor**: free text such as *"Berlin to Vienna next Friday, 2 people, cheap"* becomes a draft trip, and each trip's
   recommendation is explained leg by leg. Uses Claude when `ANTHROPIC_API_KEY` is set and built-in rules otherwise.
 - **Accounts and private trips**: email and password with a server-side session; one-click demo account with sample trips.
@@ -77,9 +80,13 @@ Every setting has a default; environment variables override them.
 | `ROUTEWISE_FLIGHT_PRICES_API_KEY` | none | A [SerpApi](https://serpapi.com) key: comparisons show the cheapest live Google Flights price for the plane; without it, plane costs are estimates |
 | `ROUTEWISE_FLIGHT_PRICES_CACHE_TTL` | `6h` | How long a flight price is reused per airports and date (saves the search quota) |
 | `ROUTEWISE_ADVISOR_MODEL` | `claude-opus-5-5` | Claude model for the advisor |
+| `ROUTEWISE_ADVISOR_EFFORT` | `low` | Claude effort level for the advisor's answers |
 | `ROUTEWISE_DEMO_ENABLED` | `true` | Set to `false` to skip the demo account (do this for any real deployment) |
+| `ROUTEWISE_DEMO_EMAIL` | `demo@routewise.app` | Email of the demo account |
+| `ROUTEWISE_DEMO_PASSWORD` | `demo1234` | Password of the demo account |
 | `ROUTEWISE_SESSION_TIMEOUT` | `2h` | How long a login lasts without activity |
 | `ROUTEWISE_TRIPS_RESTORE_WINDOW` | `30s` | How long a deleted trip can be restored |
+| `ROUTEWISE_WEATHER_BASE_URL` | `https://api.open-meteo.com` | Open-Meteo base URL (tests point it at a local fake) |
 | `ROUTEWISE_WEATHER_CACHE_TTL` | `1h` | How long a forecast is reused per city and date |
 | `ROUTEWISE_CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | Origins allowed to call the API |
 | `SERVER_PORT` | `8087` | API port |
@@ -98,8 +105,9 @@ Restart the API after changing it. Never commit it.
 ## How it works
 
 For each leg, the API takes the great-circle distance between the cities times a detour factor per mode, checks whether the mode
-is available (same landmass for ground modes, within the mode's range), computes time and CO₂ from the seeded mode
-parameters and cost from the seeded regional prices (fuel and tolls for the car, average fares for tickets), normalises the three metrics among the available modes, weights them by the priority (0.6 for the main goal, 0.2 for
+is available (same landmass for ground modes, a working airport at both ends for the plane, within the mode's range), computes time and CO₂ from the seeded mode
+parameters and cost from the seeded regional prices (fuel and tolls for the car, average fares for tickets, a live fare for
+the plane when SerpApi is configured), normalises the three metrics among the available modes, weights them by the priority (0.6 for the main goal, 0.2 for
 the others, a third each for balanced), adjusts for the weather and recommends the best score. The legs combine into the mixed
 itinerary. The AI advisor only words the explanation; the recommendation always comes from this engine, and Claude's output is
 validated like user input.
@@ -109,13 +117,14 @@ validated like user input.
 ```
 Angular SPA (:4200) ──JSON, session cookie, CSRF header──▶ Spring Boot API (:8087) ──▶ H2 in memory (schema by Flyway)
                                                               ├──▶ Open-Meteo (weather; cached, retried, optional)
+                                                              ├──▶ SerpApi / Google Flights (live plane fares; only with an API key)
                                                               └──▶ Claude (advisor; only with an API key)
 ```
 
 | | Backend (`backend/`) | Frontend (`frontend/`) |
 |---|---|---|
 | Stack | Java 21, Spring Boot 4.1, Spring Security, Spring Data JPA, Flyway, H2, springdoc-openapi, Caffeine, Anthropic Java SDK | Angular 22 (standalone components, signals, zoneless), TypeScript, SCSS, RxJS, `d3-geo` |
-| Structure | Package by feature (`trip`, `comparison`, `weather`, `advisor`, `user`, `city`, `transportmode`, `demo`), each layered `controller → service → repository` | `core/api` (typed API services), `core/auth`, `shared/ui` (building blocks), `shared/map` (globe), `features/*` (pages) |
+| Structure | Package by feature (`trip`, `comparison`, `pricing`, `flightprice`, `weather`, `advisor`, `user`, `city`, `transportmode`, `demo`), each layered `controller → service → repository` | `core/api` (typed API services), `core/auth`, `shared/ui` (building blocks), `shared/map` (globe), `features/*` (pages) |
 | Principles | DTOs as records, pure business rules, external clients behind interfaces, RFC 7807 Problem Details, layering enforced by ArchUnit | Smart pages and presentational components, all HTTP through `core/api`, one error type (`ApiError`), no UI library |
 | Conventions | [backend/CLAUDE.md](backend/CLAUDE.md) | [frontend/CLAUDE.md](frontend/CLAUDE.md) |
 
@@ -141,8 +150,8 @@ Everything else needs a login; another user's trip answers 404. Full details in 
 
 | What | Command | Notes |
 |---|---|---|
-| Backend build and all tests | `cd backend && ./mvnw verify` | Unit, web-slice, JPA (real Flyway schema), migration, integration and ArchUnit tests (480); external services are faked |
-| Frontend unit tests | `cd frontend && npm test` | Vitest + TestBed, 748 tests |
+| Backend build and all tests | `cd backend && ./mvnw verify` | Unit, web-slice, JPA (real Flyway schema), migration, integration and ArchUnit tests (530); external services are faked |
+| Frontend unit tests | `cd frontend && npm test` | Vitest + TestBed, 754 tests |
 | Frontend lint | `cd frontend && npm run lint` | ESLint with angular-eslint, including template accessibility rules |
 | End-to-end checks | `cd frontend && npm run e2e` | Playwright against the running app (starts `npm start` if port 4200 is free) |
 | Screenshots | `cd frontend && npm run screenshots` | Playwright captures every screen at 1920, 1280 and 375 px (needs the app running) |
@@ -184,6 +193,11 @@ RouteWise gives estimates for comparing options, not quotes or timetables.
   Australia, New Zealand and other islands are separate landmasses. Africa is
   treated as separate from Eurasia. Otherwise the mode is shown as unavailable
   with a reason (`DIFFERENT_LANDMASS` or `TOO_FAR`).
+- **Airports:** the plane is only offered when both cities have a working
+  airport (`airportCode`, seeded in `V15`: the city's own airport or the nearest
+  one within about 60 km). Cities without one, such as those in Ukraine while
+  the airspace is closed, get `NO_AIRPORT`; the UI then suggests a stop with an
+  airport in between.
 - **Flight CO₂:** two factors per passenger-km from the UK DEFRA greenhouse
   gas conversion factors 2023 (economy class, including radiative forcing):
   short-haul 183 g up to 3,700 km great-circle distance (DEFRA's short/long-haul

@@ -787,7 +787,7 @@ mistakes before a human has to.
 **Why**
 - Everything the page needed was already in the trip, comparison and advice responses, so the redesign stayed frontend only; the advisor's sentences are shown as written instead of being parsed, which keeps the AI and rule-based texts interchangeable.
 
-## docs/readme-demo (README and demo plan; recording pending)
+## docs/readme-demo (README and demo plan)
 
 **Delegated to AI**
 - Read the code, `docs/PLAN.md` and `docs/AI_WORKFLOW.md` and wrote the README for reviewers (features, screenshots, quick start, configuration, how it works, architecture, API overview, testing, data & assumptions, limitations, how Claude Code was used), and a scene-by-scene plan for a 5–6 minute recording that the human keeps outside the repository.
@@ -954,3 +954,22 @@ mistakes before a human has to.
 
 **Why**
 - The keys never pass through the AI: Claude may not read `.env`, and a hook blocks writing it. The zero-config start stays, because the import is `optional:`.
+
+## docs/readme-demo, closing (README brought up to date, milestone ticked)
+
+**Delegated to AI**
+- Checked the README again against the code after the four milestones that followed its first version: variables against `application.yml`, endpoints against the controllers, unavailability codes, migrations, packages and the demo trips.
+- Added the four missing variables (`ROUTEWISE_ADVISOR_EFFORT`, `ROUTEWISE_DEMO_EMAIL`, `ROUTEWISE_DEMO_PASSWORD`, `ROUTEWISE_WEATHER_BASE_URL`), the airport rule (`NO_AIRPORT`, the stop suggestion), regional and live prices in the features, SerpApi in the architecture and the `pricing` and `flightprice` packages.
+- Ran `./mvnw verify` (530 tests), `npm test` (754 tests) and `npm run lint`, all green, and updated the counts.
+
+**Human decisions**
+- The recording, made and linked by the human earlier (`docs/demo/`), completes the milestone; the existing branch was fast-forwarded to `main` instead of being recreated.
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
+- None beyond the stale README facts listed above, which the check against the code found.
+
+**Why**
+- The "Done when" asks for a README that matches the code; later milestones had changed variables, availability and pricing without the reviewer-facing summary following everywhere.
