@@ -11,6 +11,7 @@ import java.util.stream.Stream;
 
 import com.routewise.comparison.domain.ComparisonInput;
 import com.routewise.comparison.domain.CostQuote;
+import com.routewise.comparison.domain.FlightConnection;
 import com.routewise.comparison.domain.ModeOption;
 import com.routewise.comparison.domain.ModeParameters;
 import com.routewise.transportmode.domain.TransportModeCode;
@@ -20,12 +21,16 @@ import org.springframework.stereotype.Component;
 /**
  * Pure comparison rules for one leg: availability ({@link ModeAvailability}), route distance,
  * duration, cost ({@link CostModel}), CO2 ({@link FlightEmissions}) and score per mode.
+ * With a {@link FlightConnection} in the input, the plane flies via the hub: its range applies to
+ * each flight, distance and CO2 are per flight, and the connection adds {@link #CONNECTION_MINUTES}.
  * Holds no state and does no I/O.
  */
 @Component
 public class ComparisonEngine {
 
     static final int CAR_SEATS = 5;
+    /** Time to change planes at a hub, on top of the airport overhead that is counted once. */
+    static final int CONNECTION_MINUTES = 120;
     private static final double MINUTES_PER_HOUR = 60;
     private static final BigDecimal GRAMS_PER_KG = BigDecimal.valueOf(1000);
 
@@ -39,10 +44,15 @@ public class ComparisonEngine {
         List<Candidate> candidates = new ArrayList<>();
         List<ModeOption> unavailable = new ArrayList<>();
         for (ModeParameters mode : input.modes()) {
-            double routeKm = input.greatCircleKm() * routeFactor(mode.code());
-            ModeAvailability.check(mode, routeKm, input.sameLandmass(), input.citiesWithoutAirport()).ifPresentOrElse(
-                    why -> unavailable.add(unavailableOption(mode.code(), routeKm, why)),
-                    () -> candidates.add(candidate(mode, routeKm, input)));
+            FlightConnection connection = mode.code() == TransportModeCode.PLANE ? input.connection() : null;
+            double routeKm = connection != null
+                    ? connection.totalKm()
+                    : input.greatCircleKm() * routeFactor(mode.code());
+            double longestFlightKm = connection != null ? connection.longestKm() : routeKm;
+            ModeAvailability.check(mode, longestFlightKm, input.sameLandmass(), input.citiesWithoutAirport())
+                    .ifPresentOrElse(
+                            why -> unavailable.add(unavailableOption(mode.code(), routeKm, why)),
+                            () -> candidates.add(candidate(mode, routeKm, connection, input)));
         }
         return Stream.concat(
                         rank(candidates, input).stream(),
@@ -65,7 +75,8 @@ public class ComparisonEngine {
         return Math.ceilDiv(travelers, CAR_SEATS);
     }
 
-    private Candidate candidate(ModeParameters mode, double routeKm, ComparisonInput input) {
+    private Candidate candidate(ModeParameters mode, double routeKm, FlightConnection connection,
+                                ComparisonInput input) {
         List<String> notes = new ArrayList<>();
         int units = input.travelers();
         if (mode.code() == TransportModeCode.CAR) {
@@ -74,14 +85,25 @@ public class ComparisonEngine {
                 notes.add("%d cars needed for %d travelers".formatted(units, input.travelers()));
             }
         }
-        int duration = (int) Math.round(mode.fixedOverheadMinutes() + routeKm / mode.avgSpeedKmh() * MINUTES_PER_HOUR);
+        int connectionMinutes = connection != null ? CONNECTION_MINUTES : 0;
+        int duration = (int) Math.round(mode.fixedOverheadMinutes() + connectionMinutes
+                + routeKm / mode.avgSpeedKmh() * MINUTES_PER_HOUR);
         CostQuote cost = CostModel.quote(mode, routeKm, units, input.pricing());
-        int co2GramsPerKm = FlightEmissions.co2GramsPerKm(mode, input.greatCircleKm());
-        BigDecimal co2Kg = BigDecimal.valueOf(co2GramsPerKm).multiply(BigDecimal.valueOf(routeKm * units))
+        BigDecimal co2Kg = BigDecimal.valueOf(co2GramsPerTraveler(mode, routeKm, connection, input) * units)
                 .divide(GRAMS_PER_KG, 1, RoundingMode.HALF_UP);
         WeatherImpact.Impact impact = WeatherImpact.assess(mode.code(), input.forecasts());
         notes.addAll(impact.notes());
-        return new Candidate(mode.code(), routeKm, duration, cost, co2Kg, impact.multiplier(), notes);
+        return new Candidate(mode.code(), routeKm, duration, cost, co2Kg, impact.multiplier(), notes, connection);
+    }
+
+    /** A connecting flight uses each flight's own short- or long-haul factor. */
+    private static double co2GramsPerTraveler(ModeParameters mode, double routeKm, FlightConnection connection,
+                                              ComparisonInput input) {
+        if (connection == null) {
+            return FlightEmissions.co2GramsPerKm(mode, input.greatCircleKm()) * routeKm;
+        }
+        return FlightEmissions.co2GramsPerKm(mode, connection.firstKm()) * connection.firstKm()
+                + FlightEmissions.co2GramsPerKm(mode, connection.secondKm()) * connection.secondKm();
     }
 
     private List<ModeOption> rank(List<Candidate> candidates, ComparisonInput input) {
@@ -110,17 +132,19 @@ public class ComparisonEngine {
         Candidate candidate = entry.candidate();
         return new ModeOption(candidate.mode(), true, null, null, candidate.routeKm(), candidate.durationMinutes(),
                 candidate.cost().amount(), candidate.co2Kg(), (int) Math.round(entry.rawScore()), recommended,
-                List.copyOf(candidate.notes()), candidate.cost().source(), candidate.cost().retrievedAt());
+                List.copyOf(candidate.notes()), candidate.cost().source(), candidate.cost().retrievedAt(),
+                candidate.connection());
     }
 
     private static ModeOption unavailableOption(TransportModeCode mode, double routeKm,
                                                 ModeAvailability.Unavailable why) {
         return new ModeOption(mode, false, why.code(), why.reason(), routeKm, null, null, null, 0, false,
-                List.of(), null, null);
+                List.of(), null, null, null);
     }
 
     private record Candidate(TransportModeCode mode, double routeKm, int durationMinutes, CostQuote cost,
-                             BigDecimal co2Kg, double weatherMultiplier, List<String> notes) {
+                             BigDecimal co2Kg, double weatherMultiplier, List<String> notes,
+                             FlightConnection connection) {
     }
 
     private record Scored(Candidate candidate, double rawScore) {

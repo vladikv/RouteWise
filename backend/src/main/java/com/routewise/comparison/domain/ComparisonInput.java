@@ -12,6 +12,8 @@ import com.routewise.weather.domain.LocationForecast;
  * @param sameLandmass         whether both cities share a landmass (ground modes need it)
  * @param citiesWithoutAirport names of the leg's cities without a working airport (the plane is unavailable if any)
  * @param pricing              the leg's regional prices; {@link LegPricing#NONE} uses each mode's per-km cost
+ * @param connection           the plane's connecting flight when the leg is too long to fly non-stop
+ *                             ({@link com.routewise.comparison.service.HubRouter}); {@code null} for a direct flight
  */
 public record ComparisonInput(
         double greatCircleKm,
@@ -21,5 +23,6 @@ public record ComparisonInput(
         TripPriority priority,
         List<ModeParameters> modes,
         LegPricing pricing,
-        List<LocationForecast> forecasts) {
+        List<LocationForecast> forecasts,
+        FlightConnection connection) {
 }

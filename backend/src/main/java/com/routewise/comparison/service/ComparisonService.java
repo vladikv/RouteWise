@@ -50,13 +50,14 @@ public class ComparisonService {
     private final FlightPriceService flightPriceService;
     private final WeatherService weatherService;
     private final RoutePlanner routePlanner;
+    private final HubDirectory hubDirectory;
     private final ComparisonMapper comparisonMapper;
     private final Clock clock;
 
     public ComparisonService(TripRepository tripRepository, StopResolver stopResolver,
                              TransportModeRepository transportModeRepository, PricingService pricingService,
                              FlightPriceService flightPriceService, WeatherService weatherService,
-                             RoutePlanner routePlanner,
+                             RoutePlanner routePlanner, HubDirectory hubDirectory,
                              ComparisonMapper comparisonMapper, Clock clock) {
         this.tripRepository = tripRepository;
         this.stopResolver = stopResolver;
@@ -65,6 +66,7 @@ public class ComparisonService {
         this.flightPriceService = flightPriceService;
         this.weatherService = weatherService;
         this.routePlanner = routePlanner;
+        this.hubDirectory = hubDirectory;
         this.comparisonMapper = comparisonMapper;
         this.clock = clock;
     }
@@ -102,7 +104,7 @@ public class ComparisonService {
                         city.getAirportCode()))
                 .toList();
         RoutePlan plan = routePlanner.plan(route, travelers, priority, modes, pricingService.priceBook(),
-                planeFares(stops, departureDate), forecasts);
+                planeFares(stops, departureDate), hubDirectory.hubs(), forecasts);
         return comparisonMapper.toResponse(tripId, departureDate, travelers, priority, weather, plan);
     }
 

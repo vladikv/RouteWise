@@ -175,10 +175,10 @@ class ComparisonControllerTest {
     private static ComparisonResponse response(Long tripId, List<WeatherSummary> weather) {
         ModeOptionResponse train = new ModeOptionResponse(TransportModeCode.TRAIN, true, null, null,
                 new BigDecimal("628.3"), 373, new BigDecimal("150.80"), new BigDecimal("44.0"), 87, true, List.of(),
-                CostSource.ESTIMATE, null);
+                CostSource.ESTIMATE, null, null);
         ModeOptionResponse bike = new ModeOptionResponse(TransportModeCode.BIKE, false, UnavailableCode.TOO_FAR,
                 "Route of 681 km exceeds the BIKE limit of 150 km", new BigDecimal("680.7"), null, null, null, 0,
-                false, List.of(), null, null);
+                false, List.of(), null, null, null);
         LegResponse leg = new LegResponse(0, new CitySummary(1L, "Berlin", "DE"), new CitySummary(2L, "Vienna", "AT"),
                 new BigDecimal("523.6"), List.of(train, bike), TransportModeCode.TRAIN, List.of());
         return new ComparisonResponse(tripId, DEPARTURE, 2, TripPriority.GREENEST, new BigDecimal("523.6"), "EUR",

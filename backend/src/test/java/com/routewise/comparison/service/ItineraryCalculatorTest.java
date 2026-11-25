@@ -130,7 +130,7 @@ class ItineraryCalculatorTest {
     private static ModeOption option(TransportModeCode mode, int minutes, String cost, String co2,
                                      boolean recommended) {
         return new ModeOption(mode, true, null, null, 100, minutes, new BigDecimal(cost), new BigDecimal(co2), 50,
-                recommended, List.of(), CostSource.ESTIMATE, null);
+                recommended, List.of(), CostSource.ESTIMATE, null, null);
     }
 
     private static ModeOption unavailable(TransportModeCode mode, String reason) {
@@ -138,6 +138,6 @@ class ItineraryCalculatorTest {
     }
 
     private static ModeOption unavailable(TransportModeCode mode, UnavailableCode code, String reason) {
-        return new ModeOption(mode, false, code, reason, 400, null, null, null, 0, false, List.of(), null, null);
+        return new ModeOption(mode, false, code, reason, 400, null, null, null, 0, false, List.of(), null, null, null);
     }
 }

@@ -36,18 +36,18 @@ public final class AdvisorTestData {
     public static ModeOptionResponse train(boolean recommended) {
         return new ModeOptionResponse(TransportModeCode.TRAIN, true, null, null, new BigDecimal("628.3"), 373,
                 new BigDecimal("150.80"), new BigDecimal("44.0"), 87, recommended, List.of(),
-                CostSource.ESTIMATE, null);
+                CostSource.ESTIMATE, null, null);
     }
 
     public static ModeOptionResponse bus() {
         return new ModeOptionResponse(TransportModeCode.BUS, true, null, null, new BigDecimal("680.7"), 453,
-                new BigDecimal("90.80"), new BigDecimal("54.0"), 71, false, List.of(), CostSource.ESTIMATE, null);
+                new BigDecimal("90.80"), new BigDecimal("54.0"), 71, false, List.of(), CostSource.ESTIMATE, null, null);
     }
 
     public static ModeOptionResponse bikeUnavailable() {
         return new ModeOptionResponse(TransportModeCode.BIKE, false,
                 UnavailableCode.TOO_FAR, "Route of 681 km exceeds the BIKE limit of 150 km", new BigDecimal("680.7"),
-                null, null, null, 0, false, List.of(), null, null);
+                null, null, null, 0, false, List.of(), null, null, null);
     }
 
     public static WeatherSummary rainInVienna() {
@@ -93,7 +93,7 @@ public final class AdvisorTestData {
     public static ModeOptionResponse option(TransportModeCode mode, int minutes, String cost, String co2,
                                             boolean recommended) {
         return new ModeOptionResponse(mode, true, null, null, new BigDecimal("300.0"), minutes, new BigDecimal(cost),
-                new BigDecimal(co2), recommended ? 80 : 60, recommended, List.of(), CostSource.ESTIMATE, null);
+                new BigDecimal(co2), recommended ? 80 : 60, recommended, List.of(), CostSource.ESTIMATE, null, null);
     }
 
     private static LegResponse leg(int index, CitySummary from, CitySummary to, String distanceKm,

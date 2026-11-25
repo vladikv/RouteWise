@@ -129,11 +129,11 @@ class UnavailableGrouperTest {
 
     private static ModeOption available(TransportModeCode mode) {
         return new ModeOption(mode, true, null, null, 500, 300, BigDecimal.TEN, BigDecimal.ONE, 50, false, List.of(),
-                CostSource.ESTIMATE, null);
+                CostSource.ESTIMATE, null, null);
     }
 
     private static ModeOption unavailable(TransportModeCode mode, UnavailableCode code) {
-        return new ModeOption(mode, false, code, "reason", 500, null, null, null, 0, false, List.of(), null, null);
+        return new ModeOption(mode, false, code, "reason", 500, null, null, null, 0, false, List.of(), null, null, null);
     }
 
     private static ModeTotals blocked(TransportModeCode mode) {

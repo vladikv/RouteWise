@@ -44,7 +44,7 @@ class TripFiguresCalculatorTest {
         // Krakow-London is about 1410 km: plane 150 + 1410 / 750 * 60 = 263 min, train 30 + 1692 / 110 * 60 = 953 min.
         Trip trip = trip(TestCities.krakow(), TestCities.london());
 
-        TripFigures figures = calculator.figures(trip, TRAIN_AND_PLANE, PriceBook.EMPTY).orElseThrow();
+        TripFigures figures = calculator.figures(trip, TRAIN_AND_PLANE, PriceBook.EMPTY, List.of()).orElseThrow();
 
         assertThat(figures.legModes()).containsExactly(PLANE);
     }
@@ -54,7 +54,7 @@ class TripFiguresCalculatorTest {
         // Krakow-Kharkiv is about 920 km; the plane would be far faster, but Kharkiv has no working airport.
         Trip trip = trip(TestCities.krakow(), TestCities.kharkiv());
 
-        TripFigures figures = calculator.figures(trip, TRAIN_AND_PLANE, PriceBook.EMPTY).orElseThrow();
+        TripFigures figures = calculator.figures(trip, TRAIN_AND_PLANE, PriceBook.EMPTY, List.of()).orElseThrow();
 
         assertThat(figures.legModes()).containsExactly(TRAIN);
     }

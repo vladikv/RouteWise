@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.IntStream;
 
+import com.routewise.comparison.domain.FlightConnection;
 import com.routewise.comparison.domain.ItineraryTotals;
 import com.routewise.comparison.domain.Leg;
 import com.routewise.comparison.domain.ModeOption;
@@ -14,6 +15,7 @@ import com.routewise.comparison.domain.ModeTotals;
 import com.routewise.comparison.domain.RoutePlan;
 import com.routewise.comparison.domain.UnavailableGroup;
 import com.routewise.comparison.dto.ComparisonResponse;
+import com.routewise.comparison.dto.ConnectionResponse;
 import com.routewise.comparison.dto.ItineraryTotalsResponse;
 import com.routewise.comparison.dto.LegResponse;
 import com.routewise.comparison.dto.ModeOptionResponse;
@@ -123,7 +125,13 @@ public class ComparisonMapper {
                 option.recommended(),
                 option.notes(),
                 option.costSource(),
-                option.costRetrievedAt());
+                option.costRetrievedAt(),
+                via(option.via()));
+    }
+
+    private static ConnectionResponse via(FlightConnection connection) {
+        return connection == null ? null
+                : new ConnectionResponse(connection.hub().id(), connection.hub().name(), connection.airportCode());
     }
 
     private static BigDecimal oneDecimal(double value) {

@@ -75,7 +75,7 @@ class RuleBasedAdviceWriterTest {
     void write_recommendedModeHasEngineNotes_includesThemAfterTheAlternative() {
         ModeOptionResponse trainWithNote = new ModeOptionResponse(TransportModeCode.TRAIN, true, null, null,
                 new BigDecimal("628.3"), 373, new BigDecimal("150.80"), new BigDecimal("44.0"), 87, true,
-                List.of("Snow expected: allow extra time."), CostSource.ESTIMATE, null);
+                List.of("Snow expected: allow extra time."), CostSource.ESTIMATE, null, null);
 
         AdviceText advice = writer.write(new AdviceContext(BERLIN_VIENNA,
                 comparison(List.of(), trainWithNote, bus())));
@@ -108,7 +108,7 @@ class RuleBasedAdviceWriterTest {
     void compare_fasterAndPricierAlternative_describesTradeOff() {
         ModeOptionResponse plane = new ModeOptionResponse(TransportModeCode.PLANE, true, null, null,
                 new BigDecimal("523.6"), 193, new BigDecimal("230.80"), new BigDecimal("44.0"), 60, false, List.of(),
-                CostSource.ESTIMATE, null);
+                CostSource.ESTIMATE, null, null);
 
         // 193 - 373 = -180 min = 3 h faster; 230.80 - 150.80 = 80.00 EUR more; equal CO2.
         assertThat(RuleBasedAdviceWriter.compare(plane, train(true), "EUR"))

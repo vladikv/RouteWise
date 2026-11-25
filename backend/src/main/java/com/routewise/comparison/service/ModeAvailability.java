@@ -22,7 +22,8 @@ public final class ModeAvailability {
     }
 
     /**
-     * @param routeKm              the mode's route distance (detour factor applied)
+     * @param routeKm              the distance checked against the mode's maximum: the route distance (detour
+     *                             factor applied), or the longest flight of a connecting plane
      * @param sameLandmass         whether both cities of the leg share a landmass
      * @param citiesWithoutAirport names of the leg's cities without a working airport
      * @return empty when the mode is available

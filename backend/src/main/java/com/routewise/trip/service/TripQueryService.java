@@ -16,7 +16,9 @@ import java.util.function.Predicate;
 
 import com.routewise.common.exception.FieldValidationException;
 import com.routewise.comparison.domain.ModeParameters;
+import com.routewise.comparison.domain.RouteStop;
 import com.routewise.comparison.mapper.ComparisonMapper;
+import com.routewise.comparison.service.HubDirectory;
 import com.routewise.pricing.domain.PriceBook;
 import com.routewise.pricing.service.PricingService;
 import com.routewise.transportmode.domain.TransportModeCode;
@@ -56,16 +58,19 @@ public class TripQueryService {
     private final PricingService pricingService;
     private final ComparisonMapper comparisonMapper;
     private final TripFiguresCalculator figuresCalculator;
+    private final HubDirectory hubDirectory;
     private final TripMapper tripMapper;
 
     public TripQueryService(TripRepository tripRepository, TransportModeRepository transportModeRepository,
                             PricingService pricingService, ComparisonMapper comparisonMapper,
-                            TripFiguresCalculator figuresCalculator, TripMapper tripMapper) {
+                            TripFiguresCalculator figuresCalculator, HubDirectory hubDirectory,
+                            TripMapper tripMapper) {
         this.tripRepository = tripRepository;
         this.transportModeRepository = transportModeRepository;
         this.pricingService = pricingService;
         this.comparisonMapper = comparisonMapper;
         this.figuresCalculator = figuresCalculator;
+        this.hubDirectory = hubDirectory;
         this.tripMapper = tripMapper;
     }
 
@@ -113,7 +118,9 @@ public class TripQueryService {
                 .map(comparisonMapper::toParameters)
                 .toList();
         PriceBook prices = pricingService.priceBook();
-        return trips.stream().map(trip -> new FiguredTrip(trip, figuresCalculator.figures(trip, modes, prices)))
+        List<RouteStop> hubs = hubDirectory.hubs();
+        return trips.stream()
+                .map(trip -> new FiguredTrip(trip, figuresCalculator.figures(trip, modes, prices, hubs)))
                 .toList();
     }
 
