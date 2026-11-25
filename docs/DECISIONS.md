@@ -24,7 +24,7 @@ The decisions that shape the project, as they stand now. Details and reasons are
 | Domain | Costs are estimates from seeded data: country fuel prices and tolls for the car, regional base fare + per-km fares for tickets, averaged over a leg's two countries; the per-km cost per mode is the fallback; optional live flight prices (SerpApi Google Flights) for the plane in comparisons | #184, #187, #191, #193, #194 |
 | Domain | Flights only between cities with a working airport (`airport_code`, NULL = none); otherwise `NO_AIRPORT` | #190, #192 |
 | Domain | Multi-stop trips: `Trip` owns 2–10 ordered stops; the comparison is per leg, with a mixed itinerary compared against single-mode totals | #77, #78 |
-| Domain | Ground modes only within one landmass (fixed links count, ferries do not); flights use DEFRA short- and long-haul CO₂ factors | #110, #115 |
+| Domain | Ground modes only within one landmass (fixed links count, ferries do not); flights use DEFRA short- and long-haul CO₂ factors; a leg over 12,000 km flies with one connection via the seeded hub with the smallest detour, figures per flight | #110, #115, #196, #197 |
 | Resilience | Weather is best effort: cached (successes only, 1 h), one retry, explicit `weatherStatus`; the comparison never fails because of it | #19, #130, #131 |
 | AI | The LLM is optional (bean only with `ANTHROPIC_API_KEY`) behind `AdvisorClient`; rule-based parser and writer are the fallback on absence or any failure | #22, #23 |
 | AI | LLM output is never trusted: drafts are validated like user input and the recommended mode always comes from the engine | #24 |

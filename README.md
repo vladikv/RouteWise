@@ -198,6 +198,12 @@ RouteWise gives estimates for comparing options, not quotes or timetables.
   one within about 60 km). Cities without one, such as those in Ukraine while
   the airspace is closed, get `NO_AIRPORT`; the UI then suggests a stop with an
   airport in between.
+- **Connecting flights:** a leg longer than 12,000 km (no regular non-stop
+  flight, e.g. Berlin to Sydney) is flown with one connection at one of 20
+  seeded hubs (`V17`), the one with the smallest total distance whose two
+  flights are each within 12,000 km. Distance and CO₂ are per flight, the time
+  adds 120 minutes for the connection, and the option names the hub (`via`).
+  Without a fitting hub the leg stays a direct flight.
 - **Flight CO₂:** two factors per passenger-km from the UK DEFRA greenhouse
   gas conversion factors 2023 (economy class, including radiative forcing):
   short-haul 183 g up to 3,700 km great-circle distance (DEFRA's short/long-haul

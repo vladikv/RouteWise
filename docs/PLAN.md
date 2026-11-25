@@ -189,7 +189,7 @@ Changes in `feat/backend-depth`:
 (ISO instant of the live fare, `null` for estimates); the advice endpoint uses the same figures. Trip list and stats
 responses do not change.
 
-`feat/hub-connections` is additive: comparison options (`GET /api/trips/{id}/comparison`, `POST /api/comparisons`)
+`feat/hub-connections` is additive *(done)*: comparison options (`GET /api/trips/{id}/comparison`, `POST /api/comparisons`)
 get `via` (`{cityId, cityName, airportCode}` of the connecting hub; `null` for a direct flight and for every other
 mode); on legs longer than 12,000 km the plane's distance, duration, cost and CO₂ change in value; no
 `unavailableCode` value is added or removed. The advice endpoint uses the same figures and mentions the connection. Trip list and stats responses keep
@@ -243,21 +243,7 @@ Completed milestones are one line each; their details live in the commits, `docs
 - [x] `feat/regional-pricing`: cost estimates from seeded country fuel prices, tolls and regional fares (no API keys, no API change)
 - [x] `feat/airport-availability`: the plane is offered only between cities with a working airport (`airportCode`, `NO_AIRPORT`); the UI suggests a stop when no mode can make a leg
 - [x] `feat/live-flight-prices`: real flight prices in comparisons when a SerpApi (Google Flights) key is configured; labelled "Live price", estimates otherwise
-- [ ] `feat/hub-connections`: connecting flights via a hub for legs longer than 12,000 km
-  - Data: `city.hub` (V16 schema, V17 data) for about 20 major connecting airports among the seeded cities, each with
-    an `airportCode`; the list and its coverage (every continent) are checked in the migration test
-  - Engine: a pure `HubRouter` picks, for a leg over the 12,000 km non-stop limit, the hub with the smallest total
-    distance whose segments are both within the limit (none fits → direct flight); `ComparisonEngine` builds the connecting option (distance, time with a 120-minute connection, CO₂
-    per segment, one regional fare); `ModeOption` gets `via`; `RoutePlanner` passes the hub cities in, so the engine
-    stays pure; trip figures and stats use the same path
-  - API: `via` on comparison options (additive)
-  - Advisor: the rule-based advice and the facts sent to Claude mention the connection ("via Dubai")
-  - UI: the plane option shows "via Dubai" in the comparison and on the trip details page; the globe draws the flight
-    through the hub
-  - Tests: `HubRouter` (choice, no hub fits, hub equal to a leg city), engine figures per segment, a comparison test
-    for Berlin → Sydney, migration test, DTO mapping, advice text, UI components
-  - Done when: Berlin → Sydney offers a plane via a hub with figures per segment; flights up to 12,000 km are
-    unchanged; `./mvnw verify`, `npm test` and `npm run lint` green
+- [x] `feat/hub-connections`: legs over 12,000 km fly with one connection via the hub with the smallest detour (`city.hub`, per-segment figures, `via` on options, "via Hong Kong" in the UI, advice and globe)
 
 ## Decisions
 
