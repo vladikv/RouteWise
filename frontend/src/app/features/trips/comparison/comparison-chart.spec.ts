@@ -20,6 +20,7 @@ function option(overrides: Partial<ModeOption> & Pick<ModeOption, 'mode'>): Mode
     notes: [],
     costSource: 'ESTIMATE',
     costRetrievedAt: null,
+    via: null,
     ...overrides,
   };
 }
@@ -147,6 +148,19 @@ describe('ComparisonChart', () => {
     tab.click();
     await fixture.whenStable();
   }
+
+  it('names the hub next to a connecting plane and no other mode', async () => {
+    const via = { cityId: 18, cityName: 'Hong Kong', airportCode: 'HKG' };
+    fixture.componentRef.setInput('comparison', {
+      ...LEG_COMPARISON,
+      options: [{ ...LEG_COMPARISON.options[0], mode: 'PLANE', via }, LEG_COMPARISON.options[1]],
+    });
+    await fixture.whenStable();
+
+    const [plane, car] = rows();
+    expect(plane).toContain('Plane via Hong Kong');
+    expect(car).not.toContain('via');
+  });
 
   it('starts with the score, best first, and names the best and the recommended mode in words', () => {
     expect(chart.querySelector('.insight')?.textContent).toBe(

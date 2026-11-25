@@ -120,12 +120,16 @@ H2 console: `/h2-console` (JDBC URL `jdbc:h2:mem:routewise`, user `sa`, empty pa
   `TripDraftResolver`) and never let it override computed results
   (the comparison engine picks the recommended mode).
 - **Pure business rules** (e.g. `ComparisonEngine`, `CostModel`, `GeoDistance`,
-  `ItineraryCalculator`, `UnavailableGrouper`, `RoutePlanner`, `PriceBook.forLeg`) take plain records as
+  `ItineraryCalculator`, `UnavailableGrouper`, `RoutePlanner`, `HubRouter`, `PriceBook.forLeg`) take plain records as
   input (`ComparisonInput`, `ModeParameters`, `LegPricing`, `Leg`, `RouteStop`), not entities, and do no I/O.
   Costs come from the `pricing` feature: `PricingService.priceBook()` loads the seeded `country_pricing` and
   `regional_fare` rows once per request (comparisons, trip list, stats) and `RoutePlanner` passes each leg its
   `LegPricing` (with the leg's live plane fare, if any, for `CostModel.quote`); tests that do not care about prices
   pass `PriceBook.EMPTY` / `LegPricing.NONE` (per-km fallback) and `PlaneFares.NONE`.
+  Connecting flights: `HubDirectory.hubs()` loads the seeded hub cities once per request (comparisons, trip list,
+  stats) and `RoutePlanner` passes them to `HubRouter`, which gives a leg over `NON_STOP_LIMIT_KM` a
+  `FlightConnection` in its `ComparisonInput`; the engine then prices, times and rates the plane per flight and
+  sets `via`. Tests that do not care about hubs pass `List.of()`.
   The backend owns every figure the UI shows: `RoutePlanner` builds a `RoutePlan` (legs,
   mixed itinerary, single-mode totals, grouped unavailable messages) for comparisons
   (with weather) and for the trip list and stats (`TripFiguresCalculator`, without weather,

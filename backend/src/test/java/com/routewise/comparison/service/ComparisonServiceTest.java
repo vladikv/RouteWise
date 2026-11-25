@@ -110,6 +110,7 @@ class ComparisonServiceTest {
         comparisonService = new ComparisonService(tripRepository, new StopResolver(cityRepository),
                 transportModeRepository, noPrices, flightPriceService, weatherService,
                 new RoutePlanner(new ComparisonEngine(), new ItineraryCalculator(), new UnavailableGrouper()),
+                new HubDirectory(cityRepository),
                 new ComparisonMapper(), CLOCK);
     }
 
@@ -237,6 +238,7 @@ class ComparisonServiceTest {
         ComparisonService priced = new ComparisonService(tripRepository, new StopResolver(cityRepository),
                 transportModeRepository, new PricingService(countries, fares), flightPriceService, weatherService,
                 new RoutePlanner(new ComparisonEngine(), new ItineraryCalculator(), new UnavailableGrouper()),
+                new HubDirectory(cityRepository),
                 new ComparisonMapper(), CLOCK);
         knownCities(berlin, prague);
         when(transportModeRepository.findAll()).thenReturn(seededModes());

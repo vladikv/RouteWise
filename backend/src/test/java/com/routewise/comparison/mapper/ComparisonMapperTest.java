@@ -8,6 +8,7 @@ import java.util.List;
 
 import com.routewise.city.dto.CitySummary;
 import com.routewise.comparison.domain.CostSource;
+import com.routewise.comparison.domain.FlightConnection;
 import com.routewise.comparison.domain.ItineraryTotals;
 import com.routewise.comparison.domain.Leg;
 import com.routewise.comparison.domain.ModeOption;
@@ -16,6 +17,7 @@ import com.routewise.comparison.domain.RoutePlan;
 import com.routewise.comparison.domain.UnavailableCode;
 import com.routewise.comparison.domain.UnavailableGroup;
 import com.routewise.comparison.dto.ComparisonResponse;
+import com.routewise.comparison.dto.ConnectionResponse;
 import com.routewise.comparison.dto.LegResponse;
 import com.routewise.comparison.dto.ModeOptionResponse;
 import com.routewise.comparison.dto.ModeTotalsResponse;
@@ -40,7 +42,7 @@ class ComparisonMapperTest {
     private final ComparisonMapper mapper = new ComparisonMapper();
 
     private static final ModeOption TRAIN = new ModeOption(TransportModeCode.TRAIN, true, null, null, 628.25, 373,
-            new BigDecimal("150.78"), new BigDecimal("44.0"), 87, true, List.of("note"), CostSource.ESTIMATE, null);
+            new BigDecimal("150.78"), new BigDecimal("44.0"), 87, true, List.of("note"), CostSource.ESTIMATE, null, null);
 
     @Test
     void toResponse_mapsLegsWeatherTotalsAndRoundsDistances() {
@@ -101,9 +103,25 @@ class ComparisonMapperTest {
     }
 
     @Test
+    void toResponse_planeViaAHub_mapsTheConnection() {
+        FlightConnection connection = new FlightConnection(new CitySummary(7L, "Hong Kong", "HK"), "HKG", 8749, 7376);
+        ModeOption plane = new ModeOption(TransportModeCode.PLANE, true, null, null, 16125, 1680,
+                new BigDecimal("2418.75"), new BigDecimal("3225.0"), 100, true, List.of(), CostSource.ESTIMATE, null,
+                connection);
+        RoutePlan routePlan = new RoutePlan(List.of(new Leg(BERLIN, VIENNA, 16094, List.of(), List.of(plane, TRAIN))),
+                null, List.of(), List.of(List.of()), List.of());
+
+        ComparisonResponse response = mapper.toResponse(null, DEPARTURE, 1, TripPriority.BALANCED,
+                new WeatherReport(WeatherStatus.OUT_OF_RANGE, List.of()), routePlan);
+
+        assertThat(response.legs().getFirst().options()).extracting(ModeOptionResponse::via)
+                .containsExactly(new ConnectionResponse(7L, "Hong Kong", "HKG"), null);
+    }
+
+    @Test
     void toResponse_withoutAPlan_hasNullItineraryAndLegWithoutRecommendation() {
         ModeOption bike = new ModeOption(TransportModeCode.BIKE, false, UnavailableCode.TOO_FAR, "too far", 680, null, null, null, 0, false,
-                List.of(), null, null);
+                List.of(), null, null, null);
 
         UnavailableGroup tooFar = new UnavailableGroup(UnavailableCode.TOO_FAR, List.of(TransportModeCode.BIKE),
                 "Too far between Berlin and Vienna for: bike");

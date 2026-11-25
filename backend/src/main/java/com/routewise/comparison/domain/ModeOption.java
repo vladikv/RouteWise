@@ -13,6 +13,8 @@ import com.routewise.transportmode.domain.TransportModeCode;
  * @param score           0–100, higher is better; 0 when unavailable
  * @param costSource      {@code null} when unavailable
  * @param costRetrievedAt when a live cost was fetched; {@code null} for an estimate or when unavailable
+ * @param via             the connection of a plane option flown via a hub; {@code null} for a direct flight,
+ *                        another mode or when unavailable
  */
 public record ModeOption(
         TransportModeCode mode,
@@ -27,5 +29,6 @@ public record ModeOption(
         boolean recommended,
         List<String> notes,
         CostSource costSource,
-        Instant costRetrievedAt) {
+        Instant costRetrievedAt,
+        FlightConnection via) {
 }

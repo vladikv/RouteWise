@@ -973,3 +973,32 @@ mistakes before a human has to.
 
 **Why**
 - The "Done when" asks for a README that matches the code; later milestones had changed variables, availability and pricing without the reviewer-facing summary following everywhere.
+
+## feat/hub-connections (connecting flights via a hub for legs over 12,000 km)
+
+**Delegated to AI**
+- Explained the backlog idea to the human, planned it with `add-milestone` (#196), then built it:
+  - data: `city.hub` (V16 with a check that a hub has an airport, V17 with 20 hubs on every continent);
+  - engine: the pure `HubRouter` (smallest total distance, both flights within 12,000 km, ties by name, hubs at a leg city or airport skipped), `FlightConnection` in `ComparisonInput` and `ModeOption`, per-flight distance, time (+120 min) and CO₂, one ticket over the total distance, `HubDirectory` loading the hubs once per request for comparisons, the trip list and stats, and the additive `via` field;
+  - advisor: "plane via Hong Kong" in the summary, leg sentences and alternative tip, and the hub in the facts sent to Claude;
+  - UI (`ui-builder`): "via Hong Kong (HKG)" in the comparison table, short notes in the itinerary, chart, Trips row and Home summary, and the leg drawn through the hub on the globe.
+- Checked hub coverage with a script over all 422 seeded cities: 15,448 pairs are over 12,000 km, 60 of them have no fitting hub and stay direct, and the detour averages 3.7 %.
+- Checked a real comparison on the running API: Berlin → Sydney flies via Hong Kong (16,125 km, 1,560 min, 3,225 kg); Berlin → New York stays direct.
+- Ran the checks, all green: `./mvnw verify` (559 tests), `npm test` (775), `npm run lint` and `npm run build` without budget warnings.
+
+**Human decisions**
+- To plan the backlog item as a milestone; a connection only for very long legs, hubs as a flag on `city`, a `via` field rather than a note, 120 minutes per connection.
+- After the AI's correction (below): a non-stop limit of 12,000 km, kept as a constant in `HubRouter`, with the direct flight kept when no hub fits.
+
+**Found by the human**
+- None recorded.
+
+**AI self-corrections**
+- The plan, written by the AI, assumed a 10,000 km plane range and said Berlin → Sydney had no option. While implementing, the AI found that V8 had raised the range to 20,100 km, so the planned trigger could never fire. It stopped, told the human, asked for the new trigger, and recorded it as #197 (superseding #196).
+- The `backend-reviewer` found the plan and decisions still describing the old trigger (fixed in a docs commit), stale Javadoc and missing tests (regional and live fares with a connection, a too-short range, a multi-leg trip, the 12,000 km boundary), all added; on the advisor it found the connection missing from the alternative tip, the multi-leg summary and the facts' plan and totals, all fixed.
+- The `ui-reviewer` found that a comparison arriving on Home cut the globe's turn short (fixed by comparing hubs per leg and keeping a running move animated), that the change pushed `route-map.scss` over its 4 kB budget (route rules moved to `route-map-route.scss`), a wrong regex in a spec and missing tests, all fixed.
+- The AI committed the advisor change with an unused import and amended the local commit.
+
+**Why**
+- Very long legs were priced as one direct flight that does not exist. A single, data-driven hub keeps the rule simple and pure; keeping the direct flight when no hub fits means no pair becomes unavailable, and the live price needs no change because Google Flights already returns connecting flights.
+

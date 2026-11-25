@@ -32,6 +32,9 @@
           <span class="bar__label">
             <app-mode-icon [mode]="row.option.mode" />
             {{ modeLabels[row.option.mode] }}
+            @if (row.option.via; as via) {
+              <span class="via">via {{ via.cityName }}</span>
+            }
             @if (row.best) {
               <span class="best-label">{{ definition().bestLabel }}</span>
             }

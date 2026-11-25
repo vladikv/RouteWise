@@ -56,4 +56,8 @@ public class City {
     /** IATA code of the airport that serves the city; {@code null} when it has no working airport (V14/V15). */
     @Column(name = "airport_code", length = 3)
     private String airportCode;
+
+    /** Whether a connecting flight can change planes here (V16/V17); a hub always has an airport. */
+    @Column(nullable = false)
+    private boolean hub;
 }

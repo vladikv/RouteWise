@@ -92,6 +92,16 @@
       @if (flowing()) {
         <path class="route route--flow" [class.route--dimmed]="leg.dimmed" [attr.d]="leg.d" />
       }
+      @if (leg.hub; as hub) {
+        <circle
+          class="hub"
+          [class.route--dimmed]="leg.dimmed"
+          [attr.cx]="hub.x"
+          [attr.cy]="hub.y"
+          r="3"
+          aria-hidden="true"
+        />
+      }
     }
 
     @for (marker of markers(); track marker.city.id) {

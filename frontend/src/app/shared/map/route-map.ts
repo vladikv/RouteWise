@@ -25,6 +25,7 @@ import { Box, LabelRequest, LabelSide, PlacedLabel, layoutLabels } from './label
 import {
   DEFAULT_VIEW,
   GlobeFrame,
+  GlobeGeometry,
   GlobeView,
   MAX_ZOOM,
   MIN_ZOOM,
@@ -37,12 +38,15 @@ import {
   fitRoute,
   globeGeometry,
   haversineKm,
+  hubIndex,
   idleTurn,
   interpolateView,
   isClearlyVisible,
   isVisible,
+  legSamples,
   maxLabelRank,
   minDotGap,
+  pointsThroughHubs,
   projectLifted,
   rotateBy,
   rotateByDegrees,
@@ -162,7 +166,12 @@ type LandState = 'loading' | 'ready' | 'failed';
     '(focusout)': 'onFocusOut($event)',
   },
   templateUrl: './route-map.html',
-  styleUrls: ['./route-map.scss', './route-map-card.scss', './route-map-trips.scss'],
+  styleUrls: [
+    './route-map.scss',
+    './route-map-route.scss',
+    './route-map-card.scss',
+    './route-map-trips.scss',
+  ],
 })
 export class RouteMap {
   readonly cities = input.required<City[]>();
@@ -203,6 +212,12 @@ export class RouteMap {
    * globe turns to it when it is out of view. `null` shows the whole route evenly.
    */
   readonly focusLeg = input<number | null>(null);
+  /**
+   * The connecting hub (a city id) of each leg of the route by leg index, or null for a direct leg. A leg with
+   * a hub is drawn as two arcs, from to hub and hub to to, with a small mark at the hub (not a stop). Ids that
+   * are not in `cities` are ignored.
+   */
+  readonly hubs = input<(number | null)[]>([]);
   /**
    * With no route selected the globe turns once round in about two minutes. Any interaction (hover,
    * drag, wheel, keys, a selected route) stops it at once; it resumes after 10 s without one. Off
@@ -379,7 +394,21 @@ export class RouteMap {
   );
   /** The view that shows the whole route, or Europe when no city is chosen. */
   private readonly homeView = computed(() =>
-    fitRoute(this.routeCities(), this.frame(), this.fill() ? FILL_FIT_MARGIN_PX : FIT_MARGIN_PX),
+    fitRoute(
+      pointsThroughHubs(this.routeCities(), this.legHubs()),
+      this.frame(),
+      this.fill() ? FILL_FIT_MARGIN_PX : FIT_MARGIN_PX,
+    ),
+  );
+  /** The hub city of each leg, in leg order (undefined for a direct leg). */
+  private readonly legHubs = computed(
+    () => {
+      const hubs = this.hubs();
+      return this.routeCities()
+        .slice(1)
+        .map((_, i) => this.cityById(hubs[i] ?? null) ?? null);
+    },
+    { equal: (a, b) => a.length === b.length && a.every((hub, i) => hub === b[i]) },
   );
 
   /** The route through every stop: its legs as pairs of cities, and the total straight-line distance; null with fewer than two stops. */
@@ -388,11 +417,19 @@ export class RouteMap {
     if (cities.length < 2) {
       return null;
     }
-    const legs = cities.slice(1).map((to, i) => ({
-      from: cities[i],
-      to,
-      samples: arcSamples(cities[i], to),
-    }));
+    const hubs = this.legHubs();
+    const legs = cities.slice(1).map((to, i) => {
+      const hub = hubs[i] ?? null;
+      const samples = legSamples(cities[i], to, hub);
+      return {
+        from: cities[i],
+        to,
+        hub,
+        samples,
+        /** How far along the leg the hub is, 0 to 1. */
+        hubShare: hub ? hubIndex(cities[i], hub) / (samples.length - 1) : 0,
+      };
+    });
     const distanceKm = legs.reduce((sum, leg) => sum + haversineKm(leg.from, leg.to), 0);
     return { legs, distanceKm };
   });
@@ -413,6 +450,7 @@ export class RouteMap {
     const progress = this.drawn() * route.legs.length;
     const focus = this.focusLeg();
     return route.legs.map((leg, index) => ({
+      hub: this.hubMark(leg, Math.min(Math.max(progress - index, 0), 1), view, geometry),
       key: `${key}:${index}`,
       focused: focus === index,
       dimmed: focus !== null && focus !== index,
@@ -425,6 +463,20 @@ export class RouteMap {
       ),
     }));
   });
+
+  /** The screen position of a leg's hub mark once the leg is drawn up to it, or null (no hub, not yet drawn, far side). */
+  private hubMark(
+    leg: { hub: City | null; hubShare: number },
+    drawn: number,
+    view: GlobeView,
+    geometry: GlobeGeometry,
+  ): MapPoint | null {
+    if (!leg.hub || drawn < leg.hubShare || !isVisible(leg.hub, view)) {
+      return null;
+    }
+    const point = projectLifted(leg.hub, 0, view, geometry);
+    return point.hidden ? null : { x: point.x, y: point.y };
+  }
 
   /** The arcs of every trip (one per leg, sampled once); empty for a map that is only an image. */
   private readonly tripLegs = computed(() => {
@@ -794,10 +846,19 @@ export class RouteMap {
       untracked(() => {
         const leg = index === null ? undefined : route?.legs[index];
         const view = this.view();
-        if (!leg || (isClearlyVisible(leg.from, view) && isClearlyVisible(leg.to, view))) {
+        if (
+          !leg ||
+          (isClearlyVisible(leg.from, view) &&
+            isClearlyVisible(leg.to, view) &&
+            (!leg.hub || isClearlyVisible(leg.hub, view)))
+        ) {
           return;
         }
-        const target = fitRoute([leg.from, leg.to], this.frame(), FIT_MARGIN_PX);
+        const target = fitRoute(
+          pointsThroughHubs([leg.from, leg.to], [leg.hub]),
+          this.frame(),
+          FIT_MARGIN_PX,
+        );
         this.adjusted = true;
         this.moveTo({ ...target, zoom: view.zoom }, this.interactive());
       });
@@ -820,7 +881,10 @@ export class RouteMap {
         } else if (this.adjusted) {
           return;
         }
-        this.moveTo(home, routeChanged && !first && interactive);
+        this.moveTo(
+          home,
+          ((routeChanged && !first) || this.animationTarget !== null) && interactive,
+        );
       });
     });
   }

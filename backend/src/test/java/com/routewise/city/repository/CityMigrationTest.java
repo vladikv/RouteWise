@@ -160,6 +160,25 @@ class CityMigrationTest {
                 .hasMessageContaining("CK_CITY_AIRPORT_CODE");
     }
 
+    @Test
+    void migrate_v17SeedsTwentyHubsOnEveryContinent() throws SQLException {
+        assertThat(count("SELECT COUNT(*) FROM city WHERE hub")).isEqualTo(20);
+        assertThat(column("SELECT DISTINCT continent FROM city WHERE hub ORDER BY continent")).containsExactly(
+                "AFRICA", "ASIA", "EUROPE", "NORTH_AMERICA", "OCEANIA", "SOUTH_AMERICA");
+    }
+
+    @Test
+    void migrate_everyHubHasAnAirport() throws SQLException {
+        assertThat(count("SELECT COUNT(*) FROM city WHERE hub AND airport_code IS NULL")).isZero();
+    }
+
+    @Test
+    void migrate_v16RejectsAHubWithoutAnAirport() {
+        assertThatThrownBy(() -> execute("UPDATE city SET hub = TRUE WHERE name = 'Kyiv'"))
+                .isInstanceOf(SQLException.class)
+                .hasMessageContaining("CK_CITY_HUB_AIRPORT");
+    }
+
     private void execute(String sql) throws SQLException {
         try (Connection connection = DriverManager.getConnection(url, "sa", "");
              Statement statement = connection.createStatement()) {

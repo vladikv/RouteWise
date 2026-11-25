@@ -19,6 +19,8 @@ import com.routewise.transportmode.domain.TransportModeCode;
  * @param costSource {@code ESTIMATE} (seeded regional prices) or {@code LIVE} (the cheapest live flight,
  *                   plane only); {@code null} when unavailable
  * @param costRetrievedAt when the live fare was fetched; {@code null} for an estimate
+ * @param via        the hub of a plane option with one connection (legs too long to fly non-stop);
+ *                   {@code null} for a direct flight, every other mode and when unavailable
  */
 public record ModeOptionResponse(
         TransportModeCode mode,
@@ -33,5 +35,6 @@ public record ModeOptionResponse(
         boolean recommended,
         List<String> notes,
         CostSource costSource,
-        Instant costRetrievedAt) {
+        Instant costRetrievedAt,
+        ConnectionResponse via) {
 }

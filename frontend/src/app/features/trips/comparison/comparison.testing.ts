@@ -21,6 +21,7 @@ const TRAIN: ModeOption = {
   notes: [],
   costSource: 'ESTIMATE',
   costRetrievedAt: null,
+  via: null,
 };
 
 const CAR: ModeOption = {
@@ -37,6 +38,7 @@ const CAR: ModeOption = {
   notes: ['Rain expected in Vienna, CAR score reduced'],
   costSource: 'ESTIMATE',
   costRetrievedAt: null,
+  via: null,
 };
 
 const BIKE: ModeOption = {
@@ -53,6 +55,7 @@ const BIKE: ModeOption = {
   notes: [],
   costSource: null,
   costRetrievedAt: null,
+  via: null,
 };
 
 /** Berlin to Vienna: one leg, train recommended, car available, bike too far, rain in Vienna. */
@@ -261,5 +264,23 @@ function option(
     notes: [],
     costSource: 'ESTIMATE',
     costRetrievedAt: null,
+    via: null,
   };
 }
+
+/** The connecting hub used by the connecting-flight fixtures. */
+export const HONG_KONG_VIA = { cityId: 18, cityName: 'Hong Kong', airportCode: 'HKG' };
+
+/** {@link COMPARISON} with the recommended option turned into a plane that connects via {@link HONG_KONG_VIA}. */
+export const CONNECTING_COMPARISON: Comparison = {
+  ...COMPARISON,
+  legs: [
+    {
+      ...COMPARISON.legs[0],
+      options: COMPARISON.legs[0].options.map((item) =>
+        item.recommended ? { ...item, mode: 'PLANE' as const, via: HONG_KONG_VIA } : item,
+      ),
+      recommendedMode: 'PLANE',
+    },
+  ],
+};

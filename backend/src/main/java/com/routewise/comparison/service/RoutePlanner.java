@@ -41,12 +41,15 @@ public class RoutePlanner {
     /**
      * @param prices     regional prices; each leg uses those of its two countries ({@link PriceBook#forLeg})
      * @param planeFares live flight fares by airports; {@link PlaneFares#NONE} keeps every plane cost an estimate
+     * @param hubs       connecting airports for legs too long to fly non-stop ({@link HubRouter}); empty for none
      */
     public RoutePlan plan(List<RouteStop> stops, int travelers, TripPriority priority, List<ModeParameters> modes,
-                          PriceBook prices, PlaneFares planeFares, List<LocationForecast> forecasts) {
+                          PriceBook prices, PlaneFares planeFares, List<RouteStop> hubs,
+                          List<LocationForecast> forecasts) {
         List<Leg> legs = new ArrayList<>();
         for (int i = 0; i + 1 < stops.size(); i++) {
-            legs.add(leg(stops.get(i), stops.get(i + 1), travelers, priority, modes, prices, planeFares, forecasts));
+            legs.add(leg(stops.get(i), stops.get(i + 1), travelers, priority, modes, prices, planeFares, hubs,
+                    forecasts));
         }
         List<ModeTotals> totals = itineraryCalculator.singleModeTotals(legs);
         return new RoutePlan(
@@ -58,7 +61,8 @@ public class RoutePlanner {
     }
 
     private Leg leg(RouteStop from, RouteStop to, int travelers, TripPriority priority, List<ModeParameters> modes,
-                    PriceBook prices, PlaneFares planeFares, List<LocationForecast> forecasts) {
+                    PriceBook prices, PlaneFares planeFares, List<RouteStop> hubs,
+                    List<LocationForecast> forecasts) {
         double distanceKm = GeoDistance.haversineKm(from.latitude(), from.longitude(), to.latitude(), to.longitude());
         List<LocationForecast> legWeather = forecasts.stream()
                 .filter(f -> f.location().name().equals(from.city().name())
@@ -69,7 +73,8 @@ public class RoutePlanner {
                 from.landmass().equals(to.landmass()), withoutAirport, travelers, priority, modes,
                 prices.forLeg(from.city().country(), to.city().country())
                         .withLivePlaneFare(planeFares.find(from.airportCode(), to.airportCode())),
-                legWeather));
+                legWeather,
+                HubRouter.connect(from, to, hubs).orElse(null)));
         return new Leg(from.city(), to.city(), distanceKm, withoutAirport, options);
     }
 

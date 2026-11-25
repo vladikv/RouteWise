@@ -182,6 +182,14 @@ export type WeatherStatus = 'AVAILABLE' | 'PARTIAL' | 'UNAVAILABLE' | 'OUT_OF_RA
 /** Where a cost comes from: seeded regional prices, or the cheapest live flight (plane only). */
 export type CostSource = 'ESTIMATE' | 'LIVE';
 
+/** The hub where a long flight changes planes. */
+export interface FlightConnection {
+  cityId: number;
+  cityName: string;
+  /** IATA code of the hub airport, e.g. "HKG". */
+  airportCode: string;
+}
+
 /** One mode in a comparison. Metrics are null when the mode is unavailable. */
 export interface ModeOption {
   mode: TransportModeCode;
@@ -201,6 +209,8 @@ export interface ModeOption {
   costSource: CostSource | null;
   /** ISO instant the live fare was fetched; null for an estimate. */
   costRetrievedAt: string | null;
+  /** The connecting hub of a plane leg over 12,000 km (its figures cover both flights); null otherwise. */
+  via: FlightConnection | null;
 }
 
 /** One leg of a route: stop `index` to stop `index + 1`. */

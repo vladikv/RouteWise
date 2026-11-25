@@ -18,6 +18,9 @@
                   <dd>
                     <app-mode-icon [mode]="best.mode" />
                     {{ modeLabels[best.mode] }}
+                    @if (best.via; as via) {
+                      <span class="via">via {{ via.cityName }}</span>
+                    }
                   </dd>
                 </div>
                 <div>

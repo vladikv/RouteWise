@@ -15,6 +15,7 @@ function option(overrides: Partial<ModeOption> & Pick<ModeOption, 'mode'>): Mode
     notes: [],
     costSource: 'ESTIMATE',
     costRetrievedAt: null,
+    via: null,
     ...overrides,
   };
 }

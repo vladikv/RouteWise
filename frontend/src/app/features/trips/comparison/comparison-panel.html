@@ -31,6 +31,13 @@
         >
           <th scope="row" role="rowheader">
             <span class="mode">{{ modeLabels[option.mode] }}</span>
+            @if (option.via; as via) {
+              <span class="via">
+                <span class="visually-hidden">, one connection </span>via {{ via.cityName }} ({{
+                  via.airportCode
+                }})
+              </span>
+            }
             @if (option.recommended) {
               <span class="badge badge--recommended">★ Recommended</span>
             }

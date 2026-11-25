@@ -11,4 +11,7 @@ public interface CityRepository extends JpaRepository<City, Long> {
     List<City> findAllByOrderByNameAsc();
 
     List<City> findByNameContainingIgnoreCaseOrderByNameAsc(String name);
+
+    /** The hub cities for connecting flights, by name. */
+    List<City> findByHubTrueOrderByNameAsc();
 }

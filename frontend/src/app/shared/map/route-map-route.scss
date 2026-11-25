@@ -1,0 +1,72 @@
+/* Route */
+
+/* A lifted arc: the line over a wider low-alpha stroke as its glow (no blur filter: cheap while turning). */
+.route {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-width: 2.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The hub of a connecting flight: a small ring on the surface, not a stop (no pin, no label). */
+.hub {
+  fill: var(--map-label-halo);
+  stroke: var(--map-label);
+  stroke-width: 1.5px;
+  pointer-events: none;
+}
+
+.route--glow {
+  stroke: var(--map-route-glow);
+  stroke-width: 9px;
+}
+
+/* One leg in focus (trip details): it gets heavier, the others fade but stay visible. */
+.route--focused {
+  stroke-width: 4px;
+}
+
+.route--glow.route--focused {
+  stroke-width: 13px;
+}
+
+/* 60 % keeps a faded leg at 3.35:1 against the lightest globe point (lime alone is 6.2:1). */
+.route--dimmed {
+  opacity: 0.6;
+}
+
+.route--glow.route--dimmed {
+  opacity: 0.3;
+}
+
+/* A dash train runs along each arc from origin to destination once it has been drawn. A negative
+   offset step moves the dashes forward along the path; the solid line below stays when motion is reduced. */
+.route--flow {
+  stroke: var(--color-on-primary);
+  stroke-width: 2.5px;
+  stroke-linecap: butt;
+  stroke-dasharray: 5 15;
+  opacity: 0;
+  animation:
+    flow-in 0.3s ease-out forwards,
+    flow-route 1s linear infinite;
+}
+
+@keyframes flow-in {
+  to {
+    opacity: 0.8;
+  }
+}
+
+@keyframes flow-route {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route--flow {
+    display: none;
+  }
+}

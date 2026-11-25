@@ -8,9 +8,9 @@ import com.routewise.comparison.dto.ComparisonResponse;
 import com.routewise.comparison.dto.ItineraryTotalsResponse;
 import com.routewise.comparison.dto.LegResponse;
 import com.routewise.comparison.dto.ModeOptionResponse;
-import com.routewise.comparison.dto.ModeTotalsResponse;
 import com.routewise.comparison.dto.WeatherSummary;
 import com.routewise.weather.domain.WeatherHazard;
+import com.routewise.transportmode.domain.TransportModeCode;
 
 /**
  * Renders an {@link AdviceContext} as plain-text facts for the LLM prompt.
@@ -36,8 +36,8 @@ final class AdviceFacts {
                     .append("taken into account):\n");
             leg.options().forEach(option -> facts.append("- ").append(describe(option, currency)).append('\n'));
         }
-        facts.append(describeItinerary(comparison.recommendedItinerary(), currency))
-                .append(describeSingleModes(comparison.singleModeTotals(), currency))
+        facts.append(describeItinerary(comparison, currency))
+                .append(describeSingleModes(comparison, currency))
                 .append(describeWeather(comparison.weather()));
         return facts.toString();
     }
@@ -46,28 +46,53 @@ final class AdviceFacts {
         if (!option.available()) {
             return "%s: unavailable (%s)".formatted(option.mode(), option.unavailableReason());
         }
-        String line = "%s%s: %d min, %s %s, %s kg CO2, score %d".formatted(option.mode(),
-                option.recommended() ? " (recommended)" : "", option.durationMinutes(),
+        String line = "%s%s%s: %d min, %s %s, %s kg CO2, score %d".formatted(option.mode(),
+                connection(option), option.recommended() ? " (recommended)" : "", option.durationMinutes(),
                 option.totalCost(), currency, option.co2Kg(), option.score());
         return option.notes().isEmpty() ? line : line + ". Notes: " + String.join(" ", option.notes());
     }
 
-    private static String describeItinerary(ItineraryTotalsResponse itinerary, String currency) {
+    /**
+     * E.g. " via Hong Kong (HKG), one connection"; empty for a direct flight and every other mode.
+     * A connecting flight has exactly one hub (see {@code HubRouter}).
+     */
+    private static String connection(ModeOptionResponse option) {
+        return option.via() == null ? ""
+                : " via %s (%s), one connection".formatted(option.via().cityName(), option.via().airportCode());
+    }
+
+    private static String describeItinerary(ComparisonResponse comparison, String currency) {
+        ItineraryTotalsResponse itinerary = comparison.recommendedItinerary();
         if (itinerary == null) {
             return "Recommended plan: none, because at least one leg has no available mode.\n";
         }
-        String modes = itinerary.modes().stream().map(Enum::name).collect(Collectors.joining(", then "));
+        String modes = comparison.legs().stream()
+                .map(leg -> leg.options().stream().filter(ModeOptionResponse::recommended).findFirst().orElseThrow())
+                .map(option -> option.mode() + connection(option))
+                .collect(Collectors.joining(", then "));
         return "Recommended plan (each leg's recommended mode): %s; total %d min, %s %s, %s kg CO2.\n".formatted(
                 modes, itinerary.durationMinutes(), itinerary.totalCost(), currency, itinerary.co2Kg());
     }
 
-    private static String describeSingleModes(List<ModeTotalsResponse> totals, String currency) {
-        return totals.stream()
+    private static String describeSingleModes(ComparisonResponse comparison, String currency) {
+        return comparison.singleModeTotals().stream()
                 .map(mode -> mode.available()
-                        ? "- %s for every leg: %d min, %s %s, %s kg CO2".formatted(mode.mode(),
-                                mode.durationMinutes(), mode.totalCost(), currency, mode.co2Kg())
+                        ? "- %s for every leg: %d min, %s %s, %s kg CO2%s".formatted(mode.mode(),
+                                mode.durationMinutes(), mode.totalCost(), currency, mode.co2Kg(),
+                                connections(comparison.legs(), mode.mode()))
                         : "- %s for every leg: not possible (%s)".formatted(mode.mode(), mode.unavailableReason()))
                 .collect(Collectors.joining("\n", "Single-mode alternatives:\n", "\n"));
+    }
+
+    /** E.g. " (leg 1 via Hong Kong (HKG))" for the plane; empty when no leg of that mode connects. */
+    private static String connections(List<LegResponse> legs, TransportModeCode mode) {
+        String hubs = legs.stream()
+                .flatMap(leg -> leg.options().stream()
+                        .filter(option -> option.mode() == mode && option.via() != null)
+                        .map(option -> "leg %d via %s (%s)".formatted(leg.index() + 1, option.via().cityName(),
+                                option.via().airportCode())))
+                .collect(Collectors.joining(", "));
+        return hubs.isEmpty() ? "" : " (" + hubs + ")";
     }
 
     private static String describeWeather(List<WeatherSummary> weather) {

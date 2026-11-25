@@ -19,6 +19,7 @@ import com.routewise.common.config.JpaAuditingConfig;
 import com.routewise.common.exception.FieldValidationException;
 import com.routewise.comparison.mapper.ComparisonMapper;
 import com.routewise.comparison.service.ComparisonEngine;
+import com.routewise.comparison.service.HubDirectory;
 import com.routewise.comparison.service.ItineraryCalculator;
 import com.routewise.comparison.service.RoutePlanner;
 import com.routewise.comparison.service.UnavailableGrouper;
@@ -57,7 +58,7 @@ import org.springframework.context.annotation.Import;
 @DataJpaTest
 @Import({TripQueryService.class, PricingService.class, TripFiguresCalculator.class, RoutePlanner.class,
         ComparisonEngine.class, ItineraryCalculator.class, UnavailableGrouper.class, ComparisonMapper.class,
-        TripMapper.class, JpaAuditingConfig.class, ClockConfig.class})
+        HubDirectory.class, TripMapper.class, JpaAuditingConfig.class, ClockConfig.class})
 class TripQueryServiceTest {
 
     private static final LocalDate DEC_1 = LocalDate.of(2026, 12, 1);

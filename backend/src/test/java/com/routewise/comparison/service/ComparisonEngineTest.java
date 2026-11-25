@@ -4,14 +4,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import com.routewise.city.dto.CitySummary;
 import com.routewise.comparison.domain.ComparisonInput;
+import com.routewise.comparison.domain.CostSource;
+import com.routewise.comparison.domain.FlightConnection;
 import com.routewise.comparison.domain.ModeOption;
 import com.routewise.comparison.domain.ModeParameters;
 import com.routewise.comparison.domain.UnavailableCode;
+import com.routewise.flightprice.domain.LiveFare;
 import com.routewise.pricing.domain.Fare;
 import com.routewise.pricing.domain.LegPricing;
 import com.routewise.transportmode.domain.TransportModeCode;
@@ -33,6 +39,10 @@ class ComparisonEngineTest {
             new ModeParameters(TransportModeCode.PLANE, 750, new BigDecimal("0.150"), 183, 150, 20100, 200));
 
     private static final LocalDate DATE = LocalDate.of(2026, 11, 20);
+
+    /** 3,000 km to Dubai (short haul) and 9,000 km on (long haul). */
+    private static final FlightConnection DUBAI_CONNECTION =
+            new FlightConnection(new CitySummary(9L, "Dubai", "AE"), "DXB", 3000, 9000);
 
     private final ComparisonEngine engine = new ComparisonEngine();
 
@@ -200,7 +210,7 @@ class ComparisonEngineTest {
 
         List<ModeOption> options = engine.compare(
                 new ComparisonInput(100, true, List.of(), 1, TripPriority.BALANCED, List.of(car, bus),
-                        LegPricing.NONE, List.of()));
+                        LegPricing.NONE, List.of(), null));
 
         assertThat(options).extracting(ModeOption::mode, ModeOption::score, ModeOption::recommended)
                 .containsExactly(
@@ -213,7 +223,7 @@ class ComparisonEngineTest {
         List<ModeParameters> bikeOnly = List.of(SEEDED_MODES.get(3));
 
         List<ModeOption> options = engine.compare(
-                new ComparisonInput(500, true, List.of(), 1, TripPriority.BALANCED, bikeOnly, LegPricing.NONE, List.of()));
+                new ComparisonInput(500, true, List.of(), 1, TripPriority.BALANCED, bikeOnly, LegPricing.NONE, List.of(), null));
 
         assertThat(options).singleElement().satisfies(option -> {
             assertThat(option.available()).isFalse();
@@ -225,7 +235,7 @@ class ComparisonEngineTest {
     void compare_singleAvailableMode_scores100AndIsRecommended() {
         List<ModeParameters> trainOnly = List.of(SEEDED_MODES.getFirst());
         List<ModeOption> options = engine.compare(
-                new ComparisonInput(100, true, List.of(), 1, TripPriority.BALANCED, trainOnly, LegPricing.NONE, List.of()));
+                new ComparisonInput(100, true, List.of(), 1, TripPriority.BALANCED, trainOnly, LegPricing.NONE, List.of(), null));
 
         assertThat(options).singleElement().satisfies(option -> {
             assertThat(option.score()).isEqualTo(100);
@@ -237,7 +247,7 @@ class ComparisonEngineTest {
     void compare_crossLandmassLeg_groundModesUnavailableWithCodeAndPlaneRecommended() {
         // Paris-New York is about 5837 km great circle; use 6000 km, 1 traveler.
         ComparisonInput input = new ComparisonInput(6000, false, List.of(), 1, TripPriority.BALANCED, SEEDED_MODES,
-                LegPricing.NONE, List.of());
+                LegPricing.NONE, List.of(), null);
 
         List<ModeOption> options = engine.compare(input);
 
@@ -260,7 +270,7 @@ class ComparisonEngineTest {
     void compare_shortCrossLandmassLeg_onlyPlaneIsAvailable() {
         // Dublin to London is about 460 km: within every ground limit, but no land route.
         ComparisonInput input = new ComparisonInput(460, false, List.of(), 1, TripPriority.CHEAPEST, SEEDED_MODES,
-                LegPricing.NONE, List.of());
+                LegPricing.NONE, List.of(), null);
 
         List<ModeOption> options = engine.compare(input);
 
@@ -275,7 +285,7 @@ class ComparisonEngineTest {
     @Test
     void compare_longHaulFlight_usesTheLongHaulFactor() {
         ComparisonInput input = new ComparisonInput(6000, false, List.of(), 2, TripPriority.BALANCED, SEEDED_MODES,
-                LegPricing.NONE, List.of());
+                LegPricing.NONE, List.of(), null);
 
         ModeOption plane = option(engine.compare(input), TransportModeCode.PLANE);
 
@@ -289,9 +299,9 @@ class ComparisonEngineTest {
     @Test
     void compare_flightAtExactlyTheThreshold_usesTheShortHaulFactor() {
         ComparisonInput atThreshold = new ComparisonInput(3700, false, List.of(), 1, TripPriority.BALANCED, SEEDED_MODES,
-                LegPricing.NONE, List.of());
+                LegPricing.NONE, List.of(), null);
         ComparisonInput above = new ComparisonInput(3701, false, List.of(), 1, TripPriority.BALANCED, SEEDED_MODES,
-                LegPricing.NONE, List.of());
+                LegPricing.NONE, List.of(), null);
 
         // 183 * 3700 / 1000 = 677.1 kg short-haul; 200 * 3701 / 1000 = 740.2 kg long-haul
         assertThat(option(engine.compare(atThreshold), TransportModeCode.PLANE).co2Kg())
@@ -303,7 +313,7 @@ class ComparisonEngineTest {
     void compare_londonToKharkiv_planeHasNoAirportAndNothingIsRecommended() {
         // About 2537 km great circle. Ground routes: train 3044 km > 2000, bus/car 3298 km > 2500/3000, bike > 150.
         ComparisonInput input = new ComparisonInput(2537, true, List.of("Kharkiv"), 1, TripPriority.FASTEST,
-                SEEDED_MODES, LegPricing.NONE, List.of());
+                SEEDED_MODES, LegPricing.NONE, List.of(), null);
 
         List<ModeOption> options = engine.compare(input);
 
@@ -318,7 +328,7 @@ class ComparisonEngineTest {
     @Test
     void compare_shortLegWithoutAirport_groundModesStayAvailable() {
         ComparisonInput input = new ComparisonInput(400, true, List.of("Kyiv", "Kharkiv"), 1, TripPriority.FASTEST,
-                SEEDED_MODES, LegPricing.NONE, List.of());
+                SEEDED_MODES, LegPricing.NONE, List.of(), null);
 
         List<ModeOption> options = engine.compare(input);
 
@@ -330,7 +340,7 @@ class ComparisonEngineTest {
     @Test
     void compare_sameLandmassLongLeg_groundModeBeyondLimitIsTooFar() {
         ComparisonInput input = new ComparisonInput(500, true, List.of(), 1, TripPriority.BALANCED, SEEDED_MODES,
-                LegPricing.NONE, List.of());
+                LegPricing.NONE, List.of(), null);
 
         ModeOption bike = option(engine.compare(input), TransportModeCode.BIKE);
 
@@ -345,7 +355,7 @@ class ComparisonEngineTest {
                 Map.of(TransportModeCode.TRAIN, new Fare(new BigDecimal("5.00"), new BigDecimal("0.140"))));
 
         List<ModeOption> options = engine.compare(new ComparisonInput(100, true, List.of(), 1, TripPriority.BALANCED,
-                SEEDED_MODES, pricing, List.of()));
+                SEEDED_MODES, pricing, List.of(), null));
 
         assertThat(options).filteredOn(ModeOption::available)
                 .extracting(ModeOption::mode, option -> option.totalCost().toPlainString())
@@ -354,9 +364,94 @@ class ComparisonEngineTest {
         assertThat(options).allSatisfy(option -> assertThat(option.notes()).isEmpty());
     }
 
+    @Test
+    void compare_withAConnection_fliesThePlaneViaTheHubWithFiguresPerFlight() {
+        // 3,000 km to the hub (short haul, 183 g) and 9,000 km on (long haul, 200 g), 2 travelers.
+        // Distance 12,000 km; time 150 overhead + 120 connection + 12,000 / 750 x 60 = 960 -> 1,230 min;
+        // cost 2 x 12,000 x 0.150 = 3,600.00; CO2 2 x (3,000 x 183 + 9,000 x 200) g = 4,698,000 g = 4,698.0 kg.
+        FlightConnection connection = DUBAI_CONNECTION;
+        ModeParameters plane = SEEDED_MODES.get(4);
+
+        ModeOption option = engine.compare(new ComparisonInput(12500, false, List.of(), 2, TripPriority.BALANCED,
+                List.of(plane), LegPricing.NONE, List.of(), connection)).getFirst();
+
+        assertThat(option.available()).isTrue();
+        assertThat(option.routeKm()).isEqualTo(12000);
+        assertThat(option.durationMinutes()).isEqualTo(1230);
+        assertThat(option.totalCost()).isEqualByComparingTo("3600.00");
+        assertThat(option.co2Kg()).isEqualByComparingTo("4698.0");
+        assertThat(option.via()).isEqualTo(connection);
+    }
+
+    @Test
+    void compare_withAConnectionAndARegionalFare_chargesOneTicketOverTheTotalDistance() {
+        // One base fare: 1 traveler x (50.00 + 0.080 x 12,000 km) = 50 + 960 = 1,010.00.
+        LegPricing pricing = new LegPricing(new BigDecimal("1.750"), new BigDecimal("0.000"),
+                Map.of(TransportModeCode.PLANE, new Fare(new BigDecimal("50.00"), new BigDecimal("0.080"))));
+
+        ModeOption plane = engine.compare(new ComparisonInput(12500, false, List.of(), 1, TripPriority.BALANCED,
+                List.of(SEEDED_MODES.get(4)), pricing, List.of(), DUBAI_CONNECTION)).getFirst();
+
+        assertThat(plane.totalCost()).isEqualByComparingTo("1010.00");
+        assertThat(plane.costSource()).isEqualTo(CostSource.ESTIMATE);
+    }
+
+    @Test
+    void compare_withAConnectionAndALiveFare_usesTheLiveFare() {
+        // The live fare is for the leg's two airports, so a connecting flight costs 2 x 700.00 = 1,400.00.
+        Instant fetched = Instant.parse("2026-11-20T08:00:00Z");
+        LegPricing pricing = LegPricing.NONE.withLivePlaneFare(
+                Optional.of(new LiveFare(new BigDecimal("700.00"), fetched)));
+
+        ModeOption plane = engine.compare(new ComparisonInput(12500, false, List.of(), 2, TripPriority.BALANCED,
+                List.of(SEEDED_MODES.get(4)), pricing, List.of(), DUBAI_CONNECTION)).getFirst();
+
+        assertThat(plane.totalCost()).isEqualByComparingTo("1400.00");
+        assertThat(plane.costSource()).isEqualTo(CostSource.LIVE);
+        assertThat(plane.via()).isEqualTo(DUBAI_CONNECTION);
+    }
+
+    @Test
+    void compare_withAConnectionWhoseLongerFlightExceedsTheRange_planeIsTooFar() {
+        // A plane with a 5,000 km range: the 9,000 km flight from the hub is too long.
+        ModeParameters shortRange = new ModeParameters(TransportModeCode.PLANE, 750, new BigDecimal("0.150"), 183,
+                150, 5000, 200);
+
+        ModeOption plane = engine.compare(new ComparisonInput(12500, false, List.of(), 1, TripPriority.BALANCED,
+                List.of(shortRange), LegPricing.NONE, List.of(), DUBAI_CONNECTION)).getFirst();
+
+        assertThat(plane.available()).isFalse();
+        assertThat(plane.unavailableCode()).isEqualTo(UnavailableCode.TOO_FAR);
+        assertThat(plane.routeKm()).isEqualTo(12000);
+    }
+
+    @Test
+    void compare_withAConnection_leavesTheOtherModesUnchanged() {
+        // Train: 1,000 km x 1.2 = 1,200 km; 30 overhead + 1,200 / 110 x 60 = 654.5 -> 685 min (rounded).
+        FlightConnection connection = DUBAI_CONNECTION;
+
+        ModeOption train = engine.compare(new ComparisonInput(1000, true, List.of(), 1, TripPriority.BALANCED,
+                List.of(SEEDED_MODES.getFirst()), LegPricing.NONE, List.of(), connection)).getFirst();
+
+        assertThat(train.routeKm()).isEqualTo(1200);
+        assertThat(train.durationMinutes()).isEqualTo(685);
+        assertThat(train.via()).isNull();
+    }
+
+    @Test
+    void compare_withoutAConnection_planeIsADirectFlight() {
+        ModeOption plane = engine.compare(new ComparisonInput(1000, true, List.of(), 1, TripPriority.BALANCED,
+                List.of(SEEDED_MODES.get(4)), LegPricing.NONE, List.of(), null)).getFirst();
+
+        // 150 + 1,000 / 750 x 60 = 80 -> 230 min, no connection time.
+        assertThat(plane.durationMinutes()).isEqualTo(230);
+        assertThat(plane.via()).isNull();
+    }
+
     private static ComparisonInput input(double km, int travelers, TripPriority priority,
                                          List<LocationForecast> forecasts) {
-        return new ComparisonInput(km, true, List.of(), travelers, priority, SEEDED_MODES, LegPricing.NONE, forecasts);
+        return new ComparisonInput(km, true, List.of(), travelers, priority, SEEDED_MODES, LegPricing.NONE, forecasts,
+                null);
     }
 
     private static LocationForecast forecast(String city, int weatherCode, double minTemperature) {

@@ -35,13 +35,14 @@ public class TripFiguresCalculator {
     }
 
     /** Empty when some leg has no available mode. The trip's stops and cities must be loaded. */
-    public Optional<TripFigures> figures(Trip trip, List<ModeParameters> modes, PriceBook prices) {
+    public Optional<TripFigures> figures(Trip trip, List<ModeParameters> modes, PriceBook prices,
+                                         List<RouteStop> hubs) {
         List<RouteStop> stops = trip.stopCities().stream()
                 .map(city -> new RouteStop(new CitySummary(city.getId(), city.getName(), city.getCountry()),
                         city.getLatitude(), city.getLongitude(), city.getLandmass(), city.getAirportCode()))
                 .toList();
         RoutePlan plan = routePlanner.plan(stops, trip.getTravelers(), trip.getPriority(), modes, prices,
-                PlaneFares.NONE, List.of());
+                PlaneFares.NONE, hubs, List.of());
         return figures(plan);
     }
 

@@ -24,6 +24,11 @@
           <p class="leg__mode">
             <app-mode-icon [mode]="best.mode" />
             <span class="leg__mode-name">{{ modeLabels[best.mode] }}</span>
+            @if (best.via; as via) {
+              <span class="leg__via">
+                <span class="visually-hidden">, one connection </span>via {{ via.cityName }}
+              </span>
+            }
             <span class="badge badge--recommended">★ Recommended</span>
           </p>
           <p class="leg__numbers">

@@ -84,7 +84,7 @@ src/
 - **Map and charts:** `RouteMap` is an interactive orthographic globe drawn as SVG with `d3-geo` (the only
   map dependency: projection, horizon clipping, great-circle interpolation; no 3D, zoom or drag library).
   Pure maths lives in `globe.ts` (projection, `isVisible`, `isClearlyVisible`, `maxLabelRank`, `rotateBy`, `fitRoute`,
-  `interpolateView`, `idleTurn`, and the lifted arcs: `arcPeak`, `projectLifted`, `arcSamples`, `arcPrefix`, `arcSegments`) and is unit-tested. The view is `{ longitude, latitude, zoom }` (centre of
+  `interpolateView`, `idleTurn`, and the lifted arcs: `arcPeak`, `projectLifted`, `arcSamples`, `arcPrefix`, `arcSegments`, and the connecting legs: `legSamples`, `hubIndex`, `pointsThroughHubs`) and is unit-tested. The view is `{ longitude, latitude, zoom }` (centre of
   the disc and 1-8x the globe fitted into the free space) in one signal; drag (pointer capture, touch too),
   wheel, pinch, the +/- buttons and keys change it, and every change re-projects land, graticule, route and
   cities from that signal (no layout reads while turning; drag, wheel and pinch apply at once, the buttons,
@@ -206,7 +206,16 @@ pan-y`). The land chunk loads through the `LAND_LOADER` token (override it in te
   toggle is an `app-icon-button` "Show my trips" (`aria-pressed`, tooltip = label) next to the zoom buttons, shown only
   when there are trips; the state is the `showTrips` model, kept by `MyTripsLayer` (`features/explore/my-trips-layer.ts`,
   `localStorage` key `routewise.myTripsLayer`, every access in try/catch, invalid or failing storage = on, default on).
-  The stylesheet is split in `route-map.scss`, `route-map-card.scss` and `route-map-trips.scss` (4 kB budget each).
+  **Connecting flights:** the `hubs` input is the connecting hub's city id per leg index (null: direct; Home and trip details
+  pass `recommendedHubs(comparison)`, Home only while the comparison on screen is for the chosen cities; an id not in
+  `cities` is ignored). A leg with a hub is drawn by `legSamples` as two lifted arcs (from to hub, hub to to; lift 0 at the
+  hub, one `path` per leg), the hub gets a 3 px `aria-hidden` `circle.hub` ring on the surface once the drawing has reached it
+  (`hubIndex` / samples) and while it is on the near side. The hub is not a stop (no pin, label or stop-list entry; the route
+  key does not change, so the draw animation does not restart), `fitRoute` and the focused-leg turn include it
+  (`pointsThroughHubs`), and a move under way stays animated when the hubs change. "via <city>" appears in the
+  comparison table as "via Hong Kong (HKG)" with a visually hidden ", one connection" (the full text equivalent) and as a
+  short note in the chart, itinerary ("Plane via Hong Kong"), Trips row details and the Home bottom-sheet summary.
+  The stylesheet is split in `route-map.scss`, `route-map-route.scss` (route, hub, dash train), `route-map-card.scss` and `route-map-trips.scss` (4 kB budget each).
 - **City choice:** `CityPicker` (ARIA combobox) next to every interactive map;
   priorities with `PriorityPicker`.
 - **Comparisons are per leg:** the API returns `legs`, `recommendedItinerary`
