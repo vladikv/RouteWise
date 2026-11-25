@@ -39,6 +39,8 @@ checkboxes when a milestone is completed.
 - Optional live flight prices: with a SerpApi key (Google Flights) the comparison shows the cheapest real
   one-way flight for the date instead of the plane estimate, labelled "Live price"; without a key everything works
   as before
+- Connecting flights: a leg longer than the plane's range is flown with one connection via a major hub (the one with
+  the smallest detour) instead of being unavailable; distance, time and CO₂ are calculated per flight segment
 
 Out of scope for v1: social login, password reset, email verification,
 real-time timetables, booking.
@@ -60,6 +62,8 @@ SARDINIA, CRETE, TASMANIA and SOUTH_ISLAND)*
 *(changed in `feat/airport-availability`: `airportCode` (IATA code of the airport that serves the city, 3 capital
 letters; the nearest one within about 60 km when the city has none of its own; `null` = no working airport: the four
 Ukrainian cities, Khartoum, Novi Sad, Valparaíso, Dover and Topeka), V14 schema, V15 data)*
+*(changed in `feat/hub-connections`: `hub` (boolean, default false): about 20 seeded cities with a major connecting
+airport, e.g. Dubai, Doha, Istanbul, Frankfurt, Singapore; V16 schema, V17 data; not exposed by `GET /api/cities`)*
 
 **TransportMode**: seeded reference data
 `code (TRAIN|BUS|CAR|BIKE|PLANE), avgSpeedKmh, costPerKm, co2GramsPerKm, fixedOverheadMinutes, maxDistanceKm`
@@ -108,6 +112,14 @@ the cheapest live one-way economy fare for one adult between the leg's airports 
 without a key, without a flight that day, between cities sharing an airport or on any provider error it stays the
 regional estimate. Duration and CO₂ stay the model's. Each option says where its cost comes from (`costSource`,
 `costRetrievedAt`). The trip list and stats always use estimates, so they never call an external service.
+*(changed in `feat/hub-connections`)* When a leg's direct flight is longer than PLANE's `maxDistanceKm` (10,000 km),
+the plane flies via one hub instead of being `TOO_FAR`: among hub cities other than the leg's two cities, the one
+with the smallest total distance whose two segments are each within the range (a pure rule; no hub → `TOO_FAR` as
+before). Distance = sum of the two segments; duration = the airport overhead once + both flight times + a 120-minute
+connection; CO₂ = each segment's distance × its own short- or long-haul factor. The estimated cost is one ticket over
+the total distance with the leg's regional fare (one base fare); the live price is unchanged, since the provider
+already returns connecting flights between the leg's airports. The option names the hub (`via`). Direct flights within
+the range do not change. The trip list and stats follow the same rule, so trips whose legs were unflyable get figures.
 *(changed in `feat/backend-depth`)* Unavailable modes are also grouped by code: each leg has
 `unavailableGroups: [{code, modes[], message}]`, e.g. "Not reachable by land between Dublin and Madrid: train, bus,
 car, bike", and the comparison has the same list for the single-mode totals ("Not possible for the whole trip:
@@ -175,6 +187,12 @@ Changes in `feat/backend-depth`:
 (ISO instant of the live fare, `null` for estimates); the advice endpoint uses the same figures. Trip list and stats
 responses do not change.
 
+`feat/hub-connections` is additive: comparison options (`GET /api/trips/{id}/comparison`, `POST /api/comparisons`)
+get `via` (`{cityId, cityName, airportCode}` of the connecting hub; `null` for a direct flight and for every other
+mode); legs beyond the plane's range that answered `TOO_FAR` for PLANE now return an available plane option when a hub
+fits. The advice endpoint uses the same figures and mentions the connection. Trip list and stats responses keep their
+shape.
+
 `feat/globe-map` adds fields only (cities as above; `unavailableCode` on comparison options and
 single-mode totals); no field is removed or renamed.
 
@@ -223,6 +241,21 @@ Completed milestones are one line each; their details live in the commits, `docs
 - [x] `feat/regional-pricing`: cost estimates from seeded country fuel prices, tolls and regional fares (no API keys, no API change)
 - [x] `feat/airport-availability`: the plane is offered only between cities with a working airport (`airportCode`, `NO_AIRPORT`); the UI suggests a stop when no mode can make a leg
 - [x] `feat/live-flight-prices`: real flight prices in comparisons when a SerpApi (Google Flights) key is configured; labelled "Live price", estimates otherwise
+- [ ] `feat/hub-connections`: connecting flights via a hub for legs beyond the plane's range
+  - Data: `city.hub` (V16 schema, V17 data) for about 20 major connecting airports among the seeded cities, each with
+    an `airportCode`; the list and its coverage (every continent) are checked in the migration test
+  - Engine: a pure `HubRouter` picks the hub with the smallest total distance whose segments are both within
+    PLANE's range; `ComparisonEngine` builds the connecting option (distance, time with a 120-minute connection, CO₂
+    per segment, one regional fare); `ModeOption` gets `via`; `RoutePlanner` passes the hub cities in, so the engine
+    stays pure; trip figures and stats use the same path
+  - API: `via` on comparison options (additive); `TOO_FAR` for the plane only when no hub fits
+  - Advisor: the rule-based advice and the facts sent to Claude mention the connection ("via Dubai")
+  - UI: the plane option shows "via Dubai" in the comparison and on the trip details page; the globe draws the flight
+    through the hub
+  - Tests: `HubRouter` (choice, no hub fits, hub equal to a leg city), engine figures per segment, a comparison test
+    for Berlin → Sydney, migration test, DTO mapping, advice text, UI components
+  - Done when: Berlin → Sydney offers a plane via a hub with figures per segment; direct flights under the range are
+    unchanged; `./mvnw verify`, `npm test` and `npm run lint` green
 
 ## Decisions
 
@@ -232,4 +265,4 @@ Decisions and their reasons are logged in [`docs/DECISIONS.md`](DECISIONS.md).
 
 Not planned yet; each item becomes a milestone (via `add-milestone`) before any code is written.
 
-- Connecting flights via hubs for very long routes: distance, time and CO₂ calculated per flight segment, hub chosen to minimise detour.
+- Nothing at the moment.
