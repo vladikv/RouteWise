@@ -217,15 +217,7 @@ Completed milestones are one line each; their details live in the commits, `docs
 - [x] `feat/ui-reference-style`: full visual overhaul in the style of the design reference (`docs/photo.jpg`, look and layout ideas only); visual and interaction changes, no API change
 - [x] `feat/living-globe`: an idle-rotating globe with a "My trips" layer, flatter route arcs, a New trip page whose panels fill the height and a more readable Modes page (frontend only, no API change)
 - [x] `feat/parser-relative-dates`: the rule-based trip parser understands more relative dates
-- [ ] `docs/readme-demo`: README and demo recording
-  - README for reviewers: features, screenshots from `docs/screenshots/`, quick start with the demo account, every
-    environment variable with its default, a short "how it works", architecture and API overview, test commands
-    (`./mvnw verify`, `npm test`, `npm run lint`, `npm run e2e`, `npm run screenshots`), project structure, "Data &
-    assumptions", known limitations and how Claude Code was used; "Work in progress" banner removed
-  - Demo script: a scene-by-scene plan for a 5–6 minute recording, kept by the human outside the repository
-  - Recording: done by the human from that script; its link goes into the README's Demo line
-  - Done when: the README matches the code (demo trips, variables, endpoints, test counts); `./mvnw verify`,
-    `npm test` and `npm run lint` green; the recording is linked from the README
+- [x] `docs/readme-demo`: README for reviewers and a linked demo recording
 - [x] `feat/trip-details-redesign`: a more readable and interactive trip details page (reference: `docs/trips_details.png`, local and git-ignored; frontend only, no API change)
 - [x] `feat/more-cities`: 422 seeded cities (at least two per US state, more of Europe, major cities worldwide); data only, no API change
 - [x] `feat/regional-pricing`: cost estimates from seeded country fuel prices, tolls and regional fares (no API keys, no API change)
